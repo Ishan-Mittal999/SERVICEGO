@@ -283,7 +283,43 @@ app.get("/services", async (req, res) => {
 });
 
 
-// 🚀 Server should ALWAYS be last
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
+
+app.get("/vendors/:auth_id/bookings", async (req, res) => {
+
+  const { auth_id } = req.params;
+
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("*")
+    .eq("vendor_auth_id", auth_id);
+
+  if (error) {
+    return res.status(500).json(error);
+  }
+
+  res.json(data);
 });
+
+app.put("/booking/:id/assign", async (req, res) => {
+
+  const { id } = req.params;
+  const { vendor_auth_id } = req.body;
+
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({ vendor_auth_id })
+    .eq("id", id);
+
+  if (error) return res.status(500).json(error);
+
+  res.json(data);
+});
+
+// Render provides PORT at runtime; fallback keeps local dev unchanged.
+const PORT = process.env.PORT || 5000;
+
+// 🚀 Server should ALWAYS be last
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
