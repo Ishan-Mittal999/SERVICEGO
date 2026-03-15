@@ -176,6 +176,13 @@ export default function HomePage() {
     </>
   ) : (
     <>
+      <a
+        onClick={() => router.push("/bookings")}
+        style={{ cursor: "pointer", marginRight: "1rem" }}
+      >
+        My Bookings
+      </a>
+
       <span style={{ marginRight: "1rem" }}>
         {user.email?.split("@")[0]}
       </span>

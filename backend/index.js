@@ -96,6 +96,36 @@ app.get("/booking/:id", async (req, res) => {
   }
 });
 
+app.get("/bookings/user/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    const { data, error } = await supabase
+      .from("bookings")
+      .select(`
+        *,
+        services (*),
+        vendors (*)
+      `)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Supabase Fetch Error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json(data ?? []);
+  } catch (err) {
+    console.error("Server Crash:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // 👇 ADD GET /bookings HERE
 app.get("/bookings", async (req, res) => {
   try {
