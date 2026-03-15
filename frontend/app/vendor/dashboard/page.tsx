@@ -948,24 +948,26 @@ function ToggleSwitch({ on, onChange }: { on: boolean; onChange: () => void }) {
 
 // ─── PAGES ───────────────────────────────────────────────────────────────────
 
-function DashboardHome({ bookings, completeBooking }: { bookings: any[]; completeBooking: (id: string) => Promise<void> }) {
+function DashboardHome({ bookings, completeBooking, vendor, pendingCount }: { bookings: any[]; completeBooking: (id: string) => Promise<void>; vendor: any; pendingCount: number }) {
     const [bookingTab, setBookingTab] = useState<string>("all");
 
     const filtered = bookingTab === "all" ? bookings : bookings.filter((b: any) => b.status === bookingTab);
 
     return (
         <>
+            {pendingCount > 0 && (
             <div className="alert-banner info">
                 <span className="alert-icon">🎯</span>
-                <span className="alert-text">You have <strong>3 new booking requests</strong> waiting for confirmation. Accept them before they expire!</span>
+                <span className="alert-text">You have <strong>{pendingCount} new booking request{pendingCount !== 1 ? "s" : ""}</strong> waiting for confirmation. Accept them before they expire!</span>
             </div>
+            )}
 
             <div className="stats-grid">
                 {[
-                    { color: "gold", icon: "💰", value: "₹87,400", label: "Total Earnings", change: "+12.4%", dir: "up" },
-                    { color: "green", icon: "📋", value: "142", label: "Total Bookings", change: "+8.1%", dir: "up" },
-                    { color: "blue", icon: "⭐", value: "4.8", label: "Avg. Rating", change: "+0.2", dir: "up" },
-                    { color: "orange", icon: "🔔", value: "3", label: "Pending Requests", change: "-2 today", dir: "down" },
+                    { color: "gold", icon: "💰", value: "₹—", label: "Total Earnings", change: "Earnings tab for details", dir: "up" },
+                    { color: "green", icon: "📋", value: String(bookings.length), label: "Total Bookings", change: "All time", dir: "up" },
+                    { color: "blue", icon: "⭐", value: String(bookings.filter((b: any) => b.status === "completed").length), label: "Completed Jobs", change: "All time", dir: "up" },
+                    { color: "orange", icon: "🔔", value: String(pendingCount), label: "Pending Requests", change: pendingCount > 0 ? "Needs action" : "All clear ✓", dir: pendingCount > 0 ? "down" : "up" },
                 ].map((s, i) => (
                     <div key={i} className={`stat-card ${s.color}`}>
                         <div className="stat-icon">{s.icon}</div>
@@ -1010,16 +1012,16 @@ function DashboardHome({ bookings, completeBooking }: { bookings: any[]; complet
                                     <tr><td colSpan={7}><div className="empty-state"><span className="empty-icon">📭</span>No bookings found</div></td></tr>
                                 ) : filtered.map((b: any, i: number) => (
                                     <tr key={i}>
-                                        <td><span className="booking-id">{b.id}</span></td>
+                                        <td><span className="booking-id">#{(b.id || "").slice(0, 8)}</span></td>
                                         <td>
                                             <div className="customer-cell">
-                                                <div className="customer-avatar">{b.customer[0]}</div>
-                                                {b.customer}
+                                                <div className="customer-avatar">{(b.customer_name || "?")[0]}</div>
+                                                {b.customer_name}
                                             </div>
                                         </td>
-                                        <td>{b.service}</td>
-                                        <td style={{ color: theme.muted, fontSize: 12 }}>{b.date}</td>
-                                        <td style={{ fontWeight: 700 }}>{b.amount}</td>
+                                        <td>{b.services?.name || "Service"}</td>
+                                        <td style={{ color: theme.muted, fontSize: 12 }}>{b.preferred_time || new Date(b.created_at).toLocaleDateString()}</td>
+                                        <td style={{ fontWeight: 700 }}>—</td>
                                         <td><StatusPill status={b.status} /></td>
                                         <td>
                                             {b.status === "pending"
@@ -1145,11 +1147,11 @@ function BookingsPage({ bookings }: { bookings: any[] }) {
                     <tbody>
                         {filtered.map((b: any, i: number) => (
                             <tr key={i}>
-                                <td><span className="booking-id">{b.id}</span></td>
-                                <td><div className="customer-cell"><div className="customer-avatar">{b.customer[0]}</div>{b.customer}</div></td>
-                                <td>{b.service}</td>
-                                <td style={{ color: theme.muted, fontSize: 12 }}>{b.date}</td>
-                                <td style={{ fontWeight: 700 }}>{b.amount}</td>
+                                <td><span className="booking-id">#{(b.id || "").slice(0, 8)}</span></td>
+                                <td><div className="customer-cell"><div className="customer-avatar">{(b.customer_name || "?")[0]}</div>{b.customer_name}</div></td>
+                                <td>{b.services?.name || "Service"}</td>
+                                <td style={{ color: theme.muted, fontSize: 12 }}>{b.preferred_time || new Date(b.created_at).toLocaleDateString()}</td>
+                                <td style={{ fontWeight: 700 }}>—</td>
                                 <td><StatusPill status={b.status} /></td>
                                 <td>{b.status === "pending" ? <button className="action-btn accept">Accept</button> : <button className="action-btn view">View</button>}</td>
                             </tr>
@@ -1276,8 +1278,10 @@ function EarningsPage() {
     );
 }
 
-function ProfilePage() {
-    const [completion] = useState(78);
+function ProfilePage({ vendor, bookings }: { vendor: any; bookings: any[] }) {
+    const completedJobs = bookings.filter((b: any) => b.status === "completed").length;
+    const filledFields = [vendor?.name, vendor?.phone, vendor?.service_id, vendor?.area, vendor?.experience].filter(Boolean).length;
+    const completion = Math.round((filledFields / 5) * 100);
     return (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20 }}>
             <div>
@@ -1285,11 +1289,11 @@ function ProfilePage() {
                     <div className="profile-completion">
                         <div className="profile-pic-area">
                             <div className="profile-pic">
-                                R
+                                {(vendor?.name || "V")[0]}
                                 <div className="verified-badge">✓</div>
                             </div>
-                            <div className="profile-name">Rajesh Kumar</div>
-                            <div className="profile-specialty">Plumber & Electrician</div>
+                            <div className="profile-name">{vendor?.name || "Vendor"}</div>
+                            <div className="profile-specialty">{vendor?.area || "Service Provider"}</div>
                         </div>
                         <div className="completion-bar-label">
                             <span className="completion-label">Profile Completion</span>
@@ -1300,15 +1304,15 @@ function ProfilePage() {
                         </div>
                         <div className="profile-stats">
                             <div className="profile-stat">
-                                <div className="profile-stat-val">142</div>
+                                <div className="profile-stat-val">{completedJobs}</div>
                                 <div className="profile-stat-lbl">Jobs</div>
                             </div>
                             <div className="profile-stat">
-                                <div className="profile-stat-val">4.8★</div>
+                                <div className="profile-stat-val">—</div>
                                 <div className="profile-stat-lbl">Rating</div>
                             </div>
                             <div className="profile-stat">
-                                <div className="profile-stat-val">2yr</div>
+                                <div className="profile-stat-val">{vendor?.experience || 0}yr</div>
                                 <div className="profile-stat-lbl">Exp.</div>
                             </div>
                         </div>
@@ -1334,11 +1338,10 @@ function ProfilePage() {
                 <div className="card-header"><span className="card-title">Edit Profile</span></div>
                 <div className="card-body">
                     {[
-                        { label: "Full Name", value: "Rajesh Kumar", type: "text" },
-                        { label: "Phone Number", value: "+91 98765 43210", type: "tel" },
-                        { label: "Email Address", value: "rajesh@example.com", type: "email" },
-                        { label: "Service Area", value: "Ghaziabad, UP", type: "text" },
-                        { label: "Years of Experience", value: "2", type: "number" },
+                        { label: "Full Name", value: vendor?.name || "", type: "text" },
+                        { label: "Phone Number", value: vendor?.phone || "", type: "tel" },
+                        { label: "Service Area", value: vendor?.area || "", type: "text" },
+                        { label: "Years of Experience", value: String(vendor?.experience || ""), type: "number" },
                     ].map((f, i) => (
                         <div key={i} style={{ marginBottom: 18 }}>
                             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>{f.label}</label>
@@ -1393,7 +1396,7 @@ const navItems = [
 ];
 
 const pageTitles = {
-    home: { title: "Dashboard Overview", sub: "Welcome back, Rajesh! Here's your activity." },
+    home: { title: "Dashboard Overview", sub: "" },
     bookings: { title: "Bookings", sub: "Manage all your service bookings." },
     schedule: { title: "My Schedule", sub: "Set your availability and working hours." },
     earnings: { title: "Earnings", sub: "Track your income and payouts." },
@@ -1459,11 +1462,11 @@ export default function VendorDashboard() {
 
     const renderPage = () => {
         switch (activePage) {
-            case "home": return <DashboardHome bookings={bookings} completeBooking={completeBooking} />;
+            case "home": return <DashboardHome bookings={bookings} completeBooking={completeBooking} vendor={vendor} pendingCount={bookings.filter((b: any) => b.status === "pending").length} />;
             case "bookings": return <BookingsPage bookings={bookings} />;
             case "schedule": return <SchedulePage />;
             case "earnings": return <EarningsPage />;
-            case "profile": return <ProfilePage />;
+            case "profile": return <ProfilePage vendor={vendor} bookings={bookings} />;
             case "reviews": return (
                 <div className="card">
                     <div className="card-header"><span className="card-title">All Reviews</span></div>
@@ -1519,7 +1522,9 @@ export default function VendorDashboard() {
 
                     <nav className="nav-section">
                         <div className="nav-label">Main Menu</div>
-                        {navItems.slice(0, 4).map(item => (
+                        {navItems.slice(0, 4).map(item => {
+                            const badge = item.id === "bookings" ? bookings.filter((b: any) => b.status === "pending").length : 0;
+                            return (
                             <div
                                 key={item.id}
                                 className={`nav-item ${activePage === item.id ? "active" : ""}`}
@@ -1527,9 +1532,10 @@ export default function VendorDashboard() {
                             >
                                 <span className="nav-icon">{item.icon}</span>
                                 <span>{item.label}</span>
-                                {item.badge && <span className="nav-badge">{item.badge}</span>}
+                                {badge > 0 && <span className="nav-badge">{badge}</span>}
                             </div>
-                        ))}
+                            );
+                        })}
                         <div className="nav-label" style={{ marginTop: 8 }}>Account</div>
                         {navItems.slice(4).map(item => (
                             <div
@@ -1544,7 +1550,7 @@ export default function VendorDashboard() {
                     </nav>
 
                     <div className="sidebar-footer">
-                        <button className="logout-btn">
+                        <button className="logout-btn" onClick={async () => { await supabase.auth.signOut(); router.push("/vendor/login"); }}>
                             <span>🚪</span> Sign Out
                         </button>
                     </div>
@@ -1555,7 +1561,7 @@ export default function VendorDashboard() {
                     <header className="topbar">
                         <div className="topbar-left">
                             <h1>{pageTitles[activePage as keyof typeof pageTitles]?.title}</h1>
-                            <p>{pageTitles[activePage as keyof typeof pageTitles]?.sub}</p>
+                            <p>{activePage === "home" ? `Welcome back, ${vendor?.name || "Vendor"}! Here's your activity.` : pageTitles[activePage as keyof typeof pageTitles]?.sub}</p>
                         </div>
                         <div className="topbar-right">
                             <div

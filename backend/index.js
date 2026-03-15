@@ -290,8 +290,9 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("*")
-    .eq("vendor_auth_id", auth_id);
+    .select("*, services(*)")
+    .eq("vendor_auth_id", auth_id)
+    .order("created_at", { ascending: false });
 
   if (error) {
     return res.status(500).json(error);
