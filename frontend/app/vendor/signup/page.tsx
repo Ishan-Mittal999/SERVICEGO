@@ -36,6 +36,14 @@ export default function VendorSignup() {
 			return;
 		}
 
+		if (!data.session) {
+			setErrorMessage(
+				"Account created. Please verify your email, then login as Shop Owner to complete registration."
+			);
+			setIsSubmitting(false);
+			return;
+		}
+
 		router.push(
 			`/vendor/onboarding?name=${encodeURIComponent(name)}&phone=${encodeURIComponent(phone)}`
 		);
