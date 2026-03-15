@@ -1,30 +1,51 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiUrl } from "@/lib/env";
 
 export default function AdminPage() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeAssignId, setActiveAssignId] = useState<string | null>(null);
 
   const fetchBookings = async () => {
-    const res = await fetch("http://localhost:5000/bookings");
+    const res = await fetch(apiUrl("/bookings"));
+    if (!res.ok) {
+      throw new Error(`Bookings API failed with ${res.status}`);
+    }
+
     const data = await res.json();
-    setBookings(data);
+    setBookings(Array.isArray(data) ? data : []);
   };
 
   const fetchVendors = async () => {
-    const res = await fetch("http://localhost:5000/vendors");
+    const res = await fetch(apiUrl("/vendors"));
+    if (!res.ok) {
+      throw new Error(`Vendors API failed with ${res.status}`);
+    }
+
     const data = await res.json();
-    setVendors(data);
+    setVendors(Array.isArray(data) ? data : []);
   };
 
   useEffect(() => {
-    fetchBookings();
-    fetchVendors();
-    setLoading(false);
+    const loadDashboard = async () => {
+      try {
+        setLoading(true);
+        setErrorMessage(null);
+        await Promise.all([fetchBookings(), fetchVendors()]);
+      } catch (error) {
+        console.error("Failed to load admin dashboard", error);
+        setErrorMessage("Could not load bookings right now. Please refresh in a moment.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboard();
   }, []);
 
   const total = bookings.length;
@@ -38,7 +59,7 @@ export default function AdminPage() {
       : bookings.filter((b) => b.status === statusFilter);
 
   const assignVendor = async (bookingId: string, vendorId: string) => {
-    await fetch(`http://localhost:5000/booking/${bookingId}/assign`, {
+    await fetch(apiUrl(`/booking/${bookingId}/assign`), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ vendor_id: vendorId }),
@@ -48,14 +69,14 @@ export default function AdminPage() {
   };
 
   const completeBooking = async (bookingId: string) => {
-    await fetch(`http://localhost:5000/booking/${bookingId}/complete`, {
+    await fetch(apiUrl(`/booking/${bookingId}/complete`), {
       method: "PUT",
     });
     fetchBookings();
   };
 
   const reopenBooking = async (bookingId: string) => {
-    await fetch(`http://localhost:5000/booking/${bookingId}/reopen`, {
+    await fetch(apiUrl(`/booking/${bookingId}/reopen`), {
       method: "PUT",
     });
     fetchBookings();
@@ -91,6 +112,12 @@ export default function AdminPage() {
           </button>
         ))}
       </div>
+
+      {errorMessage && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {errorMessage}
+        </div>
+      )}
 
       {loading ? (
         <p>Loading...</p>
