@@ -95,6 +95,61 @@ export default function SignupPage() {
           Join ServiceGo and start booking trusted professionals.
         </p>
 
+        <div
+          style={{
+            marginTop: "1rem",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: "0.4rem",
+            background: "var(--gray-100)",
+            padding: "0.3rem",
+            borderRadius: "999px",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => router.push("/auth/login")}
+            style={{
+              border: "none",
+              borderRadius: "999px",
+              padding: "0.58rem 0.7rem",
+              fontWeight: 600,
+              background: "transparent",
+              color: "var(--gray-600)",
+            }}
+          >
+            Login
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/auth/signup")}
+            style={{
+              border: "none",
+              borderRadius: "999px",
+              padding: "0.58rem 0.7rem",
+              fontWeight: 700,
+              background: "var(--white)",
+              color: "var(--gray-800)",
+            }}
+          >
+            Sign Up
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/vendor/login")}
+            style={{
+              border: "none",
+              borderRadius: "999px",
+              padding: "0.58rem 0.7rem",
+              fontWeight: 600,
+              background: "transparent",
+              color: "var(--gray-600)",
+            }}
+          >
+            Shop Owner
+          </button>
+        </div>
+
         <form onSubmit={handleSignup} style={{ marginTop: "1.4rem" }}>
           <label style={{ fontSize: "0.88rem", color: "var(--gray-600)" }}>
             Email
