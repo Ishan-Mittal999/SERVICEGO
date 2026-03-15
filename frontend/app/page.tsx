@@ -133,9 +133,13 @@ export default function HomePage() {
       bookingId: undefined,
     });
 
-    router.push(
-      `/auth/signup?next=${encodeURIComponent(`/booking/location?serviceId=${service.id}`)}`
-    );
+    if (user) {
+      router.push(`/booking/location?serviceId=${service.id}`);
+    } else {
+      router.push(
+        `/auth/signup?next=${encodeURIComponent(`/booking/location?serviceId=${service.id}`)}`
+      );
+    }
   };
 
   return (
