@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 
 type UserBooking = {
   id: string | number;
+  user_id?: string;
   status?: "pending" | "assigned" | "completed";
   customer_name?: string;
   customer_phone?: string;
@@ -50,11 +51,27 @@ function formatStatus(status?: string) {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
+async function parseJsonSafely(response: Response) {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (!contentType.toLowerCase().includes("application/json")) {
+    const text = await response.text();
+    throw new Error(
+      text.startsWith("<!DOCTYPE")
+        ? "Backend returned HTML instead of JSON. Please redeploy backend on Render and refresh."
+        : "Unexpected API response format."
+    );
+  }
+
+  return response.json();
+}
+
 export default function MyBookingsPage() {
   const router = useRouter();
 
   const [authReady, setAuthReady] = useState(false);
   const [bookings, setBookings] = useState<UserBooking[]>([]);
+  const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -72,18 +89,36 @@ export default function MyBookingsPage() {
 
         setAuthReady(true);
 
-        const response = await fetch(apiUrl(`/bookings/user/${user.id}`), {
+        const userBookingsResponse = await fetch(apiUrl(`/bookings/user/${user.id}`), {
           cache: "no-store",
         });
-        const data = await response.json();
 
-        if (!response.ok) {
-          throw new Error(data?.error || "Unable to load your bookings.");
+        if (userBookingsResponse.ok) {
+          const userBookingsData = await parseJsonSafely(userBookingsResponse);
+          setBookings(Array.isArray(userBookingsData) ? userBookingsData : []);
+          setErrorMessage(null);
+          return;
         }
 
-        setBookings(Array.isArray(data) ? data : []);
+        // Fallback for older backend deployments where /bookings/user/:userId is not available yet.
+        const allBookingsResponse = await fetch(apiUrl("/bookings"), {
+          cache: "no-store",
+        });
+        const allBookingsData = await parseJsonSafely(allBookingsResponse);
+
+        if (!allBookingsResponse.ok) {
+          throw new Error(allBookingsData?.error || "Unable to load your bookings.");
+        }
+
+        const filteredBookings = Array.isArray(allBookingsData)
+          ? allBookingsData.filter((booking: UserBooking) => booking.user_id === user.id)
+          : [];
+
+        setBookings(filteredBookings);
+        setErrorMessage(null);
       } catch (error) {
         console.error("Failed to load user bookings", error);
+        setBookings([]);
         setErrorMessage(error instanceof Error ? error.message : "Unable to load your bookings.");
       } finally {
         setLoading(false);
@@ -91,7 +126,7 @@ export default function MyBookingsPage() {
     };
 
     loadBookings();
-  }, [router]);
+  }, [reloadKey, router]);
 
   const pendingCount = useMemo(
     () => bookings.filter((booking) => booking.status === "pending").length,
@@ -121,12 +156,20 @@ export default function MyBookingsPage() {
           </div>
         </div>
 
-        {errorMessage ? <p className="booking-error">{errorMessage}</p> : null}
-
         {loading || !authReady ? (
           <div className="booking-waiting-card">
             <div className="booking-spinner" />
             <div className="booking-service-name">Loading your bookings...</div>
+          </div>
+        ) : errorMessage ? (
+          <div className="booking-summary-card booking-summary-card--status">
+            <div className="booking-label">Unable to fetch bookings</div>
+            <p className="booking-muted">{errorMessage}</p>
+            <div className="booking-actions">
+              <button className="booking-primary-btn" type="button" onClick={() => setReloadKey((key) => key + 1)}>
+                Retry
+              </button>
+            </div>
           </div>
         ) : bookings.length === 0 ? (
           <div className="booking-summary-card booking-summary-card--status">
