@@ -27,6 +27,7 @@ function BookingLocationPageContent() {
   const [loadingService, setLoadingService] = useState(true);
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationDenied, setLocationDenied] = useState(false);
   const [addressLine, setAddressLine] = useState("");
   const [locationLabel, setLocationLabel] = useState("");
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -128,6 +129,8 @@ function BookingLocationPageContent() {
 
         setLatitude(nextLatitude);
         setLongitude(nextLongitude);
+        setLocationDenied(false);
+        setLocationError(null);
 
         if (!locationLabel) {
           setLocationLabel(`Current location (${nextLatitude}, ${nextLongitude})`);
@@ -136,8 +139,17 @@ function BookingLocationPageContent() {
         setIsLocating(false);
       },
       (error) => {
-        setLocationError(error.message || "Could not fetch your current location.");
         setIsLocating(false);
+        if (error.code === error.PERMISSION_DENIED) {
+          setLocationDenied(true);
+          setLocationError(null);
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          setLocationError("Location information is unavailable. Enter your address manually below.");
+        } else if (error.code === error.TIMEOUT) {
+          setLocationError("Location request timed out. Enter your address manually or try again.");
+        } else {
+          setLocationError("Could not fetch your current location. Enter your address manually below.");
+        }
       },
       {
         enableHighAccuracy: true,
@@ -155,8 +167,12 @@ function BookingLocationPageContent() {
       return;
     }
 
-    requestCurrentLocation();
-  }, [authReady, latitude, longitude, requestCurrentLocation]);
+    // Only auto-request location on page load; never re-auto-trigger after user denies.
+    if (!locationDenied) {
+      requestCurrentLocation();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authReady]);
 
   const handleContinue = () => {
     if (!service) {
@@ -201,16 +217,30 @@ function BookingLocationPageContent() {
           <div className="booking-card booking-card--accent">
             <div className="booking-label">Live location status</div>
             <div className="booking-location-pill">
-              {isLocating ? "Fetching current location..." : latitude && longitude ? "Location captured" : "Waiting for permission"}
+              {isLocating
+                ? "Fetching current location..."
+                : latitude && longitude
+                  ? "Location captured"
+                  : locationDenied
+                    ? "Location access denied"
+                    : "Waiting for permission"}
             </div>
-            <p className="booking-muted booking-muted--dark">
-              {latitude && longitude
-                ? `Coordinates captured: ${latitude}, ${longitude}`
-                : "Allow location access for faster pricing and vendor matching."}
-            </p>
-            <button className="booking-secondary-btn" onClick={requestCurrentLocation} type="button">
-              {isLocating ? "Fetching..." : "Fetch Current Location"}
-            </button>
+            {locationDenied ? (
+              <p className="booking-muted booking-muted--dark">
+                You denied location access. That is okay — just type your full address in the form below and continue.
+              </p>
+            ) : (
+              <p className="booking-muted booking-muted--dark">
+                {latitude && longitude
+                  ? `Coordinates captured: ${latitude}, ${longitude}`
+                  : "Allow location access for faster pricing and vendor matching."}
+              </p>
+            )}
+            {!locationDenied && (
+              <button className="booking-secondary-btn" onClick={requestCurrentLocation} type="button" disabled={isLocating}>
+                {isLocating ? "Fetching..." : "Fetch Current Location"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -234,7 +264,13 @@ function BookingLocationPageContent() {
             />
           </label>
 
-          {locationError ? <p className="booking-error">{locationError}</p> : null}
+          {locationError ? (
+            <p className="booking-error">{locationError}</p>
+          ) : locationDenied ? (
+            <p className="booking-error">
+              Location permission was denied. Enter your full address in the fields above to continue without GPS coordinates.
+            </p>
+          ) : null}
 
           <div className="booking-actions">
             <button className="booking-ghost-btn" type="button" onClick={() => router.push("/")}>Back</button>
