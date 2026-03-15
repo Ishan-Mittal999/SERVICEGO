@@ -14,6 +14,70 @@ import {
   type ServiceItem,
 } from "@/lib/booking-flow";
 
+type TimeSlotOption = {
+  value: string;
+  label: string;
+};
+
+const SLOT_INTERVAL_MINUTES = 30;
+const SLOT_OPTION_COUNT = 8;
+
+function formatSlotLabel(slotTime: Date, now: Date) {
+  const isToday = slotTime.toDateString() === now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  const isTomorrow = slotTime.toDateString() === tomorrow.toDateString();
+  const timeLabel = slotTime.toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  if (isToday) {
+    return `Today, ${timeLabel}`;
+  }
+
+  if (isTomorrow) {
+    return `Tomorrow, ${timeLabel}`;
+  }
+
+  const dateLabel = slotTime.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+  });
+
+  return `${dateLabel}, ${timeLabel}`;
+}
+
+function buildTimeSlotOptions(now: Date): TimeSlotOption[] {
+  const slots: TimeSlotOption[] = [{
+    value: "just-now",
+    label: "Just now (assign ASAP)",
+  }];
+
+  const cursor = new Date(now);
+  cursor.setSeconds(0, 0);
+
+  const minuteRemainder = cursor.getMinutes() % SLOT_INTERVAL_MINUTES;
+  if (minuteRemainder !== 0) {
+    cursor.setMinutes(cursor.getMinutes() + (SLOT_INTERVAL_MINUTES - minuteRemainder));
+  }
+
+  if (cursor <= now) {
+    cursor.setMinutes(cursor.getMinutes() + SLOT_INTERVAL_MINUTES);
+  }
+
+  for (let index = 0; index < SLOT_OPTION_COUNT; index += 1) {
+    const slotTime = new Date(cursor);
+    slots.push({
+      value: slotTime.toISOString(),
+      label: formatSlotLabel(slotTime, now),
+    });
+    cursor.setMinutes(cursor.getMinutes() + SLOT_INTERVAL_MINUTES);
+  }
+
+  return slots;
+}
+
 export default function BookingChargesPage() {
   return (
     <Suspense fallback={<BookingChargesFallback />}>
@@ -33,7 +97,8 @@ function BookingChargesPageContent() {
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [preferredTime, setPreferredTime] = useState("As soon as possible");
+  const [preferredTime, setPreferredTime] = useState("just-now");
+  const [slotOptions, setSlotOptions] = useState<TimeSlotOption[]>(() => buildTimeSlotOptions(new Date()));
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -42,6 +107,19 @@ function BookingChargesPageContent() {
   const currentPath = serviceId
     ? `/booking/charges?serviceId=${encodeURIComponent(serviceId)}`
     : "/booking/charges";
+
+  useEffect(() => {
+    const refreshSlots = () => {
+      setSlotOptions(buildTimeSlotOptions(new Date()));
+    };
+
+    refreshSlots();
+    const slotTimer = window.setInterval(refreshSlots, 60000);
+
+    return () => {
+      window.clearInterval(slotTimer);
+    };
+  }, []);
 
   useEffect(() => {
     const ensureSignedIn = async () => {
@@ -84,6 +162,12 @@ function BookingChargesPageContent() {
       setPreferredTime(currentDraft.preferredTime);
     }
   }, [router, serviceId]);
+
+  useEffect(() => {
+    if (!slotOptions.some((slot) => slot.value === preferredTime)) {
+      setPreferredTime("just-now");
+    }
+  }, [preferredTime, slotOptions]);
 
   useEffect(() => {
     const loadService = async () => {
@@ -165,13 +249,9 @@ function BookingChargesPageContent() {
       .join(" | ");
 
     const addonNames = selectedAddons.map((item) => item.name);
-    const preferredTimeValue = [
-      preferredTime.trim(),
-      `Package: ${selectedPackage.name}`,
-      addonNames.length ? `Add-ons: ${addonNames.join(", ")}` : null,
-    ]
-      .filter(Boolean)
-      .join(" | ");
+    const preferredTimestamp = preferredTime === "just-now"
+      ? new Date().toISOString()
+      : preferredTime;
 
     setSubmitting(true);
     setErrorMessage(null);
@@ -187,7 +267,7 @@ function BookingChargesPageContent() {
           customer_name: customerName.trim(),
           customer_phone: customerPhone.trim(),
           address: bookingAddress,
-          preferred_time: preferredTimeValue,
+          preferred_time: preferredTimestamp,
           user_id: session.user.id,
         }),
       });
@@ -215,7 +295,7 @@ function BookingChargesPageContent() {
         addonTotal: addonsTotal,
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
-        preferredTime: preferredTime.trim(),
+        preferredTime,
         bookingId,
       });
 
@@ -322,7 +402,13 @@ function BookingChargesPageContent() {
 
             <label className="booking-field">
               <span>Preferred slot</span>
-              <input value={preferredTime} onChange={(event) => setPreferredTime(event.target.value)} placeholder="Today 6:00 PM or As soon as possible" />
+              <select value={preferredTime} onChange={(event) => setPreferredTime(event.target.value)}>
+                {slotOptions.map((slot) => (
+                  <option key={slot.value} value={slot.value}>
+                    {slot.label}
+                  </option>
+                ))}
+              </select>
             </label>
 
             {errorMessage ? <p className="booking-error">{errorMessage}</p> : null}

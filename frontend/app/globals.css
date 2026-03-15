@@ -178,6 +178,7 @@
 }
 
 .booking-field input,
+.booking-field select,
 .booking-field textarea {
   width: 100%;
   padding: 0.9rem 1rem;
@@ -190,6 +191,7 @@
 }
 
 .booking-field input:focus,
+.booking-field select:focus,
 .booking-field textarea:focus {
   border-color: rgba(30, 144, 255, 0.5);
   box-shadow: 0 0 0 4px rgba(30, 144, 255, 0.12);
