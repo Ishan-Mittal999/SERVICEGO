@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { supabase } from "@/lib/supabase";
+import { apiUrl } from "@/lib/env";
 import { useRouter } from "next/navigation";
 
 
@@ -11,6 +12,7 @@ export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [servicesError, setServicesError] = useState<string | null>(null);
 
   const [selectedService, setSelectedService] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,11 +37,22 @@ export default function HomePage() {
     
     const fetchServices = async () => {
       try {
-        const res = await fetch("http://localhost:5000/services");
+        const res = await fetch(apiUrl("/services"));
+        if (!res.ok) {
+          throw new Error(`Services API failed with ${res.status}`);
+        }
+
         const data = await res.json();
+
+        if (!Array.isArray(data)) {
+          throw new Error("Services API returned invalid response");
+        }
+
         setServices(data);
+        setServicesError(null);
       } catch (err) {
         console.error("Failed to fetch services", err);
+        setServicesError("Unable to load services right now. Please refresh in a minute.");
       } finally {
         setLoading(false);
       }
@@ -237,6 +250,8 @@ console.log("Filtered:", filteredServices);
             
             {loading ? (
               <p>Loading services...</p>
+            ) : servicesError ? (
+              <p>{servicesError}</p>
             ) : filteredServices.length === 0 ? (
               <p>No services available.</p>
             ) : (
@@ -431,7 +446,7 @@ console.log("Filtered:", filteredServices);
                 try {
                   const response =
                     await fetch(
-                      "http://localhost:5000/booking",
+                      apiUrl("/booking"),
                       {
                         method: "POST",
                         headers: {
