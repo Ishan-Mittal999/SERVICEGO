@@ -148,6 +148,13 @@ console.log("Filtered:", filteredServices);
   {!user ? (
     <>
       <a
+        onClick={() => router.push("/vendor/login")}
+        style={{ cursor: "pointer" }}
+      >
+        Service Provider
+      </a>
+
+      <a
         onClick={() => router.push("/auth/login")}
         style={{ cursor: "pointer" }}
       >

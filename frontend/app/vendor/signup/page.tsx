@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { apiUrl } from "@/lib/env";
 import { useRouter } from "next/navigation";
 
 export default function VendorSignup() {
@@ -37,23 +36,9 @@ export default function VendorSignup() {
 			return;
 		}
 
-		const res = await fetch(apiUrl("/vendors/create"), {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				name,
-				phone,
-				auth_user_id: data.user.id,
-			}),
-		});
-
-		if (!res.ok) {
-			setErrorMessage("Vendor profile creation failed. Please try again.");
-			setIsSubmitting(false);
-			return;
-		}
-
-		router.push("/vendor/dashboard");
+		router.push(
+			`/vendor/onboarding?name=${encodeURIComponent(name)}&phone=${encodeURIComponent(phone)}`
+		);
 	};
 
 	return (

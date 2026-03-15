@@ -28,7 +28,7 @@ export default function VendorLogin() {
       return;
     }
 
-    router.push("/vendor/dashboard");
+    router.push("/vendor/entry");
   };
 
   return (
