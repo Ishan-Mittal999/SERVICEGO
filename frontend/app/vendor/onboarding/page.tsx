@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/env";
 
@@ -12,10 +12,9 @@ type Service = {
 
 export default function VendorOnboardingPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  const [shopName, setShopName] = useState(searchParams.get("name") ?? "");
-  const [phone, setPhone] = useState(searchParams.get("phone") ?? "");
+  const [shopName, setShopName] = useState("");
+  const [phone, setPhone] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [experience, setExperience] = useState("1");
   const [area, setArea] = useState("");
@@ -25,6 +24,13 @@ export default function VendorOnboardingPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const name = params.get("name");
+    const phoneParam = params.get("phone");
+
+    if (name) setShopName(name);
+    if (phoneParam) setPhone(phoneParam);
+
     const loadServices = async () => {
       try {
         const res = await fetch(apiUrl("/services"));
