@@ -47,7 +47,13 @@ app.post("/booking", async (req, res) => {
           user_id,
           status: "pending"
         }
-      ]);
+      ])
+      .select(`
+        *,
+        services (*),
+        vendors (*)
+      `)
+      .single();
 
     if (error) {
       console.error("Supabase Error:", error);
@@ -59,6 +65,31 @@ app.post("/booking", async (req, res) => {
       booking: data
     });
 
+  } catch (err) {
+    console.error("Server Crash:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/booking/:id", async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+
+    const { data, error } = await supabase
+      .from("bookings")
+      .select(`
+        *,
+        services (*),
+        vendors (*)
+      `)
+      .eq("id", bookingId)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    return res.status(200).json(data);
   } catch (err) {
     console.error("Server Crash:", err);
     return res.status(500).json({ error: err.message });

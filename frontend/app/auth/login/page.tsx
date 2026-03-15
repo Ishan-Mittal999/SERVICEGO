@@ -1,17 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<AuthPageFallback label="Loading login..." />}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const nextPath = searchParams.get("next") || "/";
+  const preservedParams = searchParams.toString();
+  const authTabQuery = preservedParams ? `?${preservedParams}` : "";
+  const isBookingFlow = nextPath.startsWith("/booking/");
 
-  const handleLogin = async (e: any) => {
+  const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     setErrorMessage(null);
@@ -28,7 +41,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/");
+    router.push(nextPath);
   };
 
   return (
@@ -85,8 +98,25 @@ export default function LoginPage() {
             fontSize: "0.95rem",
           }}
         >
-          Login to continue booking trusted home services.
+          {isBookingFlow
+            ? "Login to continue your booking and move to the next step."
+            : "Login to continue booking trusted home services."}
         </p>
+
+        {isBookingFlow ? (
+          <div
+            style={{
+              marginTop: "1rem",
+              padding: "0.9rem 1rem",
+              borderRadius: "14px",
+              background: "rgba(30,144,255,0.08)",
+              color: "var(--blue-dark)",
+              fontSize: "0.9rem",
+            }}
+          >
+            You will resume the selected booking flow immediately after login.
+          </div>
+        ) : null}
 
         <div
           style={{
@@ -101,7 +131,7 @@ export default function LoginPage() {
         >
           <button
             type="button"
-            onClick={() => router.push("/auth/login")}
+            onClick={() => router.push(`/auth/login${authTabQuery}`)}
             style={{
               border: "none",
               borderRadius: "999px",
@@ -115,7 +145,7 @@ export default function LoginPage() {
           </button>
           <button
             type="button"
-            onClick={() => router.push("/auth/signup")}
+            onClick={() => router.push(`/auth/signup${authTabQuery}`)}
             style={{
               border: "none",
               borderRadius: "999px",
@@ -221,13 +251,30 @@ export default function LoginPage() {
         >
           Don&apos;t have an account?{" "}
           <span
-            onClick={() => router.push("/auth/signup")}
+            onClick={() => router.push(`/auth/signup${authTabQuery}`)}
             style={{ color: "var(--gold)", fontWeight: 700, cursor: "pointer" }}
           >
             Sign up
           </span>
         </p>
       </div>
+    </div>
+  );
+}
+
+function AuthPageFallback({ label }: { label: string }) {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        background:
+          "radial-gradient(circle at 18% 18%, rgba(122,106,0,0.14), transparent 40%), radial-gradient(circle at 84% 12%, rgba(30,144,255,0.12), transparent 34%), var(--off-white)",
+        color: "var(--gray-700)",
+      }}
+    >
+      <p>{label}</p>
     </div>
   );
 }

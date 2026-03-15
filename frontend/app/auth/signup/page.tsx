@@ -1,23 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupPageFallback />}>
+      <SignupPageContent />
+    </Suspense>
+  );
+}
+
+function SignupPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const nextPath = searchParams.get("next") || "/";
+  const preservedParams = searchParams.toString();
+  const authTabQuery = preservedParams ? `?${preservedParams}` : "";
+  const isBookingFlow = nextPath.startsWith("/booking/");
 
-  const handleSignup = async (e: any) => {
+  const handleSignup = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     setErrorMessage(null);
     setIsSubmitting(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
     });
@@ -28,13 +41,21 @@ export default function SignupPage() {
       return;
     }
 
-    router.push("/auth/login");
+    if (data.session) {
+      router.push(nextPath);
+      return;
+    }
+
+    router.push(`/auth/login?next=${encodeURIComponent(nextPath)}`);
   };
 
   const handleGoogleLogin = async () => {
     setErrorMessage(null);
     await supabase.auth.signInWithOAuth({
       provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}${nextPath}`,
+      },
     });
   };
 
@@ -92,8 +113,25 @@ export default function SignupPage() {
             fontSize: "0.95rem",
           }}
         >
-          Join ServiceGo and start booking trusted professionals.
+          {isBookingFlow
+            ? "Create your account to continue this booking flow."
+            : "Join ServiceGo and start booking trusted professionals."}
         </p>
+
+        {isBookingFlow ? (
+          <div
+            style={{
+              marginTop: "1rem",
+              padding: "0.9rem 1rem",
+              borderRadius: "14px",
+              background: "var(--gold-bg)",
+              color: "var(--gold-dark)",
+              fontSize: "0.9rem",
+            }}
+          >
+            After signup, you will continue to location capture, pricing, and vendor assignment.
+          </div>
+        ) : null}
 
         <div
           style={{
@@ -108,7 +146,7 @@ export default function SignupPage() {
         >
           <button
             type="button"
-            onClick={() => router.push("/auth/login")}
+            onClick={() => router.push(`/auth/login${authTabQuery}`)}
             style={{
               border: "none",
               borderRadius: "999px",
@@ -122,7 +160,7 @@ export default function SignupPage() {
           </button>
           <button
             type="button"
-            onClick={() => router.push("/auth/signup")}
+            onClick={() => router.push(`/auth/signup${authTabQuery}`)}
             style={{
               border: "none",
               borderRadius: "999px",
@@ -259,12 +297,29 @@ export default function SignupPage() {
           Already have an account?{" "}
           <span
             style={{ color: "var(--gold)", fontWeight: 700, cursor: "pointer" }}
-            onClick={() => router.push("/auth/login")}
+            onClick={() => router.push(`/auth/login${authTabQuery}`)}
           >
             Login
           </span>
         </p>
       </div>
+    </div>
+  );
+}
+
+function SignupPageFallback() {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        background:
+          "radial-gradient(circle at 82% 18%, rgba(122,106,0,0.14), transparent 40%), radial-gradient(circle at 14% 12%, rgba(30,144,255,0.12), transparent 34%), var(--off-white)",
+        color: "var(--gray-700)",
+      }}
+    >
+      <p>Loading signup...</p>
     </div>
   );
 }

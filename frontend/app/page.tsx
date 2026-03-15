@@ -1,36 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/env";
+import { mergeBookingDraft } from "@/lib/booking-flow";
 import { useRouter } from "next/navigation";
+
+type Service = {
+  id: string | number;
+  name: string;
+  description: string;
+  icon?: string;
+};
 
 
 export default function HomePage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [servicesError, setServicesError] = useState<string | null>(null);
-
-  const [selectedService, setSelectedService] = useState<any>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   // ✅ CALL CUSTOM HOOK HERE
   useScrollReveal(services);
-
-  const openBookingModal = (service: any) => {
-    setSelectedService(service);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedService(null);
-  };
 
   /* ================= FETCH SERVICES ================= */
   useEffect(() => {
@@ -98,10 +93,10 @@ export default function HomePage() {
 
     
 
-    const counters = document.querySelectorAll(".trust-number");
+    const counters = document.querySelectorAll<HTMLElement>(".trust-number");
 
-    counters.forEach((counter: any) => {
-      const target = parseInt(counter.getAttribute("data-count"));
+    counters.forEach((counter) => {
+      const target = Number(counter.getAttribute("data-count"));
       if (!target) return;
 
       let current = 0;
@@ -126,10 +121,23 @@ export default function HomePage() {
     };
   }, []);
 
-  const filteredServices = services.filter((service: any) =>
+  const filteredServices = services.filter((service) =>
   service.name.toLowerCase().includes(searchTerm.toLowerCase())
 );
-console.log("Filtered:", filteredServices);
+
+  const startBookingFlow = (service: Service) => {
+    mergeBookingDraft({
+      serviceId: String(service.id),
+      serviceName: service.name,
+      serviceDescription: service.description,
+      bookingId: undefined,
+    });
+
+    router.push(
+      `/auth/signup?next=${encodeURIComponent(`/booking/location?serviceId=${service.id}`)}`
+    );
+  };
+
   return (
     <div className="landing">
       {/* NAVBAR */}
@@ -255,7 +263,7 @@ console.log("Filtered:", filteredServices);
             ) : filteredServices.length === 0 ? (
               <p>No services available.</p>
             ) : (
-              filteredServices.map((service: any) => (
+              filteredServices.map((service) => (
                 <div
                   key={service.id}
                   className="service-card animate-on-scroll"
@@ -267,16 +275,7 @@ console.log("Filtered:", filteredServices);
                   <p>{service.description}</p>
                   <button
                     className="btn-book"
-                    onClick={async () => {
-                     const { data } = await supabase.auth.getSession();
-                  
-                     if (!data.session) {
-                       router.push("/auth/signup");
-                       return;
-                     }
-                  
-                     openBookingModal(service);
-                }}
+                    onClick={() => startBookingFlow(service)}
                   >
                     Book Now
                   </button>
@@ -342,25 +341,30 @@ console.log("Filtered:", filteredServices);
             How It Works
           </h2>
           <p className="section-subtitle animate-on-scroll">
-            Simple 3-step process to get your service done
+            Search, sign up, confirm location, choose pricing, and wait for assignment
           </p>
 
           <div className="steps-flow">
             {[
               {
-                icon: "📝",
-                title: "Book Service",
-                desc: "Select your service and schedule in seconds.",
+                icon: "🔎",
+                title: "Search Service",
+                desc: "Pick the service you need and tap book from the home page.",
+              },
+              {
+                icon: "📍",
+                title: "Location & Pricing",
+                desc: "Confirm your location, compare packages, and select add-ons.",
+              },
+              {
+                icon: "⏳",
+                title: "Wait for Assignment",
+                desc: "Your booking goes live while our team assigns the right vendor.",
               },
               {
                 icon: "👷",
                 title: "Vendor Assigned",
-                desc: "We assign a verified professional instantly.",
-              },
-              {
-                icon: "✅",
-                title: "Work Completed",
-                desc: "Service delivered with quality guarantee.",
+                desc: "The page updates with vendor details as soon as assignment happens.",
               },
             ].map((step, index) => (
               <div
@@ -380,134 +384,6 @@ console.log("Filtered:", filteredServices);
           </div>
         </div>
       </section>
-
-      {/* BOOKING MODAL */}
-      {isModalOpen && (
-        <div
-  className="modal-overlay"
-  onClick={closeModal}
->
-  <div
-    className="modal-container"
-    onClick={(e) => e.stopPropagation()}
-  >
-    <button
-      className="modal-close"
-      onClick={closeModal}
-    >
-      ✕
-    </button>
-            <h3>
-              Book {selectedService?.name}
-            </h3>
-
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setIsSubmitting(true);
-
-//                 const formData = new FormData(e.currentTarget);
-
-//                 // 🔹 GET LOGGED-IN USER
-//                 // const { data: userData } = await supabase.auth.getUser();
-
-// //                   temporaray
-//                 const { data } = await supabase.auth.getSession();
-//                 console.log("SESSION:", data);
-// //                   temporary
-
-
-//                 const bookingData = {
-//                   service_id:selectedService?.id,
-//                   customer_name:formData.get("name"),
-//                   customer_phone:formData.get("phone"),
-//                   address:formData.get("address"),
-//                     user_id: data.session?.user?.id,
-//                   // user_id: userData.user?.id,
-//                 };
-
-
-
-                const formData = new FormData(e.currentTarget);
-
-                const { data } = await supabase.auth.getSession();
-                const userId = data.session?.user?.id;
-
-                console.log("USER ID:", userId);
-
-                const bookingData = {
-                  service_id: selectedService?.id,
-                  customer_name: formData.get("name"),
-                  customer_phone: formData.get("phone"),
-                  address: formData.get("address"),
-                  user_id: userId,
-};
-
-                try {
-                  const response =
-                    await fetch(
-                      apiUrl("/booking"),
-                      {
-                        method: "POST",
-                        headers: {
-                          "Content-Type":
-                            "application/json",
-                        },
-                        body: JSON.stringify(
-                          bookingData
-                        ),
-                      }
-                    );
-
-                  if (!response.ok) {
-                    alert(
-                      "Booking failed. Try again."
-                    );
-                    return;
-                  }
-
-                  alert(
-                    "Booking created successfully!"
-                  );
-                  closeModal();
-                } catch (err) {
-                  alert(
-                    "Server error. Please try again."
-                  );
-                } finally {
-                  setIsSubmitting(false);
-                }
-              }}
-            >
-              <input
-                name="name"
-                placeholder="Your Name"
-                required
-              />
-              <input
-                name="phone"
-                placeholder="Phone Number"
-                required
-              />
-              <input
-                name="address"
-                placeholder="Address"
-                required
-              />
-              <button
-                type="submit"
-                disabled={isSubmitting}
-              >
-                {isSubmitting
-                  ? "Booking..."
-                  : "Confirm Booking"}
-              </button>
-            </form>
-
-            
-          </div>
-        </div>
-      )}
 
       {/* FOOTER */}
       <footer className="footer">

@@ -1169,6 +1169,12 @@ const pageTitles = {
     profile: { title: "My Profile", sub: "Review your account details and setup." },
 };
 
+type VendorProfile = {
+  service_id?: string | number | null;
+  area?: string | null;
+  [key: string]: unknown;
+};
+
 export default function VendorDashboard() {
     const router = useRouter();
     const [activePage, setActivePage] = useState("home");
@@ -1200,12 +1206,14 @@ export default function VendorDashboard() {
             .eq("auth_user_id", user.id)
             .single();
 
-        if (!data || !data.service_id || !data.area) {
+        const vendorData = data as VendorProfile | null;
+
+        if (!vendorData || !vendorData.service_id || !vendorData.area) {
             router.push("/vendor/onboarding");
             return false;
         }
 
-        setVendor(data);
+        setVendor(vendorData);
         setProfileChecked(true);
         return true;
     };

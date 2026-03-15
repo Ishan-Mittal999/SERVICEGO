@@ -97,7 +97,7 @@ export default function VendorOnboardingPage() {
 
     const { error } = await supabase
       .from("vendors")
-      .upsert(payload, { onConflict: "auth_user_id" });
+      .upsert(payload as never, { onConflict: "auth_user_id" });
 
     if (error) {
       setErrorMessage(error.message);
