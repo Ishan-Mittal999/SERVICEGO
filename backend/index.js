@@ -139,6 +139,7 @@ app.put("/booking/:id/assign", async (req, res) => {
       .from("bookings")
       .update({
         vendor_id,
+        vendor_auth_id: vendor.auth_user_id || null,
         status: "assigned"
       })
       .eq("id", bookingId);
@@ -228,7 +229,8 @@ app.put("/booking/:id/reopen", async (req, res) => {
       .from("bookings")
       .update({
         status: "pending",
-        vendor_id: null
+        vendor_id: null,
+        vendor_auth_id: null
       })
       .eq("id", bookingId);
 
@@ -288,30 +290,25 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
 
   const { auth_id } = req.params;
 
+  const { data: vendor, error: vendorError } = await supabase
+    .from("vendors")
+    .select("id")
+    .eq("auth_user_id", auth_id)
+    .single();
+
+  if (vendorError || !vendor) {
+    return res.status(404).json({ error: "Vendor not found" });
+  }
+
   const { data, error } = await supabase
     .from("bookings")
     .select("*, services(*)")
-    .eq("vendor_auth_id", auth_id)
+    .or(`vendor_auth_id.eq.${auth_id},vendor_id.eq.${vendor.id}`)
     .order("created_at", { ascending: false });
 
   if (error) {
     return res.status(500).json(error);
   }
-
-  res.json(data);
-});
-
-app.put("/booking/:id/assign", async (req, res) => {
-
-  const { id } = req.params;
-  const { vendor_auth_id } = req.body;
-
-  const { data, error } = await supabase
-    .from("bookings")
-    .update({ vendor_auth_id })
-    .eq("id", id);
-
-  if (error) return res.status(500).json(error);
 
   res.json(data);
 });
