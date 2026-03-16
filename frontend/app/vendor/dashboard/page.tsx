@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/env";
 import { useRouter } from "next/navigation";
@@ -503,7 +503,7 @@ const styles = `
   }
 
   .status-pill.pending { background: ${theme.orangeBg}; color: ${theme.orange}; }
-  .status-pill.confirmed { background: ${theme.blueBg}; color: ${theme.blue}; }
+  .status-pill.confirmed, .status-pill.assigned { background: ${theme.blueBg}; color: ${theme.blue}; }
   .status-pill.completed { background: ${theme.greenLight}; color: ${theme.green}; }
   .status-pill.cancelled { background: ${theme.redBg}; color: ${theme.red}; }
 
@@ -892,12 +892,73 @@ const styles = `
   }
 `;
 
+function playRequestTone() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextClass) {
+    return;
+  }
+
+  try {
+    const audioContext = new AudioContextClass();
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.type = "square";
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(660, audioContext.currentTime + 0.18);
+    gain.gain.setValueAtTime(0.001, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.35, audioContext.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.55);
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.58);
+  } catch {
+    // Ignore audio failures and fall back to visual/browser alerts.
+  }
+}
+
+function showBrowserRequestAlert(count: number) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const message = count === 1
+    ? "New booking request available in your service category."
+    : `${count} new booking requests are available in your service category.`;
+
+  if ("Notification" in window) {
+    if (Notification.permission === "granted") {
+      new Notification("ServiceGo vendor request", { body: message });
+      return;
+    }
+
+    if (Notification.permission === "default") {
+      Notification.requestPermission().then((permission) => {
+        if (permission === "granted") {
+          new Notification("ServiceGo vendor request", { body: message });
+        } else {
+          window.alert(message);
+        }
+      });
+      return;
+    }
+  }
+
+  window.alert(message);
+}
+
 // ─── DATA ────────────────────────────────────────────────────────────────────
 
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
 
 function StatusPill({ status }: { status: string }) {
-    const icons: Record<string, string> = { pending: "🕐", confirmed: "✅", completed: "🎉", cancelled: "❌" };
+  const icons: Record<string, string> = { pending: "🔔", confirmed: "✅", assigned: "✅", completed: "🎉", cancelled: "❌" };
     return (
         <span className={`status-pill ${status}`}>
             {icons[status]} {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -907,7 +968,7 @@ function StatusPill({ status }: { status: string }) {
 
 // ─── PAGES ───────────────────────────────────────────────────────────────────
 
-function DashboardHome({ bookings, completeBooking, vendor, pendingCount, openProfile }: { bookings: any[]; completeBooking: (id: string) => Promise<void>; vendor: any; pendingCount: number; openProfile: () => void }) {
+function DashboardHome({ bookings, acceptBooking, completeBooking, vendor, pendingCount, openProfile }: { bookings: any[]; acceptBooking: (id: string) => Promise<void>; completeBooking: (id: string) => Promise<void>; vendor: any; pendingCount: number; openProfile: () => void }) {
     const [bookingTab, setBookingTab] = useState<string>("all");
     const completedCount = bookings.filter((b: any) => b.status === "completed").length;
     const inProgressCount = bookings.filter((b: any) => b.status === "assigned").length;
@@ -985,16 +1046,15 @@ function DashboardHome({ bookings, completeBooking, vendor, pendingCount, openPr
                                         <td style={{ fontWeight: 700 }}>—</td>
                                         <td><StatusPill status={b.status} /></td>
                                         <td>
-                                            {b.status === "assigned"
-  ? (
-      <button
-        className="action-btn accept"
-        onClick={() => completeBooking(b.id)}
-      >
-        Complete Job
-      </button>
-    )
-  : <button className="action-btn view">View</button>}
+                                          {b.status === "pending" ? (
+                                            <button className="action-btn accept" onClick={() => acceptBooking(b.id)}>
+                                              Accept Job
+                                            </button>
+                                          ) : b.status === "assigned" ? (
+                                            <button className="action-btn accept" onClick={() => completeBooking(b.id)}>
+                                              Complete Job
+                                            </button>
+                                          ) : <button className="action-btn view">View</button>}
                                         </td>
                                     </tr>
                                 ))}
@@ -1036,7 +1096,7 @@ function DashboardHome({ bookings, completeBooking, vendor, pendingCount, openPr
     );
 }
 
-              function BookingsPage({ bookings, completeBooking }: { bookings: any[]; completeBooking: (id: string) => Promise<void> }) {
+              function BookingsPage({ bookings, acceptBooking, completeBooking }: { bookings: any[]; acceptBooking: (id: string) => Promise<void>; completeBooking: (id: string) => Promise<void> }) {
     const [tab, setTab] = useState<string>("all");
     const filtered = tab === "all" ? bookings : bookings.filter((b: any) => b.status === tab);
     return (
@@ -1070,7 +1130,9 @@ function DashboardHome({ bookings, completeBooking, vendor, pendingCount, openPr
                                 <td style={{ color: theme.muted, fontSize: 12 }}>{b.preferred_time || new Date(b.created_at).toLocaleDateString()}</td>
                                 <td style={{ fontWeight: 700 }}>—</td>
                                 <td><StatusPill status={b.status} /></td>
-                            <td>{b.status === "assigned" ? <button className="action-btn accept" onClick={() => completeBooking(b.id)}>Complete Job</button> : <button className="action-btn view">View</button>}</td>
+                            <td>
+                              {b.status === "pending" ? <button className="action-btn accept" onClick={() => acceptBooking(b.id)}>Accept Job</button> : b.status === "assigned" ? <button className="action-btn accept" onClick={() => completeBooking(b.id)}>Complete Job</button> : <button className="action-btn view">View</button>}
+                            </td>
                             </tr>
                         ))}
                     </tbody>
@@ -1180,18 +1242,57 @@ export default function VendorDashboard() {
     const [activePage, setActivePage] = useState("home");
     const [online, setOnline] = useState(true);
     const [vendor, setVendor] = useState<any>(null);
-    const [bookings, setBookings] = useState([]);
+    const [bookings, setBookings] = useState<any[]>([]);
     const [profileChecked, setProfileChecked] = useState(false);
+  const [dashboardMessage, setDashboardMessage] = useState<string | null>(null);
+  const alertedRequestIdsRef = useRef<string[]>([]);
 
     useEffect(() => {
+    let poller: number | undefined;
+
         const initialize = async () => {
             const canContinue = await loadVendor();
             if (!canContinue) return;
             await loadBookings();
+      poller = window.setInterval(() => {
+        loadBookings();
+      }, 6000);
         };
 
         initialize();
+
+    return () => {
+      if (poller) {
+        window.clearInterval(poller);
+      }
+    };
     }, []);
+
+  useEffect(() => {
+    if (!online) {
+      return;
+    }
+
+    const freshRequestIds = bookings
+      .filter((booking: any) => booking.status === "pending")
+      .map((booking: any) => String(booking.id));
+
+    const previousRequestIds = alertedRequestIdsRef.current;
+    const unseenRequestIds = freshRequestIds.filter((id) => !previousRequestIds.includes(id));
+    alertedRequestIdsRef.current = freshRequestIds;
+
+    if (unseenRequestIds.length === 0) {
+      return;
+    }
+
+    playRequestTone();
+    showBrowserRequestAlert(unseenRequestIds.length);
+    setDashboardMessage(
+      unseenRequestIds.length === 1
+        ? "A new booking request just arrived. Review it before another vendor accepts it."
+        : `${unseenRequestIds.length} new booking requests just arrived. Review them before another vendor accepts them.`
+    );
+  }, [bookings, online]);
 
     const loadVendor = async () => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -1222,21 +1323,46 @@ export default function VendorDashboard() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
         const res = await fetch(apiUrl(`/vendors/${user.id}/bookings`));
-        const data = await res.json();
-        setBookings(data);
+      const data = await res.json();
+      setBookings(Array.isArray(data) ? data : []);
+    };
+
+    const acceptBooking = async (id: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/vendor/login");
+        return;
+      }
+
+      const response = await fetch(apiUrl(`/booking/${id}/accept`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendor_auth_id: user.id }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        setDashboardMessage(payload?.error || "This request is no longer available.");
+        await loadBookings();
+        return;
+      }
+
+      setDashboardMessage("Booking accepted. The customer and admin can now see you as the assigned vendor.");
+      await loadBookings();
     };
 
     const completeBooking = async (id: string) => {
         await fetch(apiUrl(`/booking/${id}/complete`), {
             method: "PUT"
         });
+      setDashboardMessage("Booking marked as completed.");
         loadBookings(); // refresh table
     };
 
     const renderPage = () => {
         switch (activePage) {
-            case "home": return <DashboardHome bookings={bookings} completeBooking={completeBooking} vendor={vendor} pendingCount={bookings.filter((b: any) => b.status === "pending").length} openProfile={() => setActivePage("profile")} />;
-            case "bookings": return <BookingsPage bookings={bookings} completeBooking={completeBooking} />;
+            case "home": return <DashboardHome bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} vendor={vendor} pendingCount={bookings.filter((b: any) => b.status === "pending").length} openProfile={() => setActivePage("profile")} />;
+            case "bookings": return <BookingsPage bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} />;
             case "profile": return <ProfilePage vendor={vendor} bookings={bookings} />;
             default: return null;
         }
@@ -1329,6 +1455,12 @@ export default function VendorDashboard() {
                     </header>
 
                     <div className="page-content">
+                      {dashboardMessage ? (
+                        <div className="alert-banner success" style={{ marginBottom: 16 }}>
+                          <span className="alert-icon">🔔</span>
+                          <span className="alert-text">{dashboardMessage}</span>
+                        </div>
+                      ) : null}
                         {renderPage()}
                     </div>
                 </main>

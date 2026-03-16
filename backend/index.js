@@ -12,6 +12,22 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
+const BOOKING_SELECT = `
+  *,
+  services (*),
+  vendors (*)
+`;
+
+async function getBookingWithRelations(bookingId) {
+  const { data, error } = await supabase
+    .from("bookings")
+    .select(BOOKING_SELECT)
+    .eq("id", bookingId)
+    .single();
+
+  return { data, error };
+}
+
 // Root route
 app.get("/", (req, res) => {
   res.send("ServiceGo API Running 🚀");
@@ -48,11 +64,7 @@ app.post("/booking", async (req, res) => {
           status: "pending"
         }
       ])
-      .select(`
-        *,
-        services (*),
-        vendors (*)
-      `)
+      .select(BOOKING_SELECT)
       .single();
 
     if (error) {
@@ -75,15 +87,7 @@ app.get("/booking/:id", async (req, res) => {
   try {
     const bookingId = req.params.id;
 
-    const { data, error } = await supabase
-      .from("bookings")
-      .select(`
-        *,
-        services (*),
-        vendors (*)
-      `)
-      .eq("id", bookingId)
-      .single();
+    const { data, error } = await getBookingWithRelations(bookingId);
 
     if (error || !data) {
       return res.status(404).json({ error: "Booking not found" });
@@ -106,11 +110,7 @@ app.get("/bookings/user/:userId", async (req, res) => {
 
     const { data, error } = await supabase
       .from("bookings")
-      .select(`
-        *,
-        services (*),
-        vendors (*)
-      `)
+      .select(BOOKING_SELECT)
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
@@ -131,11 +131,7 @@ app.get("/bookings", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("bookings")
-      .select(`
-        *,
-        services (*),
-        vendors (*)
-      `)
+      .select(BOOKING_SELECT)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -171,8 +167,8 @@ app.put("/booking/:id/assign", async (req, res) => {
       return res.status(404).json({ error: "Booking not found" });
     }
 
-    if (booking.status !== "pending") {
-      return res.status(400).json({ error: "Booking already assigned or completed" });
+    if (booking.status === "completed") {
+      return res.status(400).json({ error: "Completed booking cannot be reassigned" });
     }
 
     // 2️⃣ Check vendor exists
@@ -196,7 +192,7 @@ app.put("/booking/:id/assign", async (req, res) => {
     }
 
     // 4️⃣ Update booking
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("bookings")
       .update({
         vendor_id,
@@ -209,11 +205,141 @@ app.put("/booking/:id/assign", async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
+    const { data, error: refreshedBookingError } = await getBookingWithRelations(bookingId);
+
+    if (refreshedBookingError || !data) {
+      return res.status(500).json({ error: refreshedBookingError?.message || "Booking assigned but reload failed" });
+    }
+
     return res.status(200).json({
       message: "Vendor assigned successfully",
       booking: data
     });
 
+  } catch (err) {
+    console.error("Server Crash:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/booking/:id/accept", async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const { vendor_auth_id } = req.body;
+
+    if (!vendor_auth_id) {
+      return res.status(400).json({ error: "Vendor auth ID required" });
+    }
+
+    const { data: vendor, error: vendorError } = await supabase
+      .from("vendors")
+      .select("id, auth_user_id, service_id, is_active")
+      .eq("auth_user_id", vendor_auth_id)
+      .single();
+
+    if (vendorError || !vendor) {
+      return res.status(404).json({ error: "Vendor not found" });
+    }
+
+    if (!vendor.is_active) {
+      return res.status(400).json({ error: "Vendor is offline or inactive" });
+    }
+
+    const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .select("id, service_id, status, vendor_id")
+      .eq("id", bookingId)
+      .single();
+
+    if (bookingError || !booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    if (booking.service_id !== vendor.service_id) {
+      return res.status(400).json({ error: "This booking is not in your service category" });
+    }
+
+    if (booking.status !== "pending" || booking.vendor_id) {
+      return res.status(409).json({ error: "This booking has already been accepted by another vendor" });
+    }
+
+    const { data: acceptedRows, error: acceptError } = await supabase
+      .from("bookings")
+      .update({
+        vendor_id: vendor.id,
+        vendor_auth_id: vendor.auth_user_id,
+        status: "assigned"
+      })
+      .eq("id", bookingId)
+      .eq("status", "pending")
+      .is("vendor_id", null)
+      .select("id");
+
+    if (acceptError) {
+      return res.status(500).json({ error: acceptError.message });
+    }
+
+    if (!acceptedRows || acceptedRows.length === 0) {
+      return res.status(409).json({ error: "This booking was taken just now by another vendor" });
+    }
+
+    const { data, error } = await getBookingWithRelations(bookingId);
+
+    if (error || !data) {
+      return res.status(500).json({ error: error?.message || "Booking accepted but reload failed" });
+    }
+
+    return res.status(200).json({
+      message: "Booking accepted successfully",
+      booking: data
+    });
+  } catch (err) {
+    console.error("Server Crash:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/booking/:id/unassign", async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+
+    const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .select("id, status")
+      .eq("id", bookingId)
+      .single();
+
+    if (bookingError || !booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    if (booking.status !== "assigned") {
+      return res.status(400).json({ error: "Only assigned bookings can be moved back to pending" });
+    }
+
+    const { error } = await supabase
+      .from("bookings")
+      .update({
+        status: "pending",
+        vendor_id: null,
+        vendor_auth_id: null
+      })
+      .eq("id", bookingId);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    const { data, error: refreshedBookingError } = await getBookingWithRelations(bookingId);
+
+    if (refreshedBookingError || !data) {
+      return res.status(500).json({ error: refreshedBookingError?.message || "Booking unassigned but reload failed" });
+    }
+
+    return res.status(200).json({
+      message: "Vendor removed from booking",
+      booking: data
+    });
   } catch (err) {
     console.error("Server Crash:", err);
     return res.status(500).json({ error: err.message });
@@ -353,7 +479,7 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
 
   const { data: vendor, error: vendorError } = await supabase
     .from("vendors")
-    .select("id")
+    .select("id, service_id, is_active")
     .eq("auth_user_id", auth_id)
     .single();
 
@@ -361,17 +487,42 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
     return res.status(404).json({ error: "Vendor not found" });
   }
 
-  const { data, error } = await supabase
+  const { data: assignedBookings, error: assignedError } = await supabase
     .from("bookings")
-    .select("*, services(*)")
+    .select("*, services(*), vendors(*)")
     .or(`vendor_auth_id.eq.${auth_id},vendor_id.eq.${vendor.id}`)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    return res.status(500).json(error);
+  if (assignedError) {
+    return res.status(500).json(assignedError);
   }
 
-  res.json(data);
+  const { data: openBookings, error: openError } = await supabase
+    .from("bookings")
+    .select("*, services(*), vendors(*)")
+    .eq("service_id", vendor.service_id)
+    .eq("status", "pending")
+    .is("vendor_id", null)
+    .order("created_at", { ascending: false });
+
+  if (openError) {
+    return res.status(500).json(openError);
+  }
+
+  const dedupedBookings = [...(assignedBookings || []), ...(openBookings || [])].reduce((accumulator, booking) => {
+    if (!accumulator.some((item) => item.id === booking.id)) {
+      accumulator.push(booking);
+    }
+    return accumulator;
+  }, []);
+
+  dedupedBookings.sort((left, right) => {
+    const leftTime = new Date(left.created_at || 0).getTime();
+    const rightTime = new Date(right.created_at || 0).getTime();
+    return rightTime - leftTime;
+  });
+
+  res.json(dedupedBookings);
 });
 
 // Render provides PORT at runtime; fallback keeps local dev unchanged.

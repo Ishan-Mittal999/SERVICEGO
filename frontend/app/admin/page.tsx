@@ -3,9 +3,33 @@
 import { useEffect, useState } from "react";
 import { apiUrl } from "@/lib/env";
 
+type AdminBooking = {
+  id: string;
+  customer_name?: string;
+  customer_phone?: string;
+  service_id?: string | number;
+  status: "pending" | "assigned" | "completed";
+  services?: {
+    name?: string;
+  } | null;
+  vendors?: {
+    id?: string;
+    name?: string;
+    phone?: string;
+  } | null;
+};
+
+type AdminVendor = {
+  id: string;
+  name?: string;
+  phone?: string;
+  service_id?: string | number;
+  is_active?: boolean;
+};
+
 export default function AdminPage() {
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [vendors, setVendors] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<AdminBooking[]>([]);
+  const [vendors, setVendors] = useState<AdminVendor[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -32,54 +56,123 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    const loadDashboard = async () => {
+    let isActive = true;
+
+    const loadDashboard = async (showLoader = false) => {
       try {
-        setLoading(true);
+        if (showLoader) {
+          setLoading(true);
+        }
+
         setErrorMessage(null);
-        await Promise.all([fetchBookings(), fetchVendors()]);
+        const [bookingsResponse, vendorsResponse] = await Promise.all([
+          fetch(apiUrl("/bookings"), { cache: "no-store" }),
+          fetch(apiUrl("/vendors"), { cache: "no-store" }),
+        ]);
+
+        if (!bookingsResponse.ok) {
+          throw new Error(`Bookings API failed with ${bookingsResponse.status}`);
+        }
+
+        if (!vendorsResponse.ok) {
+          throw new Error(`Vendors API failed with ${vendorsResponse.status}`);
+        }
+
+        const [bookingsData, vendorsData] = await Promise.all([
+          bookingsResponse.json(),
+          vendorsResponse.json(),
+        ]);
+
+        if (!isActive) {
+          return;
+        }
+
+        setBookings(Array.isArray(bookingsData) ? bookingsData : []);
+        setVendors(Array.isArray(vendorsData) ? vendorsData : []);
       } catch (error) {
         console.error("Failed to load admin dashboard", error);
-        setErrorMessage("Could not load bookings right now. Please refresh in a moment.");
+        if (isActive) {
+          setErrorMessage("Could not load bookings right now. Please refresh in a moment.");
+        }
       } finally {
-        setLoading(false);
+        if (isActive) {
+          setLoading(false);
+        }
       }
     };
 
-    loadDashboard();
+    loadDashboard(true);
+    const poller = window.setInterval(() => loadDashboard(false), 8000);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(poller);
+    };
   }, []);
 
   const total = bookings.length;
-  const pending = bookings.filter(b => b.status === "pending").length;
-  const assigned = bookings.filter(b => b.status === "assigned").length;
-  const completed = bookings.filter(b => b.status === "completed").length;
+  const pending = bookings.filter((booking) => booking.status === "pending").length;
+  const assigned = bookings.filter((booking) => booking.status === "assigned").length;
+  const completed = bookings.filter((booking) => booking.status === "completed").length;
 
   const filteredBookings =
     statusFilter === "all"
       ? bookings
-      : bookings.filter((b) => b.status === statusFilter);
+      : bookings.filter((booking) => booking.status === statusFilter);
 
   const assignVendor = async (bookingId: string, vendorId: string) => {
-    await fetch(apiUrl(`/booking/${bookingId}/assign`), {
+    const response = await fetch(apiUrl(`/booking/${bookingId}/assign`), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ vendor_id: vendorId }),
     });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.error || "Vendor assignment failed");
+    }
+
     setActiveAssignId(null);
-    fetchBookings();
+    await fetchBookings();
+  };
+
+  const unassignVendor = async (bookingId: string) => {
+    const response = await fetch(apiUrl(`/booking/${bookingId}/unassign`), {
+      method: "PUT",
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.error || "Could not move booking back to pending");
+    }
+
+    await fetchBookings();
   };
 
   const completeBooking = async (bookingId: string) => {
-    await fetch(apiUrl(`/booking/${bookingId}/complete`), {
+    const response = await fetch(apiUrl(`/booking/${bookingId}/complete`), {
       method: "PUT",
     });
-    fetchBookings();
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.error || "Could not complete booking");
+    }
+
+    await fetchBookings();
   };
 
   const reopenBooking = async (bookingId: string) => {
-    await fetch(apiUrl(`/booking/${bookingId}/reopen`), {
+    const response = await fetch(apiUrl(`/booking/${bookingId}/reopen`), {
       method: "PUT",
     });
-    fetchBookings();
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.error || "Could not reopen booking");
+    }
+
+    await fetchBookings();
   };
 
   return (
@@ -136,7 +229,7 @@ export default function AdminPage() {
             <tbody>
               {filteredBookings.map((booking) => {
                 const matchingVendors = vendors.filter(
-                  (v) => v.service_id === booking.service_id && v.is_active
+                  (vendor) => vendor.service_id === booking.service_id && vendor.is_active
                 );
 
                 return (
@@ -159,7 +252,14 @@ export default function AdminPage() {
                     </td>
 
                     <td className="p-4">
-                      {booking.vendors ? booking.vendors.name : "—"}
+                      {booking.vendors ? (
+                        <div>
+                          <div className="font-medium">{booking.vendors.name}</div>
+                          <div className="text-sm text-gray-500">{booking.vendors.phone || "Accepted vendor"}</div>
+                        </div>
+                      ) : (
+                        <span>Awaiting vendor acceptance</span>
+                      )}
                     </td>
 
                     <td className="p-4 space-x-2">
@@ -184,14 +284,20 @@ export default function AdminPage() {
                           {activeAssignId === booking.id && (
                             <select
                               className="ml-2 border p-1 rounded"
-                              onChange={(e) =>
-                                assignVendor(
-                                  booking.id,
-                                  e.target.value
-                                )
-                              }
+                              defaultValue=""
+                              onChange={async (e) => {
+                                if (!e.target.value) {
+                                  return;
+                                }
+
+                                try {
+                                  await assignVendor(booking.id, e.target.value);
+                                } catch (error) {
+                                  setErrorMessage(error instanceof Error ? error.message : "Vendor assignment failed");
+                                }
+                              }}
                             >
-                              <option>Select Vendor</option>
+                              <option value="">Select Vendor</option>
                               {matchingVendors.map((vendor) => (
                                 <option
                                   key={vendor.id}
@@ -207,9 +313,28 @@ export default function AdminPage() {
 
                       {booking.status === "assigned" && (
                         <button
-                          onClick={() =>
-                            completeBooking(booking.id)
-                          }
+                          onClick={async () => {
+                            try {
+                              await unassignVendor(booking.id);
+                            } catch (error) {
+                              setErrorMessage(error instanceof Error ? error.message : "Could not cancel vendor acceptance");
+                            }
+                          }}
+                          className="px-3 py-1 bg-orange-500 text-white rounded text-sm hover:bg-orange-600 transition"
+                        >
+                          Cancel Acceptance
+                        </button>
+                      )}
+
+                      {booking.status === "assigned" && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await completeBooking(booking.id);
+                            } catch (error) {
+                              setErrorMessage(error instanceof Error ? error.message : "Could not complete booking");
+                            }
+                          }}
                           className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition"
                         >
                           Complete
@@ -218,9 +343,13 @@ export default function AdminPage() {
 
                       {booking.status === "completed" && (
                         <button
-                          onClick={() =>
-                            reopenBooking(booking.id)
-                          }
+                          onClick={async () => {
+                            try {
+                              await reopenBooking(booking.id);
+                            } catch (error) {
+                              setErrorMessage(error instanceof Error ? error.message : "Could not reopen booking");
+                            }
+                          }}
                           className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition"
                         >
                           Reopen
@@ -244,7 +373,7 @@ export default function AdminPage() {
   );
 }
 
-function StatCard({ title, value, color }: any) {
+function StatCard({ title, value, color }: { title: string; value: number; color: string }) {
   return (
     <div className="bg-white rounded-2xl shadow-md p-6 flex items-center justify-between hover:shadow-lg transition">
       <div>
@@ -256,8 +385,8 @@ function StatCard({ title, value, color }: any) {
   );
 }
 
-function StatusBadge({ status }: any) {
-  const styles: any = {
+function StatusBadge({ status }: { status: AdminBooking["status"] }) {
+  const styles: Record<AdminBooking["status"], string> = {
     pending: "bg-yellow-100 text-yellow-700",
     assigned: "bg-blue-100 text-blue-700",
     completed: "bg-green-100 text-green-700",
