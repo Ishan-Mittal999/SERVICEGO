@@ -1142,7 +1142,7 @@ function DashboardHome({ bookings, acceptBooking, completeBooking, vendor, pendi
     );
 }
 
-function ProfilePage({ vendor, bookings }: { vendor: any; bookings: any[] }) {
+function ProfilePage({ vendor, bookings, email }: { vendor: any; bookings: any[]; email: string }) {
     const completedJobs = bookings.filter((b: any) => b.status === "completed").length;
     const filledFields = [vendor?.name, vendor?.phone, vendor?.service_id, vendor?.area, vendor?.experience].filter(Boolean).length;
     const completion = Math.round((filledFields / 5) * 100);
@@ -1188,6 +1188,7 @@ function ProfilePage({ vendor, bookings }: { vendor: any; bookings: any[] }) {
                 <div className="card-body">
                     {[
                         { label: "Full Name", value: vendor?.name || "", type: "text" },
+                      { label: "Registered Email", value: email || "", type: "email" },
                         { label: "Phone Number", value: vendor?.phone || "", type: "tel" },
                         { label: "Service Area", value: vendor?.area || "", type: "text" },
                         { label: "Years of Experience", value: String(vendor?.experience || ""), type: "number" },
@@ -1242,6 +1243,7 @@ export default function VendorDashboard() {
     const [activePage, setActivePage] = useState("home");
     const [online, setOnline] = useState(true);
     const [vendor, setVendor] = useState<any>(null);
+  const [vendorEmail, setVendorEmail] = useState("");
     const [bookings, setBookings] = useState<any[]>([]);
     const [profileChecked, setProfileChecked] = useState(false);
   const [dashboardMessage, setDashboardMessage] = useState<string | null>(null);
@@ -1300,6 +1302,8 @@ export default function VendorDashboard() {
             router.push("/vendor/login");
             return false;
         }
+
+        setVendorEmail(user.email || "");
 
         const { data } = await supabase
             .from("vendors")
@@ -1363,7 +1367,7 @@ export default function VendorDashboard() {
         switch (activePage) {
             case "home": return <DashboardHome bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} vendor={vendor} pendingCount={bookings.filter((b: any) => b.status === "pending").length} openProfile={() => setActivePage("profile")} />;
             case "bookings": return <BookingsPage bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} />;
-            case "profile": return <ProfilePage vendor={vendor} bookings={bookings} />;
+            case "profile": return <ProfilePage vendor={vendor} bookings={bookings} email={vendorEmail} />;
             default: return null;
         }
     };
