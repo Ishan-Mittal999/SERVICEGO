@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
 import { supabase } from "@/lib/supabase";
+import { isVendorUser } from "@/lib/user-role";
 import {
   formatPrice,
   getServiceBlueprint,
@@ -129,6 +130,12 @@ function BookingChargesPageContent() {
 
       if (!user) {
         router.replace(`/auth/signup?next=${encodeURIComponent(currentPath)}`);
+        return;
+      }
+
+      const isVendor = await isVendorUser(user.id);
+      if (isVendor) {
+        router.replace("/vendor/dashboard");
         return;
       }
 
@@ -330,7 +337,7 @@ function BookingChargesPageContent() {
             <div className="booking-label">Assignment estimate</div>
             <div className="booking-service-name">{blueprint.responseTime}</div>
             <p className="booking-muted booking-muted--dark">
-              Your team will see this booking instantly after confirmation.
+              Our team will see this booking instantly after confirmation.
             </p>
           </div>
         </div>

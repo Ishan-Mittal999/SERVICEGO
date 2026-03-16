@@ -3,6 +3,7 @@
 import { Suspense, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
+import { isVendorUser } from "@/lib/user-role";
 
 export default function LoginPage() {
   return (
@@ -39,6 +40,20 @@ function LoginPageContent() {
       setErrorMessage(error.message);
       setIsSubmitting(false);
       return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const isVendor = await isVendorUser(user.id);
+      if (isVendor) {
+        await supabase.auth.signOut();
+        setErrorMessage("This email is registered as a vendor account. Please use Vendor Login.");
+        setIsSubmitting(false);
+        return;
+      }
     }
 
     router.push(nextPath);

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
 import { supabase } from "@/lib/supabase";
+import { isVendorUser } from "@/lib/user-role";
 import {
   clearBookingDraft,
   formatPrice,
@@ -62,6 +63,12 @@ function BookingStatusPageContent() {
 
       if (!user) {
         router.replace(`/auth/signup?next=${encodeURIComponent(currentPath)}`);
+        return;
+      }
+
+      const isVendor = await isVendorUser(user.id);
+      if (isVendor) {
+        router.replace("/vendor/dashboard");
         return;
       }
 

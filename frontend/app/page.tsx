@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/env";
 import { mergeBookingDraft } from "@/lib/booking-flow";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { isVendorUser } from "@/lib/user-role";
 
 type Service = {
   id: string | number;
@@ -262,7 +264,7 @@ export default function HomePage() {
     searchInputRef.current?.focus();
   };
 
-  const startBookingFlow = (service: Service) => {
+  const startBookingFlow = async (service: Service) => {
     mergeBookingDraft({
       serviceId: String(service.id),
       serviceName: service.name,
@@ -271,6 +273,12 @@ export default function HomePage() {
     });
 
     if (user) {
+      const isVendor = await isVendorUser(user.id);
+      if (isVendor) {
+        router.push("/vendor/dashboard");
+        return;
+      }
+
       router.push(`/booking/location?serviceId=${service.id}`);
     } else {
       router.push(
@@ -284,10 +292,10 @@ export default function HomePage() {
       {/* NAVBAR */}
       <header className="navbar">
         <div className="container">
-          <div className="navbar-logo">
+          <Link href="/" className="navbar-logo" aria-label="Go to homepage">
             <img src="/logo.png" alt="ServiceGo" className="logo-icon" />
             <span>ServiceGo</span>
-          </div>
+          </Link>
 
           <nav className="nav-links">
   <a href="#services">Services</a>
