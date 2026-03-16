@@ -513,7 +513,7 @@ export default function HomePage() {
               filteredServices.map((service) => (
                 <div
                   key={service.id}
-                  className="service-card animate-on-scroll"
+                  className={`service-card animate-on-scroll ${searchHasRun ? "visible" : ""}`}
                 >
                   <div className="service-icon">
                     {service.icon}
