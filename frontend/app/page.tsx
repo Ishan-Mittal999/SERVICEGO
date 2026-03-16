@@ -255,7 +255,6 @@ export default function HomePage() {
               </div>
 
               <aside className="hero-ad-card" aria-label="ServiceGo promo video">
-                <div className="hero-ad-chip">Sponsored</div>
                 <video
                   className="hero-ad-video"
                   autoPlay
