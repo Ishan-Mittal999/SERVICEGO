@@ -8,7 +8,7 @@ type AdminBooking = {
   customer_name?: string;
   customer_phone?: string;
   service_id?: string | number;
-  status: "pending" | "assigned" | "completed";
+  status: "pending" | "pending_admin" | "assigned" | "completed";
   services?: {
     name?: string;
   } | null;
@@ -112,6 +112,7 @@ export default function AdminPage() {
 
   const total = bookings.length;
   const pending = bookings.filter((booking) => booking.status === "pending").length;
+  const pendingAdmin = bookings.filter((booking) => booking.status === "pending_admin").length;
   const assigned = bookings.filter((booking) => booking.status === "assigned").length;
   const completed = bookings.filter((booking) => booking.status === "completed").length;
 
@@ -185,13 +186,14 @@ export default function AdminPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
         <StatCard title="Total Bookings" value={total} color="bg-black" />
         <StatCard title="Pending" value={pending} color="bg-yellow-500" />
+        <StatCard title="Admin Hold" value={pendingAdmin} color="bg-orange-500" />
         <StatCard title="Assigned" value={assigned} color="bg-blue-600" />
         <StatCard title="Completed" value={completed} color="bg-green-600" />
       </div>
 
       {/* Filters */}
       <div className="flex gap-3 mb-6">
-        {["all", "pending", "assigned", "completed"].map((status) => (
+        {["all", "pending", "pending_admin", "assigned", "completed"].map((status) => (
           <button
             key={status}
             onClick={() => setStatusFilter(status)}
@@ -201,7 +203,7 @@ export default function AdminPage() {
                 : "bg-white text-gray-800 border border-gray-300 hover:bg-gray-100"
             }`}
           >
-            {status}
+            {status === "pending_admin" ? "admin hold" : status}
           </button>
         ))}
       </div>
@@ -388,15 +390,18 @@ function StatCard({ title, value, color }: { title: string; value: number; color
 function StatusBadge({ status }: { status: AdminBooking["status"] }) {
   const styles: Record<AdminBooking["status"], string> = {
     pending: "bg-yellow-100 text-yellow-700",
+    pending_admin: "bg-orange-100 text-orange-700",
     assigned: "bg-blue-100 text-blue-700",
     completed: "bg-green-100 text-green-700",
   };
+
+  const label = status === "pending_admin" ? "admin_hold" : status;
 
   return (
     <span
       className={`px-3 py-1 rounded-full text-sm font-medium ${styles[status]}`}
     >
-      {status}
+      {label}
     </span>
   );
 }

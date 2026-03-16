@@ -314,13 +314,14 @@ app.put("/booking/:id/unassign", async (req, res) => {
     }
 
     if (booking.status !== "assigned") {
-      return res.status(400).json({ error: "Only assigned bookings can be moved back to pending" });
+      return res.status(400).json({ error: "Only assigned bookings can be moved to admin hold" });
     }
 
     const { error } = await supabase
       .from("bookings")
       .update({
-        status: "pending",
+        // Admin-cancelled jobs should not reappear in vendor broadcast automatically.
+        status: "pending_admin",
         vendor_id: null,
         vendor_auth_id: null
       })
