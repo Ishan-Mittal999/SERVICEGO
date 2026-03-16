@@ -265,7 +265,7 @@ export default function HomePage() {
                   preload="metadata"
                   poster="/hero-bg.png"
                 >
-                  <source src="/ads/homepage-ad.mp4" type="video/mp4" />
+                  <source src="/homepage-ad.mp4" type="video/mp4" />
                 </video>
                 <p className="hero-ad-caption">Book trusted help in minutes.</p>
               </aside>
