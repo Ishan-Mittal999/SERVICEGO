@@ -900,6 +900,7 @@ input, select, textarea { font-family: var(--font-body); }
 /* Search Bar */
 .hero-search {
   display: flex;
+  align-items: center;
   background: var(--white);
   border-radius: var(--radius-lg);
   padding: 6px;
@@ -969,6 +970,74 @@ input, select, textarea { font-family: var(--font-body); }
   box-shadow: var(--shadow-gold);
 }
 
+.hero-search .hero-search-clear {
+  background: transparent;
+  color: var(--gray-500);
+  border: 1px solid var(--gray-200);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-right: 8px;
+  box-shadow: none;
+}
+
+.hero-search .hero-search-clear:hover {
+  color: var(--gray-700);
+  border-color: var(--gray-300);
+  transform: none;
+  box-shadow: none;
+}
+
+.search-helper-text {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+  margin-top: -10px;
+  margin-bottom: var(--space-md);
+}
+
+.search-suggestions {
+  max-width: 560px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  margin-top: -12px;
+  margin-bottom: var(--space-md);
+  overflow: hidden;
+}
+
+.search-suggestion-item {
+  width: 100%;
+  text-align: left;
+  padding: 12px 16px;
+  background: transparent;
+  border-bottom: 1px solid var(--gray-100);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.search-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.search-suggestion-item:hover {
+  background: var(--gold-bg);
+}
+
+.search-suggestion-item .suggestion-name {
+  color: var(--gray-800);
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.search-suggestion-item .suggestion-desc {
+  color: var(--gray-500);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
 /* Popular Tags */
 .popular-tags {
   display: flex;
@@ -977,6 +1046,7 @@ input, select, textarea { font-family: var(--font-body); }
   margin-bottom: var(--space-xl);
 }
 
+.popular-tags .popular-tag,
 .popular-tags span {
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(8px);
@@ -986,11 +1056,17 @@ input, select, textarea { font-family: var(--font-body); }
   font-size: 0.85rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
+.popular-tags .popular-tag:hover,
 .popular-tags span:hover {
   background: rgba(255, 255, 255, 0.25);
+}
+
+.popular-tags .popular-tag.active {
+  background: rgba(255, 215, 0, 0.25);
+  border-color: rgba(255, 215, 0, 0.7);
 }
 
 /* Animated Badge */
@@ -1060,6 +1136,13 @@ input, select, textarea { font-family: var(--font-body); }
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-lg);
+}
+
+.search-results-meta {
+  margin-top: -2px;
+  margin-bottom: var(--space-lg);
+  font-size: 0.92rem;
+  color: var(--gray-500);
 }
 
 .service-card {
@@ -2127,6 +2210,7 @@ input, select, textarea { font-family: var(--font-body); }
   .trust-bar .container { flex-direction: column; gap: var(--space-md); }
   .app-buttons { flex-direction: column; }
   .popular-tags { gap: 6px; }
+  .popular-tags .popular-tag,
   .popular-tags span { font-size: 0.78rem; padding: 5px 12px; }
 }
 

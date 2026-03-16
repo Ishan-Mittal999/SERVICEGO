@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { supabase } from "@/lib/supabase";
@@ -13,16 +13,72 @@ type Service = {
   name: string;
   description: string;
   icon?: string;
+  category?: string;
+  tags?: string[];
+  keywords?: string[];
+};
+
+const POPULAR_SEARCHES = ["Plumbing", "Electrical", "Cleaning", "AC Repair"];
+
+const normalizeText = (value: string) => value.trim().toLowerCase();
+
+const getServiceSearchScore = (service: Service, query: string) => {
+  if (!query) {
+    return 1;
+  }
+
+  const normalizedName = normalizeText(service.name || "");
+  const normalizedDescription = normalizeText(service.description || "");
+  const normalizedCategory = normalizeText(service.category || "");
+  const tagTokens = (service.tags ?? []).map((tag) => normalizeText(tag));
+  const keywordTokens = (service.keywords ?? []).map((keyword) => normalizeText(keyword));
+  const allTokens = [normalizedName, normalizedDescription, normalizedCategory, ...tagTokens, ...keywordTokens].join(" ");
+
+  let score = 0;
+
+  if (normalizedName === query) {
+    score += 120;
+  }
+  if (normalizedName.startsWith(query)) {
+    score += 70;
+  }
+  if (normalizedName.includes(query)) {
+    score += 55;
+  }
+  if (normalizedCategory.includes(query)) {
+    score += 35;
+  }
+  if (normalizedDescription.includes(query)) {
+    score += 25;
+  }
+  if (tagTokens.some((tag) => tag.includes(query))) {
+    score += 20;
+  }
+  if (keywordTokens.some((keyword) => keyword.includes(query))) {
+    score += 18;
+  }
+
+  const queryWords = query.split(/\s+/).filter(Boolean);
+  if (queryWords.length > 1 && queryWords.every((word) => allTokens.includes(word))) {
+    score += 20;
+  }
+
+  return score;
 };
 
 
 export default function HomePage() {
   const router = useRouter();
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [servicesError, setServicesError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [searchHasRun, setSearchHasRun] = useState(false);
+  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
 
   // ✅ CALL CUSTOM HOOK HERE
   useScrollReveal(services);
@@ -121,9 +177,49 @@ export default function HomePage() {
     };
   }, []);
 
-  const filteredServices = services.filter((service) =>
-  service.name.toLowerCase().includes(searchTerm.toLowerCase())
-);
+  const normalizedSearchTerm = useMemo(() => normalizeText(searchTerm), [searchTerm]);
+
+  const filteredServices = useMemo(() => {
+    if (!normalizedSearchTerm) {
+      return services;
+    }
+
+    return services
+      .map((service) => ({
+        service,
+        score: getServiceSearchScore(service, normalizedSearchTerm),
+      }))
+      .filter((entry) => entry.score > 0)
+      .sort((left, right) => right.score - left.score)
+      .map((entry) => entry.service);
+  }, [services, normalizedSearchTerm]);
+
+  const suggestions = useMemo(() => filteredServices.slice(0, 6), [filteredServices]);
+
+  const handleSearch = (query?: string) => {
+    const nextValue = query ?? searchTerm;
+    const normalizedQuery = normalizeText(nextValue);
+
+    setSearchTerm(nextValue);
+    setSubmittedQuery(nextValue.trim());
+    setSearchHasRun(Boolean(normalizedQuery));
+    setShowSuggestions(false);
+
+    if (normalizedQuery) {
+      document
+        .getElementById("services")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchTerm("");
+    setSubmittedQuery("");
+    setSearchHasRun(false);
+    setShowSuggestions(false);
+    setActiveTag(null);
+    searchInputRef.current?.focus();
+  };
 
   const startBookingFlow = (service: Service) => {
     mergeBookingDraft({
@@ -225,27 +321,83 @@ export default function HomePage() {
               <div className="hero-search-block">
                 <div className="hero-search">
                   <input
+                    ref={searchInputRef}
                     type="text"
                     placeholder="Search for services (e.g., Plumbing)"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onFocus={() => setShowSuggestions(true)}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setSearchHasRun(false);
+                      setSubmittedQuery("");
+                      setActiveTag(null);
+                      setShowSuggestions(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleSearch();
+                      }
+                      if (e.key === "Escape") {
+                        setShowSuggestions(false);
+                      }
+                    }}
                   />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      className="hero-search-clear"
+                      onClick={clearSearch}
+                      aria-label="Clear search"
+                    >
+                      Clear
+                    </button>
+                  )}
                   <button
-                    onClick={() =>
-                      document
-                        .getElementById("services")
-                        ?.scrollIntoView({ behavior: "smooth" })
-                    }
+                    type="button"
+                    onClick={() => handleSearch()}
                   >
                     Search
                   </button>
                 </div>
 
+                {showSuggestions && normalizedSearchTerm && suggestions.length > 0 && (
+                  <div className="search-suggestions" role="listbox" aria-label="Search suggestions">
+                    {suggestions.map((service) => (
+                      <button
+                        key={service.id}
+                        type="button"
+                        className="search-suggestion-item"
+                        onClick={() => {
+                          handleSearch(service.name);
+                          setActiveTag(null);
+                        }}
+                      >
+                        <span className="suggestion-name">{service.name}</span>
+                        <span className="suggestion-desc">{service.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <p className="search-helper-text">
+                  Search by service name, problem type, or category.
+                </p>
+
                 <div className="popular-tags">
-                  <span>Plumbing</span>
-                  <span>Electrical</span>
-                  <span>Cleaning</span>
-                  <span>AC Repair</span>
+                  {POPULAR_SEARCHES.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className={activeTag === tag ? "popular-tag active" : "popular-tag"}
+                      onClick={() => {
+                        setActiveTag(tag);
+                        handleSearch(tag);
+                      }}
+                    >
+                      {tag}
+                    </button>
+                  ))}
                 </div>
 
                 <div className="hero-badge">
@@ -282,6 +434,12 @@ export default function HomePage() {
             Professional services delivered by verified experts
           </p>
 
+          <p className="search-results-meta">
+            {normalizedSearchTerm
+              ? `Showing ${filteredServices.length} result${filteredServices.length === 1 ? "" : "s"} for "${submittedQuery || searchTerm.trim()}"`
+              : `Showing all ${services.length} services`}
+          </p>
+
           <div className="services-grid">
             
             {loading ? (
@@ -289,7 +447,9 @@ export default function HomePage() {
             ) : servicesError ? (
               <p>{servicesError}</p>
             ) : filteredServices.length === 0 ? (
-              <p>No services available.</p>
+              <p>
+                No services matched "{submittedQuery || searchTerm.trim()}". Try keywords like Plumbing, Cleaning, or AC.
+              </p>
             ) : (
               filteredServices.map((service) => (
                 <div
