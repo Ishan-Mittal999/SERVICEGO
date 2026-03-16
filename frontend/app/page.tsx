@@ -221,35 +221,54 @@ export default function HomePage() {
               Verified professionals. Transparent pricing.
               Quick bookings in minutes.
             </p>
+            <div className="hero-search-row">
+              <div className="hero-search-block">
+                <div className="hero-search">
+                  <input
+                    type="text"
+                    placeholder="Search for services (e.g., Plumbing)"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  <button
+                    onClick={() =>
+                      document
+                        .getElementById("services")
+                        ?.scrollIntoView({ behavior: "smooth" })
+                    }
+                  >
+                    Search
+                  </button>
+                </div>
 
-            <div className="hero-search">
-              <input
-                type="text"
-                placeholder="Search for services (e.g., Plumbing)"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <button
-                onClick={() =>
-                  document
-                    .getElementById("services")
-                    ?.scrollIntoView({ behavior: "smooth" })
-                }
-              >
-                Search
-              </button>
-</div>
+                <div className="popular-tags">
+                  <span>Plumbing</span>
+                  <span>Electrical</span>
+                  <span>Cleaning</span>
+                  <span>AC Repair</span>
+                </div>
 
-            <div className="popular-tags">
-              <span>Plumbing</span>
-              <span>Electrical</span>
-              <span>Cleaning</span>
-              <span>AC Repair</span>
-            </div>
+                <div className="hero-badge">
+                  <span className="checkmark">✔</span>
+                  200+ Happy Customers
+                </div>
+              </div>
 
-            <div className="hero-badge">
-              <span className="checkmark">✔</span>
-              200+ Happy Customers
+              <aside className="hero-ad-card" aria-label="ServiceGo promo video">
+                <div className="hero-ad-chip">Sponsored</div>
+                <video
+                  className="hero-ad-video"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="metadata"
+                  poster="/hero-bg.png"
+                >
+                  <source src="/ads/homepage-ad.mp4" type="video/mp4" />
+                </video>
+                <p className="hero-ad-caption">Book trusted help in minutes.</p>
+              </aside>
             </div>
           </div>
         </div>
