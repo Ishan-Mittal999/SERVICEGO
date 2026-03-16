@@ -266,7 +266,6 @@ export default function HomePage() {
                 >
                   <source src="/homepage-ad.mp4" type="video/mp4" />
                 </video>
-                <p className="hero-ad-caption">Book trusted help in minutes.</p>
               </aside>
             </div>
           </div>

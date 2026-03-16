@@ -889,7 +889,7 @@ input, select, textarea { font-family: var(--font-body); }
   display: grid;
   grid-template-columns: minmax(0, 560px) minmax(320px, 430px);
   gap: var(--space-xl);
-  align-items: end;
+  align-items: start;
   width: 100%;
 }
 
@@ -918,7 +918,7 @@ input, select, textarea { font-family: var(--font-body); }
   padding: 12px;
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow-xl);
-  transform: translateX(36px);
+  transform: translate(36px, -24px);
 }
 
 .hero-ad-video {
