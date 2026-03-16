@@ -918,7 +918,7 @@ input, select, textarea { font-family: var(--font-body); }
   padding: 12px;
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow-xl);
-  transform: translate(36px, -24px);
+  transform: translate(64px, -46px);
 }
 
 .hero-ad-video {
