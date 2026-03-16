@@ -23,6 +23,37 @@ type TimeSlotOption = {
 const SLOT_INTERVAL_MINUTES = 30;
 const SLOT_OPTION_COUNT = 8;
 
+function getInitials(value: string) {
+  const words = value
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean);
+
+  return words.slice(0, 2).map((word) => word[0]?.toUpperCase() ?? "").join("") || "SV";
+}
+
+function getServiceVisual(serviceName: string, fallbackIcon?: string) {
+  const normalizedName = serviceName.toLowerCase();
+
+  if (normalizedName.includes("plumb")) {
+    return { kind: "plumbing", icon: fallbackIcon || "🔧", label: "Pipe care" };
+  }
+
+  if (normalizedName.includes("electric")) {
+    return { kind: "electrical", icon: fallbackIcon || "⚡", label: "Power fix" };
+  }
+
+  if (normalizedName.includes("clean")) {
+    return { kind: "cleaning", icon: fallbackIcon || "🧹", label: "Deep clean" };
+  }
+
+  if (normalizedName.includes("ac") || normalizedName.includes("air")) {
+    return { kind: "ac", icon: fallbackIcon || "❄️", label: "Cool care" };
+  }
+
+  return { kind: "default", icon: fallbackIcon || "🛠️", label: getInitials(serviceName) };
+}
+
 function formatSlotLabel(slotTime: Date, now: Date) {
   const isToday = slotTime.toDateString() === now.toDateString();
   const tomorrow = new Date(now);
@@ -220,6 +251,8 @@ function BookingChargesPageContent() {
   const selectedAddons = blueprint.addons.filter((item) => selectedAddonIds.includes(item.id));
   const addonsTotal = selectedAddons.reduce((total, item) => total + item.price, 0);
   const totalPrice = (selectedPackage?.price ?? 0) + addonsTotal;
+  const selectedSlotLabel = slotOptions.find((slot) => slot.value === preferredTime)?.label ?? "Just now (assign ASAP)";
+  const serviceVisual = getServiceVisual(service?.name ?? "Service", service?.icon);
 
   const toggleAddon = (addonId: string) => {
     setSelectedAddonIds((currentAddons) =>
@@ -316,144 +349,187 @@ function BookingChargesPageContent() {
   };
 
   return (
-    <main className="booking-shell">
-      <section className="booking-panel booking-panel--wide">
-        <div className="booking-stage">Step 2 of 3</div>
-        <h1 className="booking-title">Choose pricing and sub-services</h1>
-        <p className="booking-subtitle">
-          {blueprint.headline} {service ? `For ${service.name}, we have tuned these options to the selected location.` : ""}
-        </p>
-
-        <div className="booking-grid booking-grid--two booking-grid--top">
-          <div className="booking-card booking-card--soft">
-            <div className="booking-label">Selected service</div>
-            <div className="booking-service-name">
-              {loadingService ? "Loading service..." : service?.name ?? "No service selected"}
-            </div>
-            <p className="booking-muted">{blueprint.locationHint}</p>
+    <main className="booking-shell booking-shell--ride">
+      <section className="booking-ride-layout">
+        <div className="booking-ride-sheet">
+          <div className="booking-ride-topbar booking-ride-topbar--sheet">
+            <button
+              className="booking-map-nav"
+              type="button"
+              onClick={() => router.push(`/booking/location?serviceId=${encodeURIComponent(serviceId)}`)}
+            >
+              Back
+            </button>
+            <div className="booking-stage">Step 2 of 3</div>
           </div>
 
-          <div className="booking-card booking-card--accent">
-            <div className="booking-label">Assignment estimate</div>
-            <div className="booking-service-name">{blueprint.responseTime}</div>
-            <p className="booking-muted booking-muted--dark">
-              Our team will see this booking instantly after confirmation.
-            </p>
-          </div>
-        </div>
-
-        <div className="booking-section-title">Packages</div>
-        <div className="booking-package-grid">
-          {blueprint.packages.map((item: BookingPackage) => {
-            const isSelected = item.id === selectedPackageId;
-
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={`booking-package-card ${isSelected ? "is-selected" : ""}`}
-                onClick={() => setSelectedPackageId(item.id)}
-              >
-                <div className="booking-package-row">
-                  <div>
-                    <div className="booking-package-name">{item.name}</div>
-                    <div className="booking-package-eta">{item.eta}</div>
-                  </div>
-                  {item.badge ? <span className="booking-badge">{item.badge}</span> : null}
-                </div>
-                <div className="booking-price">{formatPrice(item.price)}</div>
-                <p className="booking-muted">{item.description}</p>
-                <ul className="booking-bullets">
-                  {item.includes.map((point) => (
-                    <li key={point}>{point}</li>
-                  ))}
-                </ul>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="booking-section-title">More sub-services</div>
-        <div className="booking-addon-grid">
-          {blueprint.addons.map((item: BookingAddon) => {
-            const isSelected = selectedAddonIds.includes(item.id);
-
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={`booking-addon-card ${isSelected ? "is-selected" : ""}`}
-                onClick={() => toggleAddon(item.id)}
-              >
-                <div>
-                  <div className="booking-addon-name">{item.name}</div>
-                  <p className="booking-muted">{item.description}</p>
-                </div>
-                <div className="booking-addon-price">+ {formatPrice(item.price)}</div>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="booking-grid booking-grid--two booking-grid--top">
-          <div className="booking-form-card">
-            <label className="booking-field">
-              <span>Your name</span>
-              <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Enter your full name" />
-            </label>
-
-            <label className="booking-field">
-              <span>Phone number</span>
-              <input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} placeholder="Enter your phone number" />
-            </label>
-
-            <label className="booking-field">
-              <span>Preferred slot</span>
-              <select value={preferredTime} onChange={(event) => setPreferredTime(event.target.value)}>
-                {slotOptions.map((slot) => (
-                  <option key={slot.value} value={slot.value}>
-                    {slot.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {errorMessage ? <p className="booking-error">{errorMessage}</p> : null}
-          </div>
-
-          <div className="booking-summary-card">
-            <div className="booking-label">Booking summary</div>
-            <div className="booking-summary-row">
-              <span>Package</span>
-              <strong>{selectedPackage ? formatPrice(selectedPackage.price) : formatPrice(0)}</strong>
+          <div className="booking-ride-sheet-header">
+            <div>
+              <p className="booking-sheet-kicker">Choose pricing and sub-services</p>
+              <h1 className="booking-sheet-title">Pick the best service tier</h1>
+              <p className="booking-sheet-copy">
+                {blueprint.headline} {service ? `These options are adjusted for ${service.name.toLowerCase()} at your selected location.` : ""}
+              </p>
             </div>
-            <div className="booking-summary-row">
-              <span>Add-ons</span>
-              <strong>{formatPrice(addonsTotal)}</strong>
-            </div>
-            <div className="booking-summary-row booking-summary-row--total">
-              <span>Total</span>
+
+            <div className="booking-sheet-total">
+              <span>Estimated total</span>
               <strong>{formatPrice(totalPrice)}</strong>
             </div>
+          </div>
 
-            <div className="booking-summary-note">
-              You will be moved to a live waiting screen after confirmation. When your team assigns a vendor, this status screen updates automatically.
+          <div className="booking-route-preview booking-route-preview--inline">
+            <div className={`booking-route-service-mark booking-route-service-mark--${serviceVisual.kind}`}>
+              <span className="booking-thumbnail-emoji">{serviceVisual.icon}</span>
+            </div>
+            <div className="booking-route-copy">
+              <div className="booking-route-title">{loadingService ? "Loading service..." : service?.name ?? "No service selected"}</div>
+              <div className="booking-route-subtitle">{blueprint.locationHint}</div>
+            </div>
+            <div className="booking-route-time">{blueprint.responseTime}</div>
+          </div>
+
+          <div className="booking-option-list">
+            {blueprint.packages.map((item: BookingPackage) => {
+              const isSelected = item.id === selectedPackageId;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`booking-option-card ${isSelected ? "is-selected" : ""}`}
+                  onClick={() => setSelectedPackageId(item.id)}
+                >
+                  <div className={`booking-option-icon booking-option-icon--${serviceVisual.kind}`}>
+                    <span className="booking-thumbnail-emoji">{serviceVisual.icon}</span>
+                    <span className="booking-thumbnail-label">{item.badge ?? serviceVisual.label}</span>
+                  </div>
+
+                  <div className="booking-option-copy">
+                    <div className="booking-option-headline-row">
+                      <div>
+                        <div className="booking-option-name">{item.name}</div>
+                        <div className="booking-option-meta">{item.eta}</div>
+                      </div>
+                      {item.badge ? <span className="booking-badge">{item.badge}</span> : null}
+                    </div>
+
+                    <p className="booking-option-description">{item.description}</p>
+                    <div className="booking-option-includes">{item.includes.join(" • ")}</div>
+                  </div>
+
+                  <div className="booking-option-side">
+                    <div className="booking-option-price">{formatPrice(item.price)}</div>
+                    <div className="booking-option-state">{isSelected ? "Selected" : "Tap to select"}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="booking-subservice-panel">
+            <div className="booking-subservice-header">
+              <div>
+                <div className="booking-label">Sub-services</div>
+                <div className="booking-subservice-title">Add extras if needed</div>
+              </div>
+              <div className="booking-subservice-caption">Optional upgrades</div>
             </div>
 
-            <div className="booking-actions booking-actions--stack">
-              <button className="booking-ghost-btn" type="button" onClick={() => router.push(`/booking/location?serviceId=${encodeURIComponent(serviceId)}`)}>
-                Back to location
-              </button>
-              <button
-                className="booking-primary-btn"
-                type="button"
-                disabled={submitting || !authReady || !selectedPackage || !customerName.trim() || !customerPhone.trim()}
-                onClick={handleBooking}
-              >
-                {submitting ? "Confirming booking..." : "Confirm and wait for vendor"}
-              </button>
+            <div className="booking-addon-list">
+              {blueprint.addons.map((item: BookingAddon) => {
+                const isSelected = selectedAddonIds.includes(item.id);
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`booking-addon-pill ${isSelected ? "is-selected" : ""}`}
+                    onClick={() => toggleAddon(item.id)}
+                  >
+                    <span className="booking-addon-pill-name">{item.name}</span>
+                    <span className="booking-addon-pill-description">{item.description}</span>
+                    <strong className="booking-addon-pill-price">+ {formatPrice(item.price)}</strong>
+                  </button>
+                );
+              })}
             </div>
           </div>
+
+          <div className="booking-ride-detail-grid">
+            <div className="booking-form-card booking-form-card--ride">
+              <div className="booking-label">Contact details</div>
+
+              <label className="booking-field">
+                <span>Your name</span>
+                <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Enter your full name" />
+              </label>
+
+              <label className="booking-field">
+                <span>Phone number</span>
+                <input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} placeholder="Enter your phone number" />
+              </label>
+
+              <label className="booking-field">
+                <span>Preferred slot</span>
+                <select value={preferredTime} onChange={(event) => setPreferredTime(event.target.value)}>
+                  {slotOptions.map((slot) => (
+                    <option key={slot.value} value={slot.value}>
+                      {slot.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {errorMessage ? <p className="booking-error">{errorMessage}</p> : null}
+            </div>
+
+            <div className="booking-summary-card booking-summary-card--ride">
+              <div className="booking-label">Trip-style summary</div>
+              <div className="booking-summary-service-row">
+                <div className={`booking-summary-service-icon booking-summary-service-icon--${serviceVisual.kind}`}>
+                  <span className="booking-thumbnail-emoji">{serviceVisual.icon}</span>
+                </div>
+                <div>
+                  <div className="booking-summary-service-name">{selectedPackage?.name ?? "Select a package"}</div>
+                  <div className="booking-summary-service-meta">{selectedSlotLabel}</div>
+                </div>
+              </div>
+
+              <div className="booking-summary-row">
+                <span>Base package</span>
+                <strong>{selectedPackage ? formatPrice(selectedPackage.price) : formatPrice(0)}</strong>
+              </div>
+              <div className="booking-summary-row">
+                <span>Sub-services</span>
+                <strong>{formatPrice(addonsTotal)}</strong>
+              </div>
+              <div className="booking-summary-row booking-summary-row--total">
+                <span>Total</span>
+                <strong>{formatPrice(totalPrice)}</strong>
+              </div>
+
+              <div className="booking-summary-note">
+                Confirm to move to the live waiting screen. Vendor assignment updates automatically after booking.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="booking-sticky-bar">
+          <div>
+            <div className="booking-sticky-label">To pay</div>
+            <div className="booking-sticky-value">{formatPrice(totalPrice)}</div>
+          </div>
+
+          <button
+            className="booking-primary-btn booking-primary-btn--sticky"
+            type="button"
+            disabled={submitting || !authReady || !selectedPackage || !customerName.trim() || !customerPhone.trim()}
+            onClick={handleBooking}
+          >
+            {submitting ? "Confirming booking..." : `Book ${selectedPackage?.name ?? "service"}`}
+          </button>
         </div>
       </section>
     </main>
