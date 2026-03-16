@@ -77,6 +77,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [servicesError, setServicesError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [isVendorAccount, setIsVendorAccount] = useState<boolean | null>(null);
   const [searchHasRun, setSearchHasRun] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -175,6 +176,30 @@ export default function HomePage() {
     listener.subscription.unsubscribe();
   };
 }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadRole = async () => {
+      if (!user) {
+        if (isMounted) {
+          setIsVendorAccount(null);
+        }
+        return;
+      }
+
+      const vendorAccount = await isVendorUser(user.id);
+      if (isMounted) {
+        setIsVendorAccount(vendorAccount);
+      }
+    };
+
+    loadRole();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   /* ================= ANIMATIONS ================= */
   useEffect(() => {
@@ -319,6 +344,32 @@ export default function HomePage() {
         Sign Up
       </a>
     </>
+  ) : isVendorAccount ? (
+    <>
+      <a
+        className="nav-cta"
+        onClick={() => router.push("/vendor/dashboard")}
+        style={{ cursor: "pointer" }}
+      >
+        Vendor Dashboard
+      </a>
+
+      <span style={{ marginRight: "1rem" }}>
+        {user.email?.split("@")[0]}
+      </span>
+
+      <a
+        onClick={async () => {
+          await supabase.auth.signOut();
+          router.refresh();
+        }}
+        style={{ cursor: "pointer" }}
+      >
+        Logout
+      </a>
+    </>
+  ) : isVendorAccount === null ? (
+    <span style={{ color: "var(--gray-500)" }}>Loading account...</span>
   ) : (
     <>
       <a
