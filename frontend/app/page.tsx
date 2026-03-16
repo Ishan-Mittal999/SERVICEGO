@@ -79,6 +79,9 @@ export default function HomePage() {
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [enableHeroVideo, setEnableHeroVideo] = useState(false);
+  const [heroVideoReady, setHeroVideoReady] = useState(false);
+  const [heroVideoFailed, setHeroVideoFailed] = useState(false);
 
   // ✅ CALL CUSTOM HOOK HERE
   useScrollReveal(services);
@@ -112,6 +115,44 @@ export default function HomePage() {
 
     fetchServices();
   }, []);
+
+  useEffect(() => {
+    const navigatorWithConnection = navigator as Navigator & {
+      connection?: {
+        saveData?: boolean;
+        effectiveType?: string;
+      };
+    };
+
+    const connection = navigatorWithConnection.connection;
+
+    // Keep the poster on very slow/data-saver connections.
+    if (connection?.saveData || (connection?.effectiveType ?? "").includes("2g")) {
+      return;
+    }
+
+    const loadTimer = window.setTimeout(() => {
+      setEnableHeroVideo(true);
+    }, 300);
+
+    return () => {
+      window.clearTimeout(loadTimer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!enableHeroVideo || heroVideoReady) {
+      return;
+    }
+
+    const failSafeTimer = window.setTimeout(() => {
+      setHeroVideoFailed(true);
+    }, 9000);
+
+    return () => {
+      window.clearTimeout(failSafeTimer);
+    };
+  }, [enableHeroVideo, heroVideoReady]);
 
 /* ================= Get Logged-in User ================= */
   useEffect(() => {
@@ -407,17 +448,35 @@ export default function HomePage() {
               </div>
 
               <aside className="hero-ad-card" aria-label="ServiceGo promo video">
-                <video
-                  className="hero-ad-video"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="metadata"
-                  poster="/hero-bg.png"
-                >
-                  <source src="/homepage-ad.mp4" type="video/mp4" />
-                </video>
+                <img
+                  src="/hero-bg.png"
+                  alt="ServiceGo preview"
+                  className={heroVideoReady ? "hero-ad-poster is-hidden" : "hero-ad-poster"}
+                />
+
+                {enableHeroVideo && !heroVideoFailed && (
+                  <video
+                    className={heroVideoReady ? "hero-ad-video is-ready" : "hero-ad-video"}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                    poster="/hero-bg.png"
+                    onLoadedData={() => setHeroVideoReady(true)}
+                    onError={() => setHeroVideoFailed(true)}
+                  >
+                    <source src="/homepage-ad.mp4" type="video/mp4" />
+                  </video>
+                )}
+
+                {!enableHeroVideo && (
+                  <p className="hero-ad-state">Loading optimized preview...</p>
+                )}
+
+                {heroVideoFailed && (
+                  <p className="hero-ad-state">Network is slow. Showing quick preview image.</p>
+                )}
               </aside>
             </div>
           </div>
