@@ -264,6 +264,17 @@ export default function HomePage() {
 
   const suggestions = useMemo(() => filteredServices.slice(0, 6), [filteredServices]);
 
+  const openServiceShops = (service: Service) => {
+    mergeBookingDraft({
+      serviceId: String(service.id),
+      serviceName: service.name,
+      serviceDescription: service.description,
+      bookingId: undefined,
+    });
+
+    router.push(`/shops?serviceId=${encodeURIComponent(String(service.id))}`);
+  };
+
   const handleSearch = (query?: string) => {
     const nextValue = query ?? searchTerm;
     const normalizedQuery = normalizeText(nextValue);
@@ -274,6 +285,19 @@ export default function HomePage() {
     setShowSuggestions(false);
 
     if (normalizedQuery) {
+      const topMatch = services
+        .map((service) => ({
+          service,
+          score: getServiceSearchScore(service, normalizedQuery),
+        }))
+        .filter((entry) => entry.score > 0)
+        .sort((left, right) => right.score - left.score)[0];
+
+      if (topMatch?.service) {
+        openServiceShops(topMatch.service);
+        return;
+      }
+
       document
         .getElementById("services")
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -289,27 +313,8 @@ export default function HomePage() {
     searchInputRef.current?.focus();
   };
 
-  const startBookingFlow = async (service: Service) => {
-    mergeBookingDraft({
-      serviceId: String(service.id),
-      serviceName: service.name,
-      serviceDescription: service.description,
-      bookingId: undefined,
-    });
-
-    if (user) {
-      const isVendor = await isVendorUser(user.id);
-      if (isVendor) {
-        router.push("/vendor/dashboard");
-        return;
-      }
-
-      router.push(`/booking/location?serviceId=${service.id}`);
-    } else {
-      router.push(
-        `/auth/signup?next=${encodeURIComponent(`/booking/location?serviceId=${service.id}`)}`
-      );
-    }
+  const startBookingFlow = (service: Service) => {
+    openServiceShops(service);
   };
 
   const userHandle = user?.email?.split("@")[0] || "User";
@@ -328,7 +333,6 @@ export default function HomePage() {
           <nav className="nav-links">
   <a href="#services">Services</a>
   <a href="#how">How It Works</a>
-  <a href="#pricing">Pricing</a>
 
   {!user ? (
     <>
@@ -360,7 +364,7 @@ export default function HomePage() {
       <button
         type="button"
         className="profile-nav-button"
-        onClick={() => router.push("/vendor/dashboard")}
+        onClick={() => router.push("/profile")}
         aria-label="My Profile"
         title={`My Profile (${userHandle})`}
       >
@@ -391,7 +395,7 @@ export default function HomePage() {
       <button
         type="button"
         className="profile-nav-button"
-        onClick={() => router.push("/bookings")}
+        onClick={() => router.push("/profile")}
         aria-label="My Profile"
         title={`My Profile (${userHandle})`}
       >
@@ -484,7 +488,7 @@ export default function HomePage() {
                         type="button"
                         className="search-suggestion-item"
                         onClick={() => {
-                          handleSearch(service.name);
+                          openServiceShops(service);
                           setActiveTag(null);
                         }}
                       >
@@ -598,7 +602,7 @@ export default function HomePage() {
                     className="btn-book"
                     onClick={() => startBookingFlow(service)}
                   >
-                    Book Now
+                    View Shops
                   </button>
                 </div>
               ))
