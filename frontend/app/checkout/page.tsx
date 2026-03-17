@@ -186,7 +186,7 @@ export default function CheckoutPage() {
 
   return (
     <main
-      className="landing"
+      className="landing mobile-page-shell"
       style={{
         minHeight: "100vh",
         padding: "6rem 1rem 2rem",
@@ -200,7 +200,7 @@ export default function CheckoutPage() {
           Review cart, confirm address, and place your booking.
         </p>
 
-        <section style={{ marginTop: "1rem", display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "1rem" }}>
+        <section className="checkout-layout" style={{ marginTop: "1rem", display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "1rem" }}>
           <div style={{ background: "var(--white)", border: "1px solid var(--gray-200)", borderRadius: "14px", padding: "1rem" }}>
             <h3 style={{ marginTop: 0, color: "var(--gray-800)" }}>Address & Contact</h3>
 
@@ -302,7 +302,7 @@ export default function CheckoutPage() {
             <div style={{ display: "grid", gap: "0.55rem", marginTop: "0.8rem" }}>
               {cart.items.map((item) => (
                 <div key={item.id} style={{ display: "flex", justifyContent: "space-between", gap: "0.6rem" }}>
-                  <span style={{ color: "var(--gray-700)", fontSize: "0.9rem" }}>
+                  <span style={{ color: "var(--gray-700)", fontSize: "0.9rem", wordBreak: "break-word" }}>
                     {item.name} x{item.quantity}
                   </span>
                   <strong style={{ color: "var(--gray-800)", fontSize: "0.9rem" }}>

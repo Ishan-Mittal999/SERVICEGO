@@ -181,7 +181,7 @@ export default function ShopDetailPage() {
 
   return (
     <main
-      className="landing"
+      className="landing mobile-page-shell"
       style={{
         minHeight: "100vh",
         padding: "6rem 1rem 7rem",
@@ -218,6 +218,7 @@ export default function ShopDetailPage() {
         <section style={{ marginTop: "1rem", display: "grid", gap: "0.75rem" }}>
           {menuItems.map((item) => (
             <article
+              className="shop-menu-card"
               key={item.id}
               style={{
                 background: "var(--white)",
@@ -259,6 +260,7 @@ export default function ShopDetailPage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            flexWrap: "wrap",
             gap: "0.7rem",
             zIndex: 1000,
           }}

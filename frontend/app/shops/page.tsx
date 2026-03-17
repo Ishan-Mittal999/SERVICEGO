@@ -104,7 +104,7 @@ function ShopsPageContent() {
 
   return (
     <main
-      className="landing"
+      className="landing mobile-page-shell"
       style={{
         minHeight: "100vh",
         padding: "6rem 1rem 2rem",
@@ -212,6 +212,7 @@ function ShopsPageContent() {
             ) : (
               filteredVendors.map((vendor) => (
                 <article
+                  className="shop-list-card"
                   key={String(vendor.id)}
                   style={{
                     background: "var(--white)",

@@ -2852,3 +2852,32 @@ input, select, textarea { font-family: var(--font-body); }
   border-radius: 8px;
   cursor: pointer;
 }
+
+/* ============================================
+   APP ROUTE MOBILE TUNING
+   ============================================ */
+@media (max-width: 768px) {
+  .mobile-page-shell {
+    padding-top: 5.2rem !important;
+    padding-bottom: 1.4rem !important;
+  }
+
+  .checkout-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .shop-list-card,
+  .shop-menu-card {
+    grid-template-columns: 1fr !important;
+  }
+
+  .shop-list-card .btn-book,
+  .shop-menu-card .btn-book {
+    width: 100%;
+  }
+
+  .profile-row {
+    grid-template-columns: 1fr !important;
+    gap: 0.3rem !important;
+  }
+}

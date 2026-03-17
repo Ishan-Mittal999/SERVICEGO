@@ -319,6 +319,7 @@ export default function ProfilePage() {
 function ProfileRow({ label, value }: { label: string; value: string }) {
   return (
     <div
+      className="profile-row"
       style={{
         display: "grid",
         gridTemplateColumns: "180px 1fr",
