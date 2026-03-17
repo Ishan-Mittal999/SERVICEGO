@@ -695,8 +695,12 @@ export default function HomePage() {
       <footer className="footer">
         <div className="container">
           <div className="footer-bottom">
-            © 2026 ServiceGo. All rights
-            reserved.
+            <span>© 2026 ServiceGo. All rights reserved.</span>
+            <div className="footer-legal-links" aria-label="Legal links">
+              <span>Use of this site is subject to our legal policies.</span>
+              <Link href="/terms">Terms of Service</Link>
+              <Link href="/privacy">Privacy Policy</Link>
+            </div>
           </div>
         </div>
       </footer>

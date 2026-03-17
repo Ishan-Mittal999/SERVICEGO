@@ -2319,9 +2319,33 @@ input, select, textarea { font-family: var(--font-body); }
 }
 
 .footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
   text-align: center;
   font-size: 0.82rem;
   color: rgba(255, 255, 255, 0.4);
+}
+
+.footer-legal-links {
+  display: flex;
+  gap: var(--space-md);
+  align-items: center;
+}
+
+.footer-legal-links a {
+  color: rgba(255, 255, 255, 0.62);
+  transition: color var(--transition-fast);
+}
+
+.footer-legal-links span {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.footer-legal-links a:hover {
+  color: var(--gold-light);
 }
 
 /* ============================================
@@ -2718,6 +2742,13 @@ input, select, textarea { font-family: var(--font-body); }
 
   /* Footer */
   .footer-top { grid-template-columns: 1fr; }
+  .footer-bottom {
+    justify-content: center;
+  }
+  .footer-legal-links {
+    width: 100%;
+    justify-content: center;
+  }
 
   /* Trust Bar */
   .trust-bar .container { gap: var(--space-xl); }
