@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/env";
+import { reverseGeocode } from "@/lib/location";
 
 type Service = {
   id: string;
@@ -58,9 +59,18 @@ export default function VendorOnboardingPage() {
 
     setIsGettingLocation(true);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude } = position.coords;
-        setArea(`Lat ${latitude.toFixed(6)}, Lng ${longitude.toFixed(6)}`);
+
+        try {
+          const reverse = await reverseGeocode(latitude, longitude);
+          const fullAddress = reverse.display_name || "";
+          const withCoordinates = `${fullAddress || "Detected location"} (Lat ${latitude.toFixed(6)}, Lng ${longitude.toFixed(6)})`;
+          setArea(withCoordinates);
+        } catch {
+          setArea(`Lat ${latitude.toFixed(6)}, Lng ${longitude.toFixed(6)}`);
+        }
+
         setIsGettingLocation(false);
       },
       () => {
