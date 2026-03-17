@@ -312,6 +312,9 @@ export default function HomePage() {
     }
   };
 
+  const userHandle = user?.email?.split("@")[0] || "User";
+  const profileInitial = userHandle.charAt(0).toUpperCase();
+
   return (
     <div className="landing">
       {/* NAVBAR */}
@@ -354,9 +357,15 @@ export default function HomePage() {
         Vendor Dashboard
       </a>
 
-      <span style={{ marginRight: "1rem" }}>
-        {user.email?.split("@")[0]}
-      </span>
+      <button
+        type="button"
+        className="profile-nav-button"
+        onClick={() => router.push("/vendor/dashboard")}
+        aria-label="My Profile"
+        title={`My Profile (${userHandle})`}
+      >
+        {profileInitial}
+      </button>
 
       <a
         onClick={async () => {
@@ -379,9 +388,15 @@ export default function HomePage() {
         My Bookings
       </a>
 
-      <span style={{ marginRight: "1rem" }}>
-        {user.email?.split("@")[0]}
-      </span>
+      <button
+        type="button"
+        className="profile-nav-button"
+        onClick={() => router.push("/bookings")}
+        aria-label="My Profile"
+        title={`My Profile (${userHandle})`}
+      >
+        {profileInitial}
+      </button>
 
       <a
         className="nav-cta"

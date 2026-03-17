@@ -1282,6 +1282,28 @@ input, select, textarea { font-family: var(--font-body); }
   color: var(--white);
 }
 
+.profile-nav-button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(122, 106, 0, 0.22);
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(122, 106, 0, 0.12), rgba(166, 138, 0, 0.2));
+  color: var(--gold);
+  font-weight: 800;
+  font-size: 0.98rem;
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.profile-nav-button:hover {
+  transform: translateY(-2px);
+  border-color: rgba(122, 106, 0, 0.36);
+  box-shadow: 0 10px 24px rgba(122, 106, 0, 0.16);
+}
+
 /* Hamburger */
 .hamburger {
   display: none;
