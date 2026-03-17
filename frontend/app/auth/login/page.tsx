@@ -59,6 +59,16 @@ function LoginPageContent() {
     router.push(nextPath);
   };
 
+  const handleGoogleLogin = async () => {
+    setErrorMessage(null);
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}${nextPath}`,
+      },
+    });
+  };
+
   return (
     <div
       style={{
@@ -255,6 +265,36 @@ function LoginPageContent() {
             {isSubmitting ? "Logging in..." : "Login"}
           </button>
         </form>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.7rem",
+            margin: "1rem 0",
+            color: "var(--gray-400)",
+            fontSize: "0.85rem",
+          }}
+        >
+          <div style={{ flex: 1, height: 1, background: "var(--gray-200)" }} />
+          OR
+          <div style={{ flex: 1, height: 1, background: "var(--gray-200)" }} />
+        </div>
+
+        <button
+          onClick={handleGoogleLogin}
+          style={{
+            width: "100%",
+            padding: "0.78rem 1rem",
+            borderRadius: "999px",
+            border: "1px solid var(--gray-300)",
+            background: "var(--white)",
+            color: "var(--gray-700)",
+            fontWeight: 600,
+          }}
+        >
+          Continue with Google
+        </button>
 
         <p
           style={{
