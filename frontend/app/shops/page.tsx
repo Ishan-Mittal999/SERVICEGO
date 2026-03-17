@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
 import { mergeBookingDraft } from "@/lib/booking-flow";
@@ -24,7 +24,7 @@ type Vendor = {
   is_active?: boolean;
 };
 
-export default function ShopsPage() {
+function ShopsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -333,5 +333,21 @@ export default function ShopsPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function ShopsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="landing" style={{ minHeight: "100vh", padding: "6rem 1rem 2rem" }}>
+          <div className="container" style={{ maxWidth: "980px" }}>
+            <p style={{ margin: 0, color: "var(--gray-500)" }}>Loading shops...</p>
+          </div>
+        </main>
+      }
+    >
+      <ShopsPageContent />
+    </Suspense>
   );
 }
