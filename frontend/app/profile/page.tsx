@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const [addressLabel, setAddressLabel] = useState("");
   const [addressCity, setAddressCity] = useState("");
   const [addressLine, setAddressLine] = useState("");
+  const [addressPhone, setAddressPhone] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -64,7 +65,7 @@ export default function ProfilePage() {
   }, []);
 
   const addAddress = () => {
-    if (!addressLabel.trim() || !addressCity.trim() || !addressLine.trim()) {
+    if (!addressLabel.trim() || !addressCity.trim() || !addressLine.trim() || !addressPhone.trim()) {
       return;
     }
 
@@ -72,6 +73,7 @@ export default function ProfilePage() {
       label: addressLabel,
       city: addressCity,
       addressLine,
+      phone: addressPhone,
       isDefault: addresses.length === 0,
     });
 
@@ -79,6 +81,7 @@ export default function ProfilePage() {
     setAddressLabel("");
     setAddressCity("");
     setAddressLine("");
+    setAddressPhone("");
   };
 
   if (loading) {
@@ -217,6 +220,12 @@ export default function ProfilePage() {
                 placeholder="Full address"
                 style={{ borderRadius: "10px", border: "1px solid var(--gray-300)", padding: "0.72rem 0.85rem", resize: "vertical" }}
               />
+              <input
+                value={addressPhone}
+                onChange={(event) => setAddressPhone(event.target.value)}
+                placeholder="Phone number"
+                style={{ borderRadius: "10px", border: "1px solid var(--gray-300)", padding: "0.72rem 0.85rem" }}
+              />
               <button
                 type="button"
                 onClick={addAddress}
@@ -293,6 +302,9 @@ export default function ProfilePage() {
 
                     <p style={{ margin: 0, color: "var(--gray-600)", fontSize: "0.88rem" }}>{address.city}</p>
                     <p style={{ margin: 0, color: "var(--gray-700)", fontSize: "0.9rem" }}>{address.addressLine}</p>
+                    <p style={{ margin: 0, color: "var(--gray-700)", fontSize: "0.88rem" }}>
+                      Phone: {address.phone || "Not set"}
+                    </p>
                   </article>
                 ))
               )}

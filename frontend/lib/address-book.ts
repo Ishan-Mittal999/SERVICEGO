@@ -3,6 +3,7 @@ export type SavedAddress = {
   label: string;
   city: string;
   addressLine: string;
+  phone?: string;
   isDefault?: boolean;
   createdAt: string;
 };
@@ -53,6 +54,7 @@ export function saveAddress(address: Omit<SavedAddress, "id" | "createdAt"> & { 
     label: address.label.trim(),
     city: address.city.trim(),
     addressLine: address.addressLine.trim(),
+    phone: (address.phone || "").trim(),
     isDefault: Boolean(address.isDefault),
   };
 

@@ -22,8 +22,9 @@ export default function CheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [manualCity, setManualCity] = useState("");
   const [manualAddress, setManualAddress] = useState("");
+  const [manualPhone, setManualPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
   const [saveToAddressBook, setSaveToAddressBook] = useState(false);
   const [isChangingAddress, setIsChangingAddress] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
@@ -41,6 +42,7 @@ export default function CheckoutPage() {
       setSelectedAddressId(defaultAddress.id);
       setManualCity(defaultAddress.city);
       setManualAddress(defaultAddress.addressLine);
+      setManualPhone(defaultAddress.phone || "");
     } else if (currentCart) {
       setManualCity(currentCart.city || "");
       setManualAddress(currentCart.addressLine || "");
@@ -62,7 +64,8 @@ export default function CheckoutPage() {
       setCustomerName(user.email?.split("@")[0] || "");
       const metadataPhone = String((user.user_metadata as { phone?: string } | null)?.phone || "");
       if (metadataPhone) {
-        setCustomerPhone(metadataPhone);
+        setProfilePhone(metadataPhone);
+        setManualPhone((current) => current || metadataPhone);
       }
     };
 
@@ -83,14 +86,22 @@ export default function CheckoutPage() {
 
     const finalCity = isChangingAddress ? manualCity.trim() : selectedAddress?.city || "";
     const finalAddress = isChangingAddress ? manualAddress.trim() : selectedAddress?.addressLine || "";
+    const finalPhone = isChangingAddress
+      ? manualPhone.trim()
+      : (selectedAddress?.phone || "").trim() || profilePhone.trim();
 
     if (!finalCity || !finalAddress) {
       setErrorMessage("Please select or enter delivery address.");
       return;
     }
 
-    if (!customerName.trim() || !customerPhone.trim()) {
-      setErrorMessage("Please enter customer name and phone.");
+    if (!customerName.trim()) {
+      setErrorMessage("Please enter customer name.");
+      return;
+    }
+
+    if (!finalPhone) {
+      setErrorMessage("Please add phone number in address details.");
       return;
     }
 
@@ -118,7 +129,7 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           service_id: cart.serviceId,
           customer_name: customerName.trim(),
-          customer_phone: customerPhone.trim(),
+          customer_phone: finalPhone,
           address: bookingAddress,
           preferred_time: new Date().toISOString(),
           user_id: session.user.id,
@@ -141,6 +152,7 @@ export default function CheckoutPage() {
           label: `${finalCity} Address`,
           city: finalCity,
           addressLine: finalAddress,
+          phone: finalPhone,
           isDefault: true,
         });
         setAddresses(updated);
@@ -216,6 +228,9 @@ export default function CheckoutPage() {
                     <p style={{ marginTop: "0.3rem", marginBottom: 0, color: "var(--gray-600)", fontSize: "0.9rem" }}>
                       {selectedAddress.addressLine}
                     </p>
+                    <p style={{ marginTop: "0.3rem", marginBottom: 0, color: "var(--gray-600)", fontSize: "0.9rem" }}>
+                      Phone: {selectedAddress.phone || profilePhone || "Not set"}
+                    </p>
                   </div>
                 ) : null}
 
@@ -251,6 +266,12 @@ export default function CheckoutPage() {
                   placeholder="Full address"
                   style={{ borderRadius: "10px", border: "1px solid var(--gray-300)", padding: "0.72rem 0.85rem", resize: "vertical" }}
                 />
+                <input
+                  value={manualPhone}
+                  onChange={(event) => setManualPhone(event.target.value)}
+                  placeholder="Phone number"
+                  style={{ borderRadius: "10px", border: "1px solid var(--gray-300)", padding: "0.72rem 0.85rem" }}
+                />
                 <label style={{ display: "flex", gap: "0.45rem", alignItems: "center", fontSize: "0.9rem", color: "var(--gray-600)" }}>
                   <input
                     type="checkbox"
@@ -267,12 +288,6 @@ export default function CheckoutPage() {
                 value={customerName}
                 onChange={(event) => setCustomerName(event.target.value)}
                 placeholder="Customer name"
-                style={{ borderRadius: "10px", border: "1px solid var(--gray-300)", padding: "0.72rem 0.85rem" }}
-              />
-              <input
-                value={customerPhone}
-                onChange={(event) => setCustomerPhone(event.target.value)}
-                placeholder="Phone number"
                 style={{ borderRadius: "10px", border: "1px solid var(--gray-300)", padding: "0.72rem 0.85rem" }}
               />
             </div>
