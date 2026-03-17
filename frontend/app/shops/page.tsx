@@ -4,7 +4,6 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
 import { mergeBookingDraft } from "@/lib/booking-flow";
-import { readSelectedCity, writeSelectedCity } from "@/lib/address-book";
 import { readShopCart } from "@/lib/shop-cart";
 
 type Service = {
@@ -32,15 +31,12 @@ function ShopsPageContent() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [selectedCity, setSelectedCity] = useState("");
   const [addressLine, setAddressLine] = useState("");
-  const [isLocating, setIsLocating] = useState(false);
   const [cartCount, setCartCount] = useState(0);
 
   const serviceId = searchParams.get("serviceId") || "";
 
   useEffect(() => {
-    setSelectedCity(readSelectedCity());
     const existingCart = readShopCart();
     const count = existingCart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
     setCartCount(count);
@@ -86,68 +82,20 @@ function ShopsPageContent() {
     [services, serviceId]
   );
 
-  const cityOptions = useMemo(() => {
-    const unique = new Set<string>();
-    vendors.forEach((vendor) => {
-      if (vendor.area?.trim()) {
-        unique.add(vendor.area.trim());
-      }
-    });
-    return Array.from(unique).sort((a, b) => a.localeCompare(b));
-  }, [vendors]);
-
   const filteredVendors = useMemo(() => {
     const serviceFiltered = vendors.filter((vendor) => String(vendor.service_id) === String(serviceId));
-    const activeFiltered = serviceFiltered.filter((vendor) => vendor.is_active !== false);
-
-    if (!selectedCity.trim()) {
-      return activeFiltered;
-    }
-
-    return activeFiltered.filter((vendor) =>
-      (vendor.area || "").toLowerCase().includes(selectedCity.trim().toLowerCase())
-    );
-  }, [vendors, selectedCity, serviceId]);
-
-  const requestCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setErrorMessage("Location is not supported. Select city manually.");
-      return;
-    }
-
-    setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setIsLocating(false);
-        const locationTag = `Near (${position.coords.latitude.toFixed(2)}, ${position.coords.longitude.toFixed(2)})`;
-        setSelectedCity(locationTag);
-      },
-      () => {
-        setIsLocating(false);
-        setErrorMessage("Could not detect location. Choose city manually.");
-      }
-    );
-  };
-
-  useEffect(() => {
-    if (!selectedCity.trim()) {
-      requestCurrentLocation();
-    }
-    // Trigger once on page entry.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return serviceFiltered.filter((vendor) => vendor.is_active !== false);
+  }, [vendors, serviceId]);
 
   const openShop = (vendor: Vendor) => {
     if (!selectedService) {
       return;
     }
 
-    writeSelectedCity(selectedCity);
     mergeBookingDraft({
       serviceId: String(selectedService.id),
       serviceName: selectedService.name,
       serviceDescription: selectedService.description,
-      locationLabel: selectedCity.trim(),
       addressLine: addressLine.trim(),
     });
 
@@ -171,10 +119,10 @@ function ShopsPageContent() {
               Browse shops
             </p>
             <h1 style={{ marginTop: "0.35rem", marginBottom: "0.25rem", fontFamily: "var(--font-display)", color: "var(--gray-800)" }}>
-              {selectedService ? `${selectedService.name} shops near you` : "Service shops"}
+              {selectedService ? `${selectedService.name} shops` : "Service shops"}
             </h1>
             <p style={{ margin: 0, color: "var(--gray-500)" }}>
-              Select city and address to view relevant nearby vendors.
+              Browse all active shops for the selected service.
             </p>
           </div>
 
@@ -223,24 +171,7 @@ function ShopsPageContent() {
             gap: "0.8rem",
           }}
         >
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: "0.7rem" }}>
-            <input
-              value={selectedCity}
-              onChange={(event) => setSelectedCity(event.target.value)}
-              placeholder="Choose city (e.g. Delhi, Gurgaon)"
-              list="city-options"
-              style={{
-                borderRadius: "10px",
-                border: "1px solid var(--gray-300)",
-                padding: "0.72rem 0.85rem",
-              }}
-            />
-            <datalist id="city-options">
-              {cityOptions.map((city) => (
-                <option key={city} value={city} />
-              ))}
-            </datalist>
-
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "0.7rem" }}>
             <input
               value={addressLine}
               onChange={(event) => setAddressLine(event.target.value)}
@@ -251,26 +182,10 @@ function ShopsPageContent() {
                 padding: "0.72rem 0.85rem",
               }}
             />
-
-            <button
-              type="button"
-              onClick={requestCurrentLocation}
-              style={{
-                borderRadius: "10px",
-                border: "1px solid var(--gray-300)",
-                background: "var(--white)",
-                padding: "0.72rem 0.85rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {isLocating ? "Detecting..." : "Use Location"}
-            </button>
           </div>
 
           <p style={{ margin: 0, fontSize: "0.83rem", color: "var(--gray-500)" }}>
-            City is used for nearby shop filtering. You can refine address now and still edit it at checkout.
+            This address is optional now and can still be edited at checkout.
           </p>
         </section>
 
@@ -292,7 +207,7 @@ function ShopsPageContent() {
                   color: "var(--gray-600)",
                 }}
               >
-                No shops found for this service in selected city. Try another city.
+                No active shops found for this service right now.
               </div>
             ) : (
               filteredVendors.map((vendor) => (
