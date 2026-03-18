@@ -177,31 +177,42 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <h1 className="text-3xl font-bold mb-8 text-gray-800">
+    <div
+      className="min-h-screen p-6 md:p-8"
+      style={{
+        background:
+          "radial-gradient(circle at 12% 8%, rgba(122,106,0,0.14), transparent 34%), radial-gradient(circle at 88% 6%, rgba(30,144,255,0.12), transparent 30%), var(--off-white)",
+      }}
+    >
+      <h1 className="text-3xl font-bold mb-8" style={{ color: "var(--gray-900)", fontFamily: "var(--font-display)" }}>
         ServiceGo Admin Dashboard
       </h1>
 
       {/* ===== Stats Cards ===== */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-        <StatCard title="Total Bookings" value={total} color="bg-black" />
-        <StatCard title="Pending" value={pending} color="bg-yellow-500" />
-        <StatCard title="Admin Hold" value={pendingAdmin} color="bg-orange-500" />
-        <StatCard title="Assigned" value={assigned} color="bg-blue-600" />
-        <StatCard title="Completed" value={completed} color="bg-green-600" />
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
+        <StatCard title="Total Bookings" value={total} color="bg-slate-800" />
+        <StatCard title="Pending" value={pending} color="bg-amber-600" />
+        <StatCard title="Admin Hold" value={pendingAdmin} color="bg-orange-600" />
+        <StatCard title="Assigned" value={assigned} color="bg-sky-700" />
+        <StatCard title="Completed" value={completed} color="bg-emerald-700" />
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 mb-6">
+      <div className="flex gap-3 mb-6 flex-wrap">
         {["all", "pending", "pending_admin", "assigned", "completed"].map((status) => (
           <button
             key={status}
             onClick={() => setStatusFilter(status)}
-            className={`px-4 py-2 rounded capitalize transition ${
+            className={`px-4 py-2 rounded-full capitalize transition text-sm font-semibold ${
               statusFilter === status
-                ? "bg-black text-white"
-                : "bg-white text-gray-800 border border-gray-300 hover:bg-gray-100"
+                ? "text-white"
+                : "bg-white text-gray-700 border border-gray-300 hover:bg-amber-50"
             }`}
+            style={
+              statusFilter === status
+                ? { background: "linear-gradient(135deg, #7A6A00, #8B7500)" }
+                : undefined
+            }
           >
             {status === "pending_admin" ? "admin hold" : status}
           </button>
@@ -215,11 +226,11 @@ export default function AdminPage() {
       )}
 
       {loading ? (
-        <p>Loading...</p>
+        <p className="text-gray-600 font-medium">Loading...</p>
       ) : (
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
           <table className="min-w-full">
-            <thead className="bg-gray-100 text-gray-800">
+            <thead className="text-white" style={{ background: "linear-gradient(135deg, #0f3f72, #1670CC)" }}>
               <tr>
                 <th className="p-4 text-left">Customer</th>
                 <th className="p-4 text-left">Service</th>
@@ -235,7 +246,7 @@ export default function AdminPage() {
                 );
 
                 return (
-                  <tr key={booking.id} className="border-t hover:bg-gray-50 transition text-gray-800">
+                  <tr key={booking.id} className="border-t hover:bg-amber-50/60 transition text-gray-800">
                     <td className="p-4">
                       <div className="font-medium">
                         {booking.customer_name}
@@ -276,7 +287,8 @@ export default function AdminPage() {
                                   : booking.id
                               )
                             }
-                            className="px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600 transition"
+                            className="px-3 py-1 text-white rounded text-sm transition"
+                            style={{ background: "linear-gradient(135deg, #7A6A00, #8B7500)" }}
                           >
                             {booking.status === "assigned"
                               ? "Reassign"
@@ -286,6 +298,7 @@ export default function AdminPage() {
                           {activeAssignId === booking.id && (
                             <select
                               className="ml-2 border p-1 rounded"
+                              style={{ borderColor: "#d3d8e0" }}
                               defaultValue=""
                               onChange={async (e) => {
                                 if (!e.target.value) {
@@ -322,7 +335,7 @@ export default function AdminPage() {
                               setErrorMessage(error instanceof Error ? error.message : "Could not cancel vendor acceptance");
                             }
                           }}
-                          className="px-3 py-1 bg-orange-500 text-white rounded text-sm hover:bg-orange-600 transition"
+                          className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 transition"
                         >
                           Cancel Acceptance
                         </button>
@@ -337,7 +350,7 @@ export default function AdminPage() {
                               setErrorMessage(error instanceof Error ? error.message : "Could not complete booking");
                             }
                           }}
-                          className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition"
+                          className="px-3 py-1 bg-emerald-700 text-white rounded text-sm hover:bg-emerald-800 transition"
                         >
                           Complete
                         </button>
@@ -352,7 +365,7 @@ export default function AdminPage() {
                               setErrorMessage(error instanceof Error ? error.message : "Could not reopen booking");
                             }
                           }}
-                          className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition"
+                          className="px-3 py-1 bg-rose-600 text-white rounded text-sm hover:bg-rose-700 transition"
                         >
                           Reopen
                         </button>
@@ -377,12 +390,14 @@ export default function AdminPage() {
 
 function StatCard({ title, value, color }: { title: string; value: number; color: string }) {
   return (
-    <div className="bg-white rounded-2xl shadow-md p-6 flex items-center justify-between hover:shadow-lg transition">
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex items-center justify-between hover:shadow-md transition">
       <div>
         <div className="text-sm text-gray-600 mb-2">{title}</div>
-        <div className="text-3xl font-bold text-black">{value}</div>
+        <div className="text-3xl font-bold" style={{ color: "var(--gray-900)", fontFamily: "var(--font-display)" }}>
+          {value}
+        </div>
       </div>
-      <div className={`w-12 h-12 rounded-xl ${color} opacity-80`} />
+      <div className={`w-12 h-12 rounded-xl ${color} opacity-90`} />
     </div>
   );
 }

@@ -128,6 +128,14 @@ const toEtaMinutes = (distance?: number) => {
   return "20-35 mins";
 };
 
+const toCardPrice = (experience?: number) => {
+  if (typeof experience !== "number") {
+    return 119;
+  }
+
+  return Math.max(99, Math.round(89 + experience * 3));
+};
+
 const getServiceKey = (serviceName?: string) => {
   const normalized = (serviceName || "").toLowerCase();
 
@@ -455,14 +463,6 @@ function ShopsPageContent() {
 
         <section className="shop-browse-controls">
           <div className="shop-classic-filter-row" aria-label="Shop filters">
-            <button
-              type="button"
-              onClick={detectAndSaveUserLocation}
-              className="shop-classic-detect"
-            >
-              {isDetectingLocation ? "Detecting location..." : userLocation ? "Update location" : "Use location"}
-            </button>
-
             <label className="shop-classic-nearby">
               <input
                 type="checkbox"
@@ -494,6 +494,13 @@ function ShopsPageContent() {
             {userLocation
               ? `Current location: ${userLocation.area || userLocation.city || "Detected"}${userLocation.postcode ? ` - ${userLocation.postcode}` : ""}`
               : "Allow location once to enable nearby filtering. Saved for future visits."}
+            <button
+              type="button"
+              className="shop-controls-inline-action"
+              onClick={detectAndSaveUserLocation}
+            >
+              {isDetectingLocation ? "Detecting..." : userLocation ? "Update" : "Use location"}
+            </button>
           </p>
 
           <p className="shop-controls-note shop-controls-note--muted">
@@ -563,14 +570,11 @@ function ShopsPageContent() {
                         loading="lazy"
                       />
                       <span className="shop-feed-tag">
-                        {toShopOffer(vendor.experience)}
+                        {`${selectedService?.name || "Service"} · ₹${toCardPrice(vendor.experience)}`}
                       </span>
-                      <span className="shop-feed-save" aria-hidden="true">
-                        Save
+                      <span className="shop-feed-save" aria-hidden="true" title="Save shop">
+                        🔖
                       </span>
-                      <div className="shop-feed-media-mark" aria-hidden="true">
-                        {selectedService?.icon || "Shop"}
-                      </div>
                       <div className="shop-feed-dots" aria-hidden="true">
                         {serviceImages.map((image, index) => (
                           <span
@@ -584,28 +588,21 @@ function ShopsPageContent() {
                     <div className="shop-feed-content">
                       <div className="shop-feed-title-row">
                         <h3>{vendor.name || "Shop"}</h3>
-                        <span className="shop-feed-rating">* {toShopRating(vendor.experience).toFixed(1)}</span>
+                        <span className="shop-feed-rating">★ {toShopRating(vendor.experience).toFixed(1)}</span>
                       </div>
 
                       <p className="shop-feed-meta">
                         {typeof vendorDistances[String(vendor.id)] === "number"
-                          ? `${vendorDistances[String(vendor.id)].toFixed(1)} km | ${toEtaMinutes(vendorDistances[String(vendor.id)])}`
+                          ? `${toEtaMinutes(vendorDistances[String(vendor.id)]).toUpperCase()} | ${vendorDistances[String(vendor.id)].toFixed(1)} km`
                           : toEtaMinutes()}
-                        {" | "}
-                        {vendor.area || "Area not provided"}
                       </p>
 
                       <p className="shop-feed-submeta">
-                        {selectedService?.name || "Service"}
-                        {typeof vendorDistances[String(vendor.id)] === "number"
-                          ? ` | ${vendorDistances[String(vendor.id)].toFixed(1)} km away`
-                          : ""}
+                        Booked by 10k+ users
                       </p>
 
                       <p className="shop-feed-offer">
-                        {typeof vendor.experience === "number"
-                          ? `${vendor.experience}+ yrs experience`
-                          : "Experienced professional team"}
+                        ⚙ 50% OFF on selected services
                       </p>
                     </div>
                   </article>

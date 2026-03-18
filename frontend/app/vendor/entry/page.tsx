@@ -43,15 +43,7 @@ export default function VendorEntryPage() {
   }, [router]);
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        background: "var(--off-white)",
-        color: "var(--gray-700)",
-      }}
-    >
+    <div className="theme-centered-status">
       <p>Checking your vendor profile...</p>
     </div>
   );

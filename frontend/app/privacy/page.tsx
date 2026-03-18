@@ -2,17 +2,16 @@ import Link from "next/link";
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="landing" style={{ minHeight: "100vh", padding: "6rem 1rem 3rem" }}>
-      <div className="container" style={{ maxWidth: "900px" }}>
-        <h1 className="section-title" style={{ marginBottom: "1rem" }}>
-          Privacy Policy
-        </h1>
-        <p style={{ color: "var(--gray-500)", marginBottom: "1.5rem" }}>
-          Last updated: March 17, 2026. This Privacy Policy explains how ServiceGo collects, uses, and protects your
-          personal information.
-        </p>
+    <main className="landing legal-shell">
+      <div className="container legal-wrap">
+        <article className="legal-card">
+          <h1 className="section-title">Privacy Policy</h1>
+          <p className="legal-intro">
+            Last updated: March 17, 2026. This Privacy Policy explains how ServiceGo collects, uses, and protects your
+            personal information.
+          </p>
 
-        <section style={{ display: "grid", gap: "1rem" }}>
+          <section className="legal-sections">
           <h2>1. Information We Collect</h2>
           <p>
             We collect information you provide directly, including your name, email, phone number, addresses, booking
@@ -54,13 +53,14 @@ export default function PrivacyPolicyPage() {
             We may update this Privacy Policy from time to time. Continued use of ServiceGo after policy updates means you
             accept the revised policy.
           </p>
-        </section>
+          </section>
 
-        <div style={{ marginTop: "2rem" }}>
-          <Link href="/" className="btn-book">
-            Back to Home
-          </Link>
-        </div>
+          <div className="legal-actions">
+            <Link href="/" className="btn-book">
+              Back to Home
+            </Link>
+          </div>
+        </article>
       </div>
     </main>
   );

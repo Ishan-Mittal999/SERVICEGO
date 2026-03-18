@@ -2,16 +2,15 @@ import Link from "next/link";
 
 export default function TermsPage() {
   return (
-    <main className="landing" style={{ minHeight: "100vh", padding: "6rem 1rem 3rem" }}>
-      <div className="container" style={{ maxWidth: "900px" }}>
-        <h1 className="section-title" style={{ marginBottom: "1rem" }}>
-          Terms of Service
-        </h1>
-        <p style={{ color: "var(--gray-500)", marginBottom: "1.5rem" }}>
-          Last updated: March 17, 2026. By accessing or using ServiceGo, you agree to these Terms of Service.
-        </p>
+    <main className="landing legal-shell">
+      <div className="container legal-wrap">
+        <article className="legal-card">
+          <h1 className="section-title">Terms of Service</h1>
+          <p className="legal-intro">
+            Last updated: March 17, 2026. By accessing or using ServiceGo, you agree to these Terms of Service.
+          </p>
 
-        <section style={{ display: "grid", gap: "1rem" }}>
+          <section className="legal-sections">
           <h2>1. Use of the Platform</h2>
           <p>
             ServiceGo is a platform that helps customers discover and book home services from independent vendors. You must
@@ -55,13 +54,14 @@ export default function TermsPage() {
           <p>
             For terms-related questions, contact support through the channels listed in your ServiceGo account.
           </p>
-        </section>
+          </section>
 
-        <div style={{ marginTop: "2rem" }}>
-          <Link href="/" className="btn-book">
-            Back to Home
-          </Link>
-        </div>
+          <div className="legal-actions">
+            <Link href="/" className="btn-book">
+              Back to Home
+            </Link>
+          </div>
+        </article>
       </div>
     </main>
   );
