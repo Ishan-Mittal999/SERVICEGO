@@ -86,11 +86,8 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <main
-        className="landing"
-        style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: "2rem 1rem" }}
-      >
-        <p style={{ color: "var(--gray-500)" }}>Loading profile...</p>
+      <main className="landing theme-centered-status">
+        <p>Loading profile...</p>
       </main>
     );
   }
@@ -180,6 +177,7 @@ export default function ProfilePage() {
                 await supabase.auth.signOut();
                 router.replace("/");
               }}
+              className="profile-secondary-btn"
               style={{
                 borderRadius: "999px",
                 border: "1px solid var(--gray-300)",
@@ -229,14 +227,10 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={addAddress}
+                className="btn-book"
                 style={{
                   width: "fit-content",
-                  borderRadius: "999px",
-                  border: "1px solid var(--gray-300)",
-                  background: "var(--white)",
-                  color: "var(--gray-700)",
-                  fontWeight: 700,
-                  padding: "0.6rem 1rem",
+                  padding: "0.62rem 1.08rem",
                   cursor: "pointer",
                 }}
               >

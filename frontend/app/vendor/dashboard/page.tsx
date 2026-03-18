@@ -13,17 +13,17 @@ const LOGO_SRC = "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BS
 
 
 const theme = {
-    gold: "#8B7500",
-    goldLight: "#A68A00",
-    goldBg: "#FFF8E1",
-    goldBorder: "#D4AF37",
+  gold: "#7A6A00",
+  goldLight: "#8B7500",
+  goldBg: "#F5F0D0",
+  goldBorder: "#D4AF37",
     green: "#4CAF50",
     greenLight: "#E8F5E9",
-    blue: "#1E90FF",
-    blueBg: "#E3F2FD",
-    dark: "#1A1A1A",
-    muted: "#6B7280",
-    bg: "#F9F7F2",
+  blue: "#1670CC",
+  blueBg: "#E8F3FF",
+  dark: "#1F2937",
+  muted: "#667085",
+  bg: "#F8F6EF",
     white: "#FFFFFF",
     red: "#EF4444",
     redBg: "#FEF2F2",
@@ -32,12 +32,10 @@ const theme = {
 };
 
 const styles = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap');
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body, #root {
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-body), sans-serif;
     background: ${theme.bg};
     color: ${theme.dark};
     min-height: 100vh;
@@ -77,7 +75,7 @@ const styles = `
     background: ${theme.gold};
     border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-display), serif;
     font-weight: 700;
     font-size: 20px;
     color: white;
@@ -96,7 +94,7 @@ const styles = `
   }
 
   .logo-text {
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-display), serif;
     font-size: 20px;
     font-weight: 700;
     color: white;
@@ -245,7 +243,7 @@ const styles = `
   }
 
   .topbar-left h1 {
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-display), serif;
     font-size: 22px;
     font-weight: 700;
     color: ${theme.dark};
@@ -382,7 +380,7 @@ const styles = `
   .stat-card.orange .stat-icon { background: ${theme.orangeBg}; }
 
   .stat-value {
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-display), serif;
     font-size: 28px;
     font-weight: 700;
     color: ${theme.dark};
@@ -435,7 +433,7 @@ const styles = `
   }
 
   .card-title {
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-display), serif;
     font-size: 17px;
     font-weight: 700;
     color: ${theme.dark};
@@ -631,7 +629,7 @@ const styles = `
     font-size: 14px;
     font-weight: 700;
     color: ${theme.gold};
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-display), serif;
   }
 
   /* TOGGLE SWITCH */
@@ -708,7 +706,7 @@ const styles = `
     border-radius: 50%;
     background: linear-gradient(135deg, ${theme.gold}, ${theme.goldBorder});
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-display), serif;
     font-size: 28px;
     font-weight: 700;
     color: white;
@@ -729,7 +727,7 @@ const styles = `
   }
 
   .profile-name {
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-display), serif;
     font-size: 16px;
     font-weight: 700;
     color: ${theme.dark};
@@ -787,7 +785,7 @@ const styles = `
   .profile-stat:last-child { border-right: none; }
 
   .profile-stat-val {
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-display), serif;
     font-size: 18px;
     font-weight: 700;
     color: ${theme.dark};

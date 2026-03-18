@@ -79,6 +79,21 @@
   margin-top: 1.4rem;
 }
 
+.profile-secondary-btn {
+  border-radius: 999px;
+  border: 1px solid var(--gray-300);
+  background: #ffffff;
+  color: var(--gray-700);
+  font-weight: 700;
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+
+.profile-secondary-btn:hover {
+  border-color: rgba(22, 112, 204, 0.32);
+  background: rgba(22, 112, 204, 0.06);
+  color: var(--blue-dark);
+}
+
 .booking-shell {
   min-height: 100vh;
   padding: 2rem 1rem;
