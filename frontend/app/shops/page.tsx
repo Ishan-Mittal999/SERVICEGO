@@ -17,8 +17,6 @@ import {
   type UserLocation,
 } from "@/lib/location";
 
-type QuickFilter = "all" | "near" | "top" | "offers";
-
 type Service = {
   id: string | number;
   name: string;
@@ -149,8 +147,6 @@ const getServiceKey = (serviceName?: string) => {
   return "default";
 };
 
-const DISCOVERY_PILLS = ["Regular", "Popular", "Express", "Top picks", "New"];
-
 function ShopsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -159,7 +155,6 @@ function ShopsPageContent() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [addressLine, setAddressLine] = useState("");
   const [cartCount, setCartCount] = useState(0);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
@@ -168,12 +163,7 @@ function ShopsPageContent() {
   const [vendorLocations, setVendorLocations] = useState<Record<string, { lat: number; lng: number }>>({});
   const [isResolvingVendors, setIsResolvingVendors] = useState(false);
   const [browseQuery, setBrowseQuery] = useState("");
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [carouselTick, setCarouselTick] = useState(0);
-  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
-  const [draftQuickFilter, setDraftQuickFilter] = useState<QuickFilter>("all");
-  const [draftNearbyOnly, setDraftNearbyOnly] = useState(true);
-  const [draftRadiusKm, setDraftRadiusKm] = useState(15);
 
   const serviceId = searchParams.get("serviceId") || "";
   const radiusOptions = [5, 10, 15, 25, 50];
@@ -275,7 +265,7 @@ function ShopsPageContent() {
   const visibleVendors = useMemo(() => {
     const normalizedQuery = browseQuery.trim().toLowerCase();
 
-    let next = filteredVendors.filter((vendor) => {
+    const next = filteredVendors.filter((vendor) => {
       if (!normalizedQuery) {
         return true;
       }
@@ -284,24 +274,8 @@ function ShopsPageContent() {
       return searchable.includes(normalizedQuery);
     });
 
-    if (quickFilter === "top") {
-      next = [...next].sort((left, right) => toShopRating(right.experience) - toShopRating(left.experience));
-    } else if (quickFilter === "offers") {
-      next = [...next].sort((left, right) => {
-        const leftOffer = typeof left.experience === "number" ? left.experience : 0;
-        const rightOffer = typeof right.experience === "number" ? right.experience : 0;
-        return rightOffer - leftOffer;
-      });
-    } else if (quickFilter === "near") {
-      next = [...next].sort((left, right) => {
-        const leftDistance = vendorDistances[String(left.id)] ?? Number.POSITIVE_INFINITY;
-        const rightDistance = vendorDistances[String(right.id)] ?? Number.POSITIVE_INFINITY;
-        return leftDistance - rightDistance;
-      });
-    }
-
     return next;
-  }, [filteredVendors, browseQuery, quickFilter, vendorDistances]);
+  }, [filteredVendors, browseQuery]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -312,37 +286,6 @@ function ShopsPageContent() {
       window.clearInterval(timer);
     };
   }, []);
-
-  useEffect(() => {
-    if (!isFilterSheetOpen) {
-      return;
-    }
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsFilterSheetOpen(false);
-      }
-    };
-
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [isFilterSheetOpen]);
-
-  useEffect(() => {
-    if (!isFilterSheetOpen) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isFilterSheetOpen]);
 
   const detectAndSaveUserLocation = async () => {
     try {
@@ -461,30 +404,10 @@ function ShopsPageContent() {
       serviceId: String(selectedService.id),
       serviceName: selectedService.name,
       serviceDescription: selectedService.description,
-      addressLine: addressLine.trim(),
+      addressLine: undefined,
     });
 
     router.push(`/shops/${encodeURIComponent(String(vendor.id))}?serviceId=${encodeURIComponent(String(selectedService.id))}`);
-  };
-
-  const openFilterSheet = () => {
-    setDraftQuickFilter(quickFilter);
-    setDraftNearbyOnly(nearbyOnly);
-    setDraftRadiusKm(radiusKm);
-    setIsFilterSheetOpen(true);
-  };
-
-  const applySheetFilters = () => {
-    setQuickFilter(draftQuickFilter);
-    setNearbyOnly(draftNearbyOnly);
-    setRadiusKm(draftRadiusKm);
-    setIsFilterSheetOpen(false);
-  };
-
-  const resetSheetFilters = () => {
-    setDraftQuickFilter("all");
-    setDraftNearbyOnly(false);
-    setDraftRadiusKm(15);
   };
 
   return (
@@ -504,12 +427,11 @@ function ShopsPageContent() {
             <div className="shop-preorder-brand">
               <div className="shop-preorder-avatar" aria-hidden="true">{selectedService?.icon || "S"}</div>
               <div>
-                <strong>Preorder</strong>
-                <p>servicego.works/shops</p>
+                <strong>ServiceGo</strong>
+                <p>Trusted Local Services</p>
               </div>
             </div>
             <div className="shop-preorder-actions">
-              <button type="button" className="shop-preorder-action-icon" aria-label="Notifications">🔔</button>
               <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/checkout")} aria-label="Cart">🛒</button>
               <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/bookings")} aria-label="Recent orders">🕒</button>
               <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/profile")} aria-label="Profile">👤</button>
@@ -520,56 +442,18 @@ function ShopsPageContent() {
             <input
               value={browseQuery}
               onChange={(event) => setBrowseQuery(event.target.value)}
-              placeholder="Search for tasty stuff"
+              placeholder={`Search ${selectedService?.name || "services"}`}
               aria-label="Search shops"
             />
-            <button type="button" onClick={() => setQuickFilter("all")}>search</button>
+            <button type="button" onClick={() => setBrowseQuery((value) => value.trim())}>search</button>
           </div>
 
           <div className="shop-preorder-category">
-            <span>🏫 College Canteens</span>
+            <span>🏬 Verified Service Partners</span>
           </div>
         </section>
 
         <section className="shop-browse-controls">
-          <div className="shop-discovery-tags" aria-label="Quick tags">
-            <button
-              type="button"
-              className="shop-discovery-filter-btn"
-              aria-label="Open filters"
-              onClick={openFilterSheet}
-            >
-              Filters
-            </button>
-            {[
-              { key: "near", label: "Near & Fast" },
-              { key: "top", label: "Top Rated" },
-              { key: "offers", label: "Deals" },
-              { key: "all", label: "New to you" },
-            ].map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                className={`shop-discovery-tag ${quickFilter === item.key ? "active" : ""}`}
-                onClick={() => setQuickFilter(item.key as QuickFilter)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="shop-cuisine-row" aria-label="Discovery categories">
-            {DISCOVERY_PILLS.map((pill, index) => (
-              <button
-                key={pill}
-                type="button"
-                className={`shop-cuisine-pill ${index === 0 ? "active" : ""}`}
-              >
-                {pill}
-              </button>
-            ))}
-          </div>
-
           <div className="shop-classic-filter-row" aria-label="Shop filters">
             <button
               type="button"
@@ -606,13 +490,6 @@ function ShopsPageContent() {
             </select>
           </div>
 
-          <input
-            value={addressLine}
-            onChange={(event) => setAddressLine(event.target.value)}
-            placeholder="Add full address for checkout"
-            className="shop-address-input"
-          />
-
           <p className="shop-controls-note">
             {userLocation
               ? `Current location: ${userLocation.area || userLocation.city || "Detected"}${userLocation.postcode ? ` - ${userLocation.postcode}` : ""}`
@@ -622,7 +499,7 @@ function ShopsPageContent() {
           <p className="shop-controls-note shop-controls-note--muted">
             {isResolvingVendors
               ? "Resolving vendor locations for distance sorting..."
-              : "Address is optional now and can still be edited at checkout."}
+              : "Choose a shop to continue your booking."}
           </p>
         </section>
 
@@ -739,82 +616,6 @@ function ShopsPageContent() {
         )}
       </div>
 
-      {isFilterSheetOpen ? (
-        <div className="shop-filter-sheet-overlay" onClick={() => setIsFilterSheetOpen(false)}>
-          <section
-            className="shop-filter-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Filter shops"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="shop-filter-sheet-handle" aria-hidden="true" />
-            <div className="shop-filter-sheet-head">
-              <h2>Filters</h2>
-              <button type="button" onClick={() => setIsFilterSheetOpen(false)} aria-label="Close filters">
-                Close
-              </button>
-            </div>
-
-            <div className="shop-filter-sheet-section">
-              <p>Sort by</p>
-              <div className="shop-filter-sheet-chip-row">
-                {[
-                  { key: "all", label: "Default" },
-                  { key: "near", label: "Near & Fast" },
-                  { key: "top", label: "Top Rated" },
-                  { key: "offers", label: "Best Deals" },
-                ].map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    className={`shop-filter-sheet-chip ${draftQuickFilter === item.key ? "active" : ""}`}
-                    onClick={() => setDraftQuickFilter(item.key as QuickFilter)}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="shop-filter-sheet-section">
-              <p>Distance</p>
-              <label className="shop-filter-sheet-toggle">
-                <input
-                  type="checkbox"
-                  checked={draftNearbyOnly}
-                  onChange={(event) => setDraftNearbyOnly(event.target.checked)}
-                  disabled={!userLocation}
-                />
-                Nearby only
-              </label>
-
-              <div className="shop-filter-sheet-chip-row">
-                {radiusOptions.map((radius) => (
-                  <button
-                    key={radius}
-                    type="button"
-                    className={`shop-filter-sheet-chip ${draftRadiusKm === radius ? "active" : ""}`}
-                    onClick={() => setDraftRadiusKm(radius)}
-                    disabled={!userLocation}
-                  >
-                    {radius} km
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="shop-filter-sheet-actions">
-              <button type="button" className="shop-filter-sheet-reset" onClick={resetSheetFilters}>
-                Reset
-              </button>
-              <button type="button" className="shop-filter-sheet-apply" onClick={applySheetFilters}>
-                Apply filters
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
     </main>
   );
 }
