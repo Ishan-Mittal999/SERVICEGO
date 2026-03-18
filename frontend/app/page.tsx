@@ -796,6 +796,7 @@ export default function HomePage() {
                     setSearchTerm("");
                     setSubmittedQuery("");
                     setSearchHasRun(false);
+                    router.push("/shops");
                   }}
                   aria-label="Show all services"
                   title="All"
