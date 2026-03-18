@@ -9,6 +9,15 @@ import { mergeBookingDraft } from "@/lib/booking-flow";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { isVendorUser } from "@/lib/user-role";
+import {
+  detectUserLocation,
+  distanceInKm,
+  getVendorLocation,
+  parseCoordinatesFromArea,
+  readUserLocation,
+  writeUserLocation,
+  type UserLocation,
+} from "@/lib/location";
 
 type Service = {
   id: string | number;
@@ -18,6 +27,26 @@ type Service = {
   category?: string;
   tags?: string[];
   keywords?: string[];
+};
+
+type Vendor = {
+  id: string | number;
+  name?: string;
+  area?: string;
+  latitude?: number;
+  longitude?: number;
+  is_active?: boolean;
+  service_id?: string | number;
+  experience?: number;
+};
+
+type NearbyVendor = {
+  id: string | number;
+  name: string;
+  area: string;
+  serviceId: string;
+  distanceKm: number;
+  experience?: number;
 };
 
 const POPULAR_SEARCHES = ["Plumbing", "Electrical", "Cleaning", "AC Repair"];
@@ -74,6 +103,7 @@ export default function HomePage() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [services, setServices] = useState<Service[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [servicesError, setServicesError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -86,6 +116,9 @@ export default function HomePage() {
   const [heroVideoReady, setHeroVideoReady] = useState(false);
   const [heroVideoFailed, setHeroVideoFailed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // ✅ CALL CUSTOM HOOK HERE
   useScrollReveal(services);
@@ -95,18 +128,30 @@ export default function HomePage() {
     
     const fetchServices = async () => {
       try {
-        const res = await fetch(apiUrl("/services"));
-        if (!res.ok) {
-          throw new Error(`Services API failed with ${res.status}`);
+        const [servicesRes, vendorsRes] = await Promise.all([
+          fetch(apiUrl("/services"), { cache: "no-store" }),
+          fetch(apiUrl("/vendors"), { cache: "no-store" }),
+        ]);
+
+        if (!servicesRes.ok) {
+          throw new Error(`Services API failed with ${servicesRes.status}`);
         }
 
-        const data = await res.json();
+        if (!vendorsRes.ok) {
+          throw new Error(`Vendors API failed with ${vendorsRes.status}`);
+        }
 
-        if (!Array.isArray(data)) {
+        const [servicesData, vendorsData] = await Promise.all([
+          servicesRes.json(),
+          vendorsRes.json(),
+        ]);
+
+        if (!Array.isArray(servicesData)) {
           throw new Error("Services API returned invalid response");
         }
 
-        setServices(data);
+        setServices(servicesData);
+        setVendors(Array.isArray(vendorsData) ? vendorsData : []);
         setServicesError(null);
       } catch (err) {
         console.error("Failed to fetch services", err);
@@ -118,6 +163,31 @@ export default function HomePage() {
     
 
     fetchServices();
+  }, []);
+
+  const detectAndSaveUserLocation = async () => {
+    try {
+      setIsDetectingLocation(true);
+      const detected = await detectUserLocation();
+      writeUserLocation(detected);
+      setUserLocation(detected);
+      setLocationError(null);
+    } catch (error) {
+      console.error("Failed to detect location", error);
+      setLocationError("Location unavailable. Showing quick picks.");
+    } finally {
+      setIsDetectingLocation(false);
+    }
+  };
+
+  useEffect(() => {
+    const stored = readUserLocation();
+    if (stored) {
+      setUserLocation(stored);
+      return;
+    }
+
+    detectAndSaveUserLocation();
   }, []);
 
   useEffect(() => {
@@ -265,6 +335,46 @@ export default function HomePage() {
 
   const suggestions = useMemo(() => filteredServices.slice(0, 6), [filteredServices]);
 
+  const nearbyVendors = useMemo(() => {
+    if (!userLocation) {
+      return [] as NearbyVendor[];
+    }
+
+    const resolved = vendors
+      .filter((vendor) => vendor.is_active !== false && vendor.service_id !== undefined && vendor.service_id !== null)
+      .map((vendor) => {
+        const vendorId = String(vendor.id);
+        const directCoords =
+          typeof vendor.latitude === "number" && typeof vendor.longitude === "number"
+            ? { lat: vendor.latitude, lng: vendor.longitude }
+            : null;
+        const cachedLocation = getVendorLocation(vendorId);
+        const cachedCoords = cachedLocation
+          ? { lat: cachedLocation.lat, lng: cachedLocation.lng }
+          : null;
+        const parsedCoords = parseCoordinatesFromArea(vendor.area || "");
+        const coords = directCoords || cachedCoords || parsedCoords;
+
+        if (!coords) {
+          return null;
+        }
+
+        return {
+          id: vendor.id,
+          name: vendor.name || "Shop",
+          area: vendor.area || "Area unavailable",
+          serviceId: String(vendor.service_id),
+          distanceKm: distanceInKm({ lat: userLocation.lat, lng: userLocation.lng }, coords),
+          experience: vendor.experience,
+        } as NearbyVendor;
+      })
+      .filter((vendor): vendor is NearbyVendor => Boolean(vendor))
+      .sort((left, right) => left.distanceKm - right.distanceKm)
+      .slice(0, 6);
+
+    return resolved;
+  }, [vendors, userLocation]);
+
   const openServiceShops = (service: Service) => {
     mergeBookingDraft({
       serviceId: String(service.id),
@@ -316,6 +426,12 @@ export default function HomePage() {
 
   const startBookingFlow = (service: Service) => {
     openServiceShops(service);
+  };
+
+  const openNearbyShop = (vendor: NearbyVendor) => {
+    router.push(
+      `/shops/${encodeURIComponent(String(vendor.id))}?serviceId=${encodeURIComponent(vendor.serviceId)}`
+    );
   };
 
   const userHandle = user?.email?.split("@")[0] || "User";
@@ -460,6 +576,24 @@ export default function HomePage() {
 
         <div className="container">
           <div className="hero-content">
+            <div className="hero-location-row" aria-live="polite">
+              <button
+                type="button"
+                className="hero-location-pill"
+                onClick={detectAndSaveUserLocation}
+              >
+                <span className="hero-location-marker" aria-hidden="true">📍</span>
+                <span className="hero-location-copy">
+                  {isDetectingLocation
+                    ? "Detecting location..."
+                    : userLocation
+                      ? `${userLocation.area || userLocation.city || "Current location"}${userLocation.postcode ? ` - ${userLocation.postcode}` : ""}`
+                      : "Enable location"}
+                </span>
+              </button>
+              <span className="hero-location-hint">{locationError || "Showing nearby shops based on your location."}</span>
+            </div>
+
             <h1>
               Trusted <span className="highlight">Home Services</span>
               <br />
@@ -557,6 +691,38 @@ export default function HomePage() {
                   <span className="checkmark">✔</span>
                   200+ Happy Customers
                 </div>
+
+                <div className="nearby-shop-strip" aria-label="Nearby shops">
+                  <div className="nearby-shop-header">
+                    <span>Shops near you</span>
+                    <button type="button" onClick={() => router.push("/shops")}>See all</button>
+                  </div>
+                  <div className="nearby-shop-list">
+                    {nearbyVendors.length > 0 ? (
+                      nearbyVendors.map((vendor) => (
+                        <button
+                          key={String(vendor.id)}
+                          type="button"
+                          className="nearby-shop-card"
+                          onClick={() => openNearbyShop(vendor)}
+                        >
+                          <div className="nearby-shop-avatar" aria-hidden="true">🏪</div>
+                          <div className="nearby-shop-info">
+                            <span className="nearby-shop-name">{vendor.name}</span>
+                            {vendor.experience && (
+                              <span className="nearby-shop-badge">{vendor.experience}+ yrs</span>
+                            )}
+                          </div>
+                          <div className="nearby-shop-distance">{vendor.distanceKm.toFixed(1)} km</div>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="nearby-shop-empty">
+                        {userLocation ? "No nearby shops found yet." : "Allow location to see nearby shops."}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <aside className="hero-ad-card" aria-label="ServiceGo promo video">
@@ -622,24 +788,36 @@ export default function HomePage() {
                 No services matched "{submittedQuery || searchTerm.trim()}". Try keywords like Plumbing, Cleaning, or AC.
               </p>
             ) : (
-              filteredServices.map((service) => (
-                <div
-                  key={service.id}
-                  className={`service-card animate-on-scroll ${searchHasRun ? "visible" : ""}`}
+              <>
+                <button
+                  type="button"
+                  className={`service-card service-card--icon animate-on-scroll ${searchHasRun ? "visible" : ""}`}
+                  onClick={() => {
+                    setSearchTerm("");
+                    setSubmittedQuery("");
+                    setSearchHasRun(false);
+                  }}
+                  aria-label="Show all services"
+                  title="All"
                 >
-                  <div className="service-icon">
-                    {service.icon}
-                  </div>
-                  <h3>{service.name}</h3>
-                  <p>{service.description}</p>
+                  <div className="service-icon" aria-hidden="true">✨</div>
+                </button>
+
+                {filteredServices.map((service) => (
                   <button
-                    className="btn-book"
+                    key={service.id}
+                    type="button"
+                    className={`service-card service-card--icon animate-on-scroll ${searchHasRun ? "visible" : ""}`}
                     onClick={() => startBookingFlow(service)}
+                    aria-label={service.name}
+                    title={service.name}
                   >
-                    View Shops
+                    <div className="service-icon" aria-hidden="true">
+                      {service.icon || "🛠️"}
+                    </div>
                   </button>
-                </div>
-              ))
+                ))}
+              </>
             )}
             
           </div>

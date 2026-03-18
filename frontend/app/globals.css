@@ -1377,6 +1377,44 @@ input, select, textarea { font-family: var(--font-body); }
   animation: fadeInUp 0.8s var(--ease-out);
 }
 
+.hero-location-row {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: var(--space-lg);
+  max-width: 560px;
+}
+
+.hero-location-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  background: rgba(255, 255, 255, 0.16);
+  padding: 0.52rem 0.85rem;
+  color: var(--white);
+  font-size: 0.88rem;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+}
+
+.hero-location-marker {
+  font-size: 0.95rem;
+}
+
+.hero-location-copy {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hero-location-hint {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.78rem;
+}
+
 .hero h1 {
   font-family: var(--font-display);
   font-size: 3.4rem;
@@ -1643,6 +1681,110 @@ input, select, textarea { font-family: var(--font-body); }
   font-size: 1.1rem;
 }
 
+.nearby-shop-strip {
+  margin-top: var(--space-lg);
+  max-width: 560px;
+}
+
+.nearby-shop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.nearby-shop-header button {
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--white);
+  border-radius: 999px;
+  padding: 0.34rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.nearby-shop-list {
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: thin;
+}
+
+.nearby-shop-card {
+  min-width: 145px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--white);
+  text-align: left;
+  padding: 0.75rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.55rem;
+  align-items: flex-start;
+  backdrop-filter: blur(8px);
+  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.nearby-shop-card:hover {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.38);
+  transform: translateY(-2px);
+}
+
+.nearby-shop-avatar {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.nearby-shop-info {
+  display: grid;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.nearby-shop-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nearby-shop-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgba(255, 255, 0, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.nearby-shop-distance {
+  font-size: 0.73rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.nearby-shop-empty {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.8rem;
+}
+
 /* ============================================
    TRUST BAR
    ============================================ */
@@ -1686,9 +1828,12 @@ input, select, textarea { font-family: var(--font-body); }
 }
 
 .services-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-lg);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  scrollbar-width: thin;
 }
 
 .search-results-meta {
@@ -1701,11 +1846,12 @@ input, select, textarea { font-family: var(--font-body); }
 .service-card {
   background: var(--white);
   border-radius: var(--radius-lg);
-  padding: var(--space-xl);
+  padding: 0.55rem;
   text-align: center;
   border: 1px solid var(--gray-200);
   transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
   cursor: pointer;
+  flex: 0 0 auto;
 }
 
 .service-card:hover {
@@ -1715,9 +1861,9 @@ input, select, textarea { font-family: var(--font-body); }
 }
 
 .service-card .service-icon {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto var(--space-md);
+  width: 52px;
+  height: 52px;
+  margin: 0;
   background: var(--gold-bg);
   border-radius: var(--radius-md);
   display: flex;
@@ -1725,6 +1871,10 @@ input, select, textarea { font-family: var(--font-body); }
   justify-content: center;
   font-size: 1.6rem;
   transition: transform var(--transition-fast);
+}
+
+.service-card--icon {
+  border-radius: 14px;
 }
 
 .service-card:hover .service-icon {
@@ -2698,7 +2848,7 @@ input, select, textarea { font-family: var(--font-body); }
    RESPONSIVE
    ============================================ */
 @media (max-width: 1024px) {
-  .services-grid { grid-template-columns: repeat(3, 1fr); }
+  .services-grid { gap: 0.7rem; }
   .usp-grid { grid-template-columns: repeat(2, 1fr); }
   .footer-top { grid-template-columns: 1fr 1fr; gap: var(--space-xl); }
 
@@ -2739,13 +2889,17 @@ input, select, textarea { font-family: var(--font-body); }
   .hero h1 { font-size: 2.2rem; }
   .hero p { font-size: 1rem; }
   .hero-search-row { max-width: none; }
-  .hero-search { flex-direction: column; }
-  .hero-search input { padding: 14px 16px; }
-  .hero-search button { padding: 14px; }
+  .hero-search { flex-direction: row; }
+  .hero-search input { padding: 0.74rem 0.82rem; }
+  .hero-search button { padding: 0.74rem 0.95rem; }
+  .hero-search .hero-search-clear {
+    margin-right: 0;
+    padding: 0.65rem 0.72rem;
+  }
   .hero-ad-video { height: 190px; }
 
   /* Grids */
-  .services-grid { grid-template-columns: repeat(2, 1fr); }
+  .services-grid { gap: 0.65rem; }
   .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
   .pricing-card.featured { transform: none; }
   .pricing-card.featured:hover { transform: translateY(-6px); }
@@ -2849,23 +3003,27 @@ input, select, textarea { font-family: var(--font-body); }
   }
 
   .hero-search {
-    gap: 8px;
-    padding: 10px;
+    gap: 0.5rem;
+    padding: 0.45rem;
+    align-items: center;
   }
 
-  .hero-search input,
-  .hero-search button,
+  .hero-search input {
+    min-width: 0;
+    padding: 0.72rem 0.8rem;
+  }
+
   .hero-search .hero-search-clear {
-    width: 100%;
+    width: auto;
+    order: 1;
     margin-right: 0;
-  }
-
-  .hero-search .hero-search-clear {
-    order: 2;
+    padding: 0.62rem 0.64rem;
   }
 
   .hero-search button {
-    order: 3;
+    width: auto;
+    order: 2;
+    padding: 0.72rem 0.88rem;
   }
 
   .search-suggestions {
@@ -2873,8 +3031,7 @@ input, select, textarea { font-family: var(--font-body); }
   }
 
   .hero-ad-card {
-    max-width: none;
-    transform: none;
+    display: none;
   }
 
   .hero-ad-video,
@@ -2889,18 +3046,66 @@ input, select, textarea { font-family: var(--font-body); }
   }
 
   .hero h1 {
-    font-size: 1.7rem;
-    line-height: 1.22;
+    font-size: 2.15rem;
+    line-height: 1.14;
   }
 
   .hero p {
-    font-size: 0.95rem;
-    line-height: 1.55;
+    font-size: 1.06rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
   }
 
   .hero-ad-video,
   .hero-ad-poster {
     height: 170px;
+  }
+
+  .hero-location-row {
+    margin-bottom: 0.9rem;
+  }
+
+  .hero-location-pill {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .hero-search {
+    margin-bottom: 0.8rem;
+  }
+
+  .hero-search button {
+    min-width: 84px;
+  }
+
+  .nearby-shop-card {
+    min-width: 138px;
+    padding: 0.68rem;
+    gap: 0.48rem;
+  }
+
+  .nearby-shop-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+  }
+
+  .nearby-shop-name {
+    font-size: 0.8rem;
+  }
+
+  .nearby-shop-badge {
+    font-size: 0.66rem;
+  }
+
+  .nearby-shop-distance {
+    font-size: 0.7rem;
+  }
+
+  .service-card .service-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 1.45rem;
   }
 
   .search-helper-text {
