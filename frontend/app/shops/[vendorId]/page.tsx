@@ -10,6 +10,7 @@ import {
   getCartTotal,
   initializeShopCart,
   readShopCart,
+  updateCartItemQuantity,
   type ShopCart,
 } from "@/lib/shop-cart";
 
@@ -157,6 +158,29 @@ export default function ShopDetailPage() {
     refreshCart();
   };
 
+  const goBackToVendorSelection = () => {
+    const query = serviceId ? `?serviceId=${encodeURIComponent(String(serviceId))}` : "";
+    router.push(`/shops${query}`);
+  };
+
+  const itemQuantities = useMemo(() => {
+    const quantities: Record<string, number> = {};
+    cart?.items.forEach((entry) => {
+      quantities[entry.id] = entry.quantity;
+    });
+    return quantities;
+  }, [cart]);
+
+  const decreaseItemQuantity = (itemId: string) => {
+    const existingQuantity = itemQuantities[itemId] ?? 0;
+    if (existingQuantity <= 0) {
+      return;
+    }
+
+    updateCartItemQuantity(itemId, existingQuantity - 1);
+    refreshCart();
+  };
+
   const cartCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   const cartTotal = getCartTotal(cart);
 
@@ -198,48 +222,134 @@ export default function ShopDetailPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => router.push("/checkout")}
-            style={{
-              borderRadius: "999px",
-              border: "1px solid rgba(122,106,0,0.25)",
-              background: "var(--white)",
-              color: "var(--gold)",
-              fontWeight: 700,
-              padding: "0.62rem 1rem",
-              cursor: "pointer",
-            }}
-          >
-            Cart ({cartCount})
-          </button>
+          <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => router.push("/checkout")}
+              style={{
+                borderRadius: "999px",
+                border: "1px solid rgba(122,106,0,0.25)",
+                background: "var(--white)",
+                color: "var(--gold)",
+                fontWeight: 700,
+                padding: "0.62rem 1rem",
+                cursor: "pointer",
+              }}
+            >
+              Cart ({cartCount})
+            </button>
+            <button
+              type="button"
+              onClick={goBackToVendorSelection}
+              style={{
+                border: "1px solid var(--gray-300)",
+                background: "var(--white)",
+                color: "var(--gray-700)",
+                borderRadius: "999px",
+                padding: "0.62rem 1rem",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Back to Vendor Selection
+            </button>
+          </div>
         </div>
 
         <section style={{ marginTop: "1rem", display: "grid", gap: "0.75rem" }}>
           {menuItems.map((item) => (
-            <article
-              className="shop-menu-card"
-              key={item.id}
-              style={{
-                background: "var(--white)",
-                border: "1px solid var(--gray-200)",
-                borderRadius: "14px",
-                padding: "1rem",
-                display: "grid",
-                gridTemplateColumns: "1fr auto",
-                gap: "0.8rem",
-                alignItems: "center",
-              }}
-            >
-              <div>
-                <h3 style={{ margin: 0, color: "var(--gray-800)" }}>{item.name}</h3>
-                <p style={{ margin: "0.3rem 0", color: "var(--gray-500)", fontSize: "0.9rem" }}>{item.description}</p>
-                <strong style={{ color: "var(--gray-800)" }}>{formatPrice(item.price)}</strong>
-              </div>
-              <button className="btn-book" type="button" onClick={() => addToCart(item)}>
-                Add
-              </button>
-            </article>
+            (() => {
+              const itemQuantity = itemQuantities[item.id] ?? 0;
+
+              return (
+                <article
+                  className="shop-menu-card"
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => addToCart(item)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      addToCart(item);
+                    }
+                  }}
+                  style={{
+                    background: "var(--white)",
+                    border: "1px solid var(--gray-200)",
+                    borderRadius: "14px",
+                    padding: "1rem",
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto",
+                    gap: "0.8rem",
+                    alignItems: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div>
+                    <h3 style={{ margin: 0, color: "var(--gray-800)" }}>{item.name}</h3>
+                    <p style={{ margin: "0.3rem 0", color: "var(--gray-500)", fontSize: "0.9rem" }}>{item.description}</p>
+                    <strong style={{ color: "var(--gray-800)" }}>{formatPrice(item.price)}</strong>
+                  </div>
+
+                  {itemQuantity > 0 ? (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          decreaseItemQuantity(item.id);
+                        }}
+                        style={{
+                          width: "2rem",
+                          height: "2rem",
+                          borderRadius: "999px",
+                          border: "1px solid var(--gray-300)",
+                          background: "var(--white)",
+                          color: "var(--gray-700)",
+                          fontSize: "1rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                        aria-label={`Decrease ${item.name}`}
+                      >
+                        -
+                      </button>
+
+                      <span style={{ minWidth: "1.25rem", textAlign: "center", color: "var(--gray-800)", fontWeight: 700 }}>
+                        {itemQuantity}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          addToCart(item);
+                        }}
+                        style={{
+                          width: "2rem",
+                          height: "2rem",
+                          borderRadius: "999px",
+                          border: "1px solid rgba(122,106,0,0.28)",
+                          background: "var(--white)",
+                          color: "var(--gold)",
+                          fontSize: "1rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                        aria-label={`Increase ${item.name}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    <span aria-hidden="true" style={{ color: "var(--gold)", fontWeight: 700 }}>
+                      Add
+                    </span>
+                  )}
+                </article>
+              );
+            })()
           ))}
         </section>
       </div>

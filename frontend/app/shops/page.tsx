@@ -435,15 +435,24 @@ function ShopsPageContent() {
                 <article
                   className="shop-list-card"
                   key={String(vendor.id)}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openShop(vendor)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openShop(vendor);
+                    }
+                  }}
                   style={{
                     background: "var(--white)",
                     border: "1px solid var(--gray-200)",
                     borderRadius: "14px",
                     padding: "1rem",
                     display: "grid",
-                    gridTemplateColumns: "1fr auto",
                     gap: "0.8rem",
                     alignItems: "center",
+                    cursor: "pointer",
                   }}
                 >
                   <div>
@@ -460,14 +469,6 @@ function ShopsPageContent() {
                       {typeof vendor.experience === "number" ? `${vendor.experience}+ years experience` : "Experienced professional team"}
                     </p>
                   </div>
-
-                  <button
-                    type="button"
-                    className="btn-book"
-                    onClick={() => openShop(vendor)}
-                  >
-                    Open Shop
-                  </button>
                 </article>
               ))
             )}
