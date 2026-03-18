@@ -498,73 +498,40 @@ function ShopsPageContent() {
       }}
     >
       <div className="container" style={{ maxWidth: "980px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
-          <div>
-            <p style={{ margin: 0, color: "var(--gray-500)", fontSize: "0.86rem", fontWeight: 700 }}>
-              Browse shops
-            </p>
-            <h1 style={{ marginTop: "0.35rem", marginBottom: "0.25rem", fontFamily: "var(--font-display)", color: "var(--gray-800)" }}>
-              {selectedService ? `${selectedService.name} shops` : "Service shops"}
-            </h1>
-            <p style={{ margin: 0, color: "var(--gray-500)" }}>
-              Browse all active shops, or filter nearby using your saved location.
-            </p>
+        <section className="shop-preorder-hero">
+          <div className="shop-preorder-topbar">
+            <button type="button" className="shop-preorder-close" onClick={() => router.push("/")}>✕</button>
+            <div className="shop-preorder-brand">
+              <div className="shop-preorder-avatar" aria-hidden="true">{selectedService?.icon || "S"}</div>
+              <div>
+                <strong>Preorder</strong>
+                <p>servicego.works/shops</p>
+              </div>
+            </div>
+            <div className="shop-preorder-actions">
+              <button type="button" className="shop-preorder-action-icon" aria-label="Notifications">🔔</button>
+              <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/checkout")} aria-label="Cart">🛒</button>
+              <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/bookings")} aria-label="Recent orders">🕒</button>
+              <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/profile")} aria-label="Profile">👤</button>
+            </div>
           </div>
 
-          <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={() => router.push("/checkout")}
-              style={{
-                border: "1px solid rgba(122, 106, 0, 0.24)",
-                background: "var(--white)",
-                color: "var(--gold)",
-                borderRadius: "999px",
-                padding: "0.58rem 1rem",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              Cart ({cartCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              style={{
-                border: "1px solid var(--gray-300)",
-                background: "var(--white)",
-                color: "var(--gray-700)",
-                borderRadius: "999px",
-                padding: "0.58rem 1rem",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Back to Home
-            </button>
-          </div>
-        </div>
-
-        <section className="shop-browse-controls">
-          <div className="shop-discovery-top" aria-label="Discover shops">
-            <button
-              type="button"
-              className="shop-discovery-icon shop-discovery-icon--nav"
-              onClick={() => router.push("/")}
-              aria-label="Back"
-            >
-              <span aria-hidden="true">&lt;</span>
-            </button>
+          <div className="shop-preorder-search-row">
             <input
               value={browseQuery}
               onChange={(event) => setBrowseQuery(event.target.value)}
-              placeholder={`Search ${selectedService?.name || "shops"}`}
-              className="shop-discovery-input"
+              placeholder="Search for tasty stuff"
               aria-label="Search shops"
             />
-            <span className="shop-discovery-icon shop-discovery-icon--mic" aria-hidden="true">o</span>
+            <button type="button" onClick={() => setQuickFilter("all")}>search</button>
           </div>
 
+          <div className="shop-preorder-category">
+            <span>🏫 College Canteens</span>
+          </div>
+        </section>
+
+        <section className="shop-browse-controls">
           <div className="shop-discovery-tags" aria-label="Quick tags">
             <button
               type="button"
@@ -603,38 +570,40 @@ function ShopsPageContent() {
             ))}
           </div>
 
-          <div className="shop-chip-row" aria-label="Shop filters">
+          <div className="shop-classic-filter-row" aria-label="Shop filters">
             <button
               type="button"
               onClick={detectAndSaveUserLocation}
-              className="shop-filter-chip shop-filter-chip--outline"
+              className="shop-classic-detect"
             >
-              {isDetectingLocation ? "Detecting..." : userLocation ? "Update location" : "Use location"}
+              {isDetectingLocation ? "Detecting location..." : userLocation ? "Update location" : "Use location"}
             </button>
 
-            <button
-              type="button"
-              className={`shop-filter-chip ${nearbyOnly ? "active" : ""}`}
-              onClick={() => setNearbyOnly((value) => !value)}
-              disabled={!userLocation}
-            >
-              Near & Fast
-            </button>
-
-            {radiusOptions.map((radius) => (
-              <button
-                key={radius}
-                type="button"
-                className={`shop-filter-chip ${nearbyOnly && radiusKm === radius ? "active" : ""}`}
-                onClick={() => {
-                  setRadiusKm(radius);
-                  setNearbyOnly(true);
-                }}
+            <label className="shop-classic-nearby">
+              <input
+                type="checkbox"
+                checked={nearbyOnly}
+                onChange={(event) => setNearbyOnly(event.target.checked)}
                 disabled={!userLocation}
-              >
-                {radius <= 10 ? `Within ${radius} km` : `${radius} km radius`}
-              </button>
-            ))}
+              />
+              Nearby only
+            </label>
+
+            <select
+              value={radiusKm}
+              onChange={(event) => {
+                setRadiusKm(Number(event.target.value));
+                setNearbyOnly(true);
+              }}
+              disabled={!userLocation || !nearbyOnly}
+              className="shop-classic-radius"
+            >
+              {radiusOptions.map((radius) => (
+                <option key={radius} value={radius}>
+                  Within {radius} km
+                </option>
+              ))}
+            </select>
           </div>
 
           <input
