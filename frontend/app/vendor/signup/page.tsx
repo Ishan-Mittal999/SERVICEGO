@@ -50,64 +50,22 @@ export default function VendorSignup() {
 	};
 
 	return (
-		<div
-			style={{
-				minHeight: "100vh",
-				display: "grid",
-				placeItems: "center",
-				padding: "2rem 1rem",
-				background:
-					"radial-gradient(circle at 82% 18%, rgba(122,106,0,0.14), transparent 40%), radial-gradient(circle at 14% 12%, rgba(30,144,255,0.12), transparent 34%), var(--off-white)",
-			}}
-		>
-			<div
-				style={{
-					width: "100%",
-					maxWidth: "500px",
-					background: "var(--white)",
-					borderRadius: "18px",
-					boxShadow: "var(--shadow-lg)",
-					border: "1px solid var(--gray-200)",
-					padding: "1.5rem",
-				}}
-			>
+		<div className="auth-shell auth-shell--alt">
+			<div className="auth-card">
 				<button
 					onClick={() => router.push("/")}
-					style={{
-						border: "none",
-						background: "transparent",
-						color: "var(--gray-500)",
-						fontSize: "0.9rem",
-						padding: 0,
-						marginBottom: "1rem",
-					}}
+					className="auth-back-link"
 				>
 					{"<- Back to Home"}
 				</button>
 
-				<h1
-					style={{
-						fontFamily: "var(--font-display)",
-						fontSize: "2rem",
-						lineHeight: 1.1,
-						color: "var(--gray-800)",
-						margin: 0,
-					}}
-				>
-					Vendor Signup
-				</h1>
-				<p
-					style={{
-						marginTop: "0.6rem",
-						color: "var(--gray-500)",
-						fontSize: "0.95rem",
-					}}
-				>
+				<h1 className="auth-title">Vendor Signup</h1>
+				<p className="auth-subtitle">
 					Create your vendor account and start receiving bookings.
 				</p>
 
-				<form onSubmit={signup} style={{ marginTop: "1.4rem" }}>
-					<label style={{ fontSize: "0.88rem", color: "var(--gray-600)" }}>
+				<form onSubmit={signup} className="auth-form">
+					<label className="auth-label">
 						Full Name
 					</label>
 					<input
@@ -115,19 +73,10 @@ export default function VendorSignup() {
 						value={name}
 						onChange={(e) => setName(e.target.value)}
 						required
-						style={{
-							width: "100%",
-							marginTop: "0.45rem",
-							marginBottom: "0.9rem",
-							padding: "0.78rem 0.9rem",
-							borderRadius: "10px",
-							border: "1px solid var(--gray-300)",
-							outline: "none",
-							background: "var(--gray-50)",
-						}}
+						className="auth-input auth-input--spaced"
 					/>
 
-					<label style={{ fontSize: "0.88rem", color: "var(--gray-600)" }}>
+					<label className="auth-label">
 						Phone
 					</label>
 					<input
@@ -135,19 +84,10 @@ export default function VendorSignup() {
 						value={phone}
 						onChange={(e) => setPhone(e.target.value)}
 						required
-						style={{
-							width: "100%",
-							marginTop: "0.45rem",
-							marginBottom: "0.9rem",
-							padding: "0.78rem 0.9rem",
-							borderRadius: "10px",
-							border: "1px solid var(--gray-300)",
-							outline: "none",
-							background: "var(--gray-50)",
-						}}
+						className="auth-input auth-input--spaced"
 					/>
 
-					<label style={{ fontSize: "0.88rem", color: "var(--gray-600)" }}>
+					<label className="auth-label">
 						Email
 					</label>
 					<input
@@ -156,19 +96,10 @@ export default function VendorSignup() {
 						value={email}
 						onChange={(e) => setEmail(e.target.value)}
 						required
-						style={{
-							width: "100%",
-							marginTop: "0.45rem",
-							marginBottom: "0.9rem",
-							padding: "0.78rem 0.9rem",
-							borderRadius: "10px",
-							border: "1px solid var(--gray-300)",
-							outline: "none",
-							background: "var(--gray-50)",
-						}}
+						className="auth-input auth-input--spaced"
 					/>
 
-					<label style={{ fontSize: "0.88rem", color: "var(--gray-600)" }}>
+					<label className="auth-label">
 						Password
 					</label>
 					<input
@@ -177,15 +108,7 @@ export default function VendorSignup() {
 						value={password}
 						onChange={(e) => setPassword(e.target.value)}
 						required
-						style={{
-							width: "100%",
-							marginTop: "0.45rem",
-							padding: "0.78rem 0.9rem",
-							borderRadius: "10px",
-							border: "1px solid var(--gray-300)",
-							outline: "none",
-							background: "var(--gray-50)",
-						}}
+						className="auth-input"
 					/>
 
 					{errorMessage ? (
@@ -197,34 +120,17 @@ export default function VendorSignup() {
 					<button
 						type="submit"
 						disabled={isSubmitting}
-						style={{
-							width: "100%",
-							marginTop: "1rem",
-							padding: "0.86rem 1rem",
-							borderRadius: "999px",
-							border: "none",
-							background: "linear-gradient(135deg, var(--gold), var(--gold-light))",
-							color: "var(--white)",
-							fontWeight: 700,
-							boxShadow: "var(--shadow-gold)",
-							opacity: isSubmitting ? 0.8 : 1,
-						}}
+						className="auth-primary-btn"
+						style={{ opacity: isSubmitting ? 0.8 : 1 }}
 					>
 						{isSubmitting ? "Creating account..." : "Create Vendor Account"}
 					</button>
 				</form>
 
-				<p
-					style={{
-						marginTop: "1rem",
-						fontSize: "0.9rem",
-						color: "var(--gray-500)",
-						textAlign: "center",
-					}}
-				>
+				<p className="auth-footer">
 					Already have a vendor account?{" "}
 					<span
-						style={{ color: "var(--gold)", fontWeight: 700, cursor: "pointer" }}
+						className="auth-link"
 						onClick={() => router.push("/vendor/login")}
 					>
 						Login

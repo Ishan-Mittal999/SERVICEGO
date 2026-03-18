@@ -119,94 +119,42 @@ export default function VendorOnboardingPage() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        padding: "2rem 1rem",
-        background:
-          "radial-gradient(circle at 82% 18%, rgba(122,106,0,0.14), transparent 40%), radial-gradient(circle at 14% 12%, rgba(30,144,255,0.12), transparent 34%), var(--off-white)",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "560px",
-          background: "var(--white)",
-          borderRadius: "18px",
-          boxShadow: "var(--shadow-lg)",
-          border: "1px solid var(--gray-200)",
-          padding: "1.5rem",
-        }}
-      >
-        <h1
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "2rem",
-            color: "var(--gray-800)",
-            margin: 0,
-          }}
-        >
-          Complete Vendor Profile
-        </h1>
-        <p style={{ marginTop: "0.6rem", color: "var(--gray-500)" }}>
+    <div className="auth-shell auth-shell--alt">
+      <div className="auth-card" style={{ maxWidth: "560px" }}>
+        <h1 className="auth-title">Complete Vendor Profile</h1>
+        <p className="auth-subtitle">
           Add your shop details before entering dashboard.
         </p>
 
-        <form onSubmit={saveVendorProfile} style={{ marginTop: "1.2rem" }}>
-          <label style={{ fontSize: "0.88rem", color: "var(--gray-600)" }}>
+        <form onSubmit={saveVendorProfile} className="auth-form" style={{ marginTop: "1.2rem" }}>
+          <label className="auth-label">
             Shop Name
           </label>
           <input
             value={shopName}
             onChange={(e) => setShopName(e.target.value)}
             required
-            style={{
-              width: "100%",
-              marginTop: "0.45rem",
-              marginBottom: "0.9rem",
-              padding: "0.78rem 0.9rem",
-              borderRadius: "10px",
-              border: "1px solid var(--gray-300)",
-              background: "var(--gray-50)",
-            }}
+            className="auth-input auth-input--spaced"
           />
 
-          <label style={{ fontSize: "0.88rem", color: "var(--gray-600)" }}>
+          <label className="auth-label">
             Phone
           </label>
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             required
-            style={{
-              width: "100%",
-              marginTop: "0.45rem",
-              marginBottom: "0.9rem",
-              padding: "0.78rem 0.9rem",
-              borderRadius: "10px",
-              border: "1px solid var(--gray-300)",
-              background: "var(--gray-50)",
-            }}
+            className="auth-input auth-input--spaced"
           />
 
-          <label style={{ fontSize: "0.88rem", color: "var(--gray-600)" }}>
+          <label className="auth-label">
             Service Category
           </label>
           <select
             value={serviceId}
             onChange={(e) => setServiceId(e.target.value)}
             required
-            style={{
-              width: "100%",
-              marginTop: "0.45rem",
-              marginBottom: "0.9rem",
-              padding: "0.78rem 0.9rem",
-              borderRadius: "10px",
-              border: "1px solid var(--gray-300)",
-              background: "var(--gray-50)",
-            }}
+            className="auth-select auth-select--spaced"
           >
             {services.map((service) => (
               <option key={service.id} value={service.id}>
@@ -215,7 +163,7 @@ export default function VendorOnboardingPage() {
             ))}
           </select>
 
-          <label style={{ fontSize: "0.88rem", color: "var(--gray-600)" }}>
+          <label className="auth-label">
             Experience (years)
           </label>
           <input
@@ -225,18 +173,10 @@ export default function VendorOnboardingPage() {
             value={experience}
             onChange={(e) => setExperience(e.target.value)}
             required
-            style={{
-              width: "100%",
-              marginTop: "0.45rem",
-              marginBottom: "0.9rem",
-              padding: "0.78rem 0.9rem",
-              borderRadius: "10px",
-              border: "1px solid var(--gray-300)",
-              background: "var(--gray-50)",
-            }}
+            className="auth-input auth-input--spaced"
           />
 
-          <label style={{ fontSize: "0.88rem", color: "var(--gray-600)" }}>
+          <label className="auth-label">
             Shop Area / Location
           </label>
           <input
@@ -244,27 +184,17 @@ export default function VendorOnboardingPage() {
             onChange={(e) => setArea(e.target.value)}
             placeholder="Area, city, or coordinates"
             required
-            style={{
-              width: "100%",
-              marginTop: "0.45rem",
-              padding: "0.78rem 0.9rem",
-              borderRadius: "10px",
-              border: "1px solid var(--gray-300)",
-              background: "var(--gray-50)",
-            }}
+            className="auth-input"
           />
 
           <button
             type="button"
             onClick={useCurrentLocation}
+            className="auth-secondary-btn"
             style={{
               marginTop: "0.65rem",
-              padding: "0.6rem 0.9rem",
-              borderRadius: "10px",
-              border: "1px solid var(--gray-300)",
-              background: "var(--white)",
-              color: "var(--gray-700)",
-              fontWeight: 600,
+              width: "auto",
+              padding: "0.6rem 0.95rem",
             }}
           >
             {isGettingLocation ? "Fetching location..." : "Use Current Location"}
@@ -279,18 +209,8 @@ export default function VendorOnboardingPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            style={{
-              width: "100%",
-              marginTop: "1rem",
-              padding: "0.86rem 1rem",
-              borderRadius: "999px",
-              border: "none",
-              background: "linear-gradient(135deg, var(--gold), var(--gold-light))",
-              color: "var(--white)",
-              fontWeight: 700,
-              boxShadow: "var(--shadow-gold)",
-              opacity: isSubmitting ? 0.8 : 1,
-            }}
+            className="auth-primary-btn"
+            style={{ opacity: isSubmitting ? 0.8 : 1 }}
           >
             {isSubmitting ? "Saving profile..." : "Save & Continue"}
           </button>
