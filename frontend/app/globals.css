@@ -2798,6 +2798,116 @@ input, select, textarea { font-family: var(--font-body); }
   .popular-tags span { font-size: 0.78rem; padding: 5px 12px; }
 }
 
+@media (max-width: 768px) {
+  .landing .navbar .container {
+    height: 66px;
+  }
+
+  .landing .navbar-logo {
+    font-size: 1.2rem;
+  }
+
+  .landing .navbar-logo .logo-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .nav-links {
+    top: 66px;
+    max-height: calc(100vh - 66px);
+    overflow-y: auto;
+  }
+
+  .nav-links a,
+  .nav-links .profile-nav-button {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .nav-links .nav-cta {
+    display: inline-flex;
+    justify-content: center;
+  }
+
+  .hero {
+    min-height: auto;
+    padding-top: 66px;
+  }
+
+  .hero .container {
+    padding-top: var(--space-2xl);
+    padding-bottom: var(--space-2xl);
+  }
+
+  .hero-content {
+    max-width: 100%;
+  }
+
+  .hero p {
+    max-width: 100%;
+  }
+
+  .hero-search {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .hero-search input,
+  .hero-search button,
+  .hero-search .hero-search-clear {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .hero-search .hero-search-clear {
+    order: 2;
+  }
+
+  .hero-search button {
+    order: 3;
+  }
+
+  .search-suggestions {
+    max-width: 100%;
+  }
+
+  .hero-ad-card {
+    max-width: none;
+    transform: none;
+  }
+
+  .hero-ad-video,
+  .hero-ad-poster {
+    height: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero {
+    padding-top: 64px;
+  }
+
+  .hero h1 {
+    font-size: 1.7rem;
+    line-height: 1.22;
+  }
+
+  .hero p {
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+
+  .hero-ad-video,
+  .hero-ad-poster {
+    height: 170px;
+  }
+
+  .search-helper-text {
+    font-size: 0.82rem;
+  }
+}
+
 
 .modal-overlay {
   position: fixed;  /* VERY IMPORTANT */

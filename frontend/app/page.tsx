@@ -85,6 +85,7 @@ export default function HomePage() {
   const [enableHeroVideo, setEnableHeroVideo] = useState(false);
   const [heroVideoReady, setHeroVideoReady] = useState(false);
   const [heroVideoFailed, setHeroVideoFailed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // ✅ CALL CUSTOM HOOK HERE
   useScrollReveal(services);
@@ -319,25 +320,41 @@ export default function HomePage() {
 
   const userHandle = user?.email?.split("@")[0] || "User";
   const profileInitial = userHandle.charAt(0).toUpperCase();
+  const closeMobileNav = () => setMobileNavOpen(false);
 
   return (
     <div className="landing">
       {/* NAVBAR */}
       <header className="navbar">
         <div className="container">
-          <Link href="/" className="navbar-logo" aria-label="Go to homepage">
+          <Link href="/" className="navbar-logo" aria-label="Go to homepage" onClick={closeMobileNav}>
             <img src="/logo.png" alt="ServiceGo" className="logo-icon" />
             <span>ServiceGo</span>
           </Link>
 
-          <nav className="nav-links">
-  <a href="#services">Services</a>
-  <a href="#how">How It Works</a>
+          <button
+            type="button"
+            className={mobileNavOpen ? "hamburger active" : "hamburger"}
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileNavOpen}
+            onClick={() => setMobileNavOpen((value) => !value)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+
+          <nav className={mobileNavOpen ? "nav-links active" : "nav-links"}>
+  <a href="#services" onClick={closeMobileNav}>Services</a>
+  <a href="#how" onClick={closeMobileNav}>How It Works</a>
 
   {!user ? (
     <>
       <a
-        onClick={() => router.push("/auth/login")}
+        onClick={() => {
+          closeMobileNav();
+          router.push("/auth/login");
+        }}
         style={{ cursor: "pointer" }}
       >
         Login
@@ -345,7 +362,10 @@ export default function HomePage() {
 
       <a
         className="nav-cta"
-        onClick={() => router.push("/auth/signup")}
+        onClick={() => {
+          closeMobileNav();
+          router.push("/auth/signup");
+        }}
         style={{ cursor: "pointer" }}
       >
         Sign Up
@@ -355,7 +375,10 @@ export default function HomePage() {
     <>
       <a
         className="nav-cta"
-        onClick={() => router.push("/vendor/dashboard")}
+        onClick={() => {
+          closeMobileNav();
+          router.push("/vendor/dashboard");
+        }}
         style={{ cursor: "pointer" }}
       >
         Vendor Dashboard
@@ -364,7 +387,10 @@ export default function HomePage() {
       <button
         type="button"
         className="profile-nav-button"
-        onClick={() => router.push("/profile")}
+        onClick={() => {
+          closeMobileNav();
+          router.push("/profile");
+        }}
         aria-label="My Profile"
         title={`My Profile (${userHandle})`}
       >
@@ -373,6 +399,7 @@ export default function HomePage() {
 
       <a
         onClick={async () => {
+          closeMobileNav();
           await supabase.auth.signOut();
           router.refresh();
         }}
@@ -386,7 +413,10 @@ export default function HomePage() {
   ) : (
     <>
       <a
-        onClick={() => router.push("/bookings")}
+        onClick={() => {
+          closeMobileNav();
+          router.push("/bookings");
+        }}
         style={{ cursor: "pointer", marginRight: "1rem" }}
       >
         My Bookings
@@ -395,7 +425,10 @@ export default function HomePage() {
       <button
         type="button"
         className="profile-nav-button"
-        onClick={() => router.push("/profile")}
+        onClick={() => {
+          closeMobileNav();
+          router.push("/profile");
+        }}
         aria-label="My Profile"
         title={`My Profile (${userHandle})`}
       >
@@ -405,6 +438,7 @@ export default function HomePage() {
       <a
         className="nav-cta"
         onClick={async () => {
+          closeMobileNav();
           await supabase.auth.signOut();
           router.refresh();
         }}
