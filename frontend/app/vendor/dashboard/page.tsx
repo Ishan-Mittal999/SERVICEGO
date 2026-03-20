@@ -325,7 +325,7 @@ const styles = `
 
   /* PAGE CONTENT */
   .page-content {
-    padding: 28px 32px;
+    padding: 0;
     flex: 1;
   }
 
@@ -1600,6 +1600,14 @@ function ProfilePage({
                     >
                       {isSavingProfile ? "Saving profile..." : "Save Profile Changes"}
                     </button>
+                    <button
+                      type="button"
+                      onClick={async () => { await supabase.auth.signOut(); window.location.href = '/vendor/login'; }}
+                      className="action-btn"
+                      style={{ marginTop: 12, width: "100%", justifyContent: "center", background: "#EF4444", color: "white", border: "none" }}
+                    >
+                      🚪 Logout
+                    </button>
                 </div>
             </div>
         </div>
@@ -2070,7 +2078,6 @@ export default function VendorDashboard() {
                                 🔔
                                 <div className="notif-dot" />
                             </button>
-                            <button className="topbar-btn">⚙️</button>
                         </div>
                     </header>
 
