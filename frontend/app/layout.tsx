@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ServiceGo",
   description: "Trusted local services at your doorstep.",
+  icons: {
+    icon: [{ url: "/newwlogo.png", type: "image/png" }],
+    shortcut: [{ url: "/newwlogo.png", type: "image/png" }],
+    apple: [{ url: "/newwlogo.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({

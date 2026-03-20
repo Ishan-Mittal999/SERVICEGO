@@ -540,7 +540,6 @@ export default function HomePage() {
                       : "Enable location"}
                 </span>
               </button>
-              <span className="hero-location-hint">{locationError || "Showing nearby shops based on your location."}</span>
             </div>
 
             <h1>
@@ -615,10 +614,6 @@ export default function HomePage() {
                     ))}
                   </div>
                 )}
-
-                <p className="search-helper-text">
-                  Search by service name, problem type, or category.
-                </p>
 
                 <div className="popular-tags">
                   {POPULAR_SEARCHES.map((tag) => (
