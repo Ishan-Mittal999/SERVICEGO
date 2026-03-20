@@ -4504,6 +4504,11 @@ input, select, textarea { font-family: var(--font-body); }
     padding-bottom: 1.4rem !important;
   }
 
+  .mobile-page-shell.shops-mobile-shell {
+    padding-top: 0.55rem !important;
+    padding-bottom: 1rem !important;
+  }
+
   .shop-feed-card {
     width: 100%;
     border-radius: 18px;

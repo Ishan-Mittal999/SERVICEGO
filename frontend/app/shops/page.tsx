@@ -384,10 +384,10 @@ function ShopsPageContent() {
 
   return (
     <main
-      className="landing mobile-page-shell"
+      className="landing mobile-page-shell shops-mobile-shell"
       style={{
         minHeight: "100vh",
-        padding: "6rem 0 2rem",
+        padding: "0.75rem 0 2rem",
         background:
           "radial-gradient(circle at 85% 10%, rgba(122,106,0,0.12), transparent 36%), radial-gradient(circle at 15% 14%, rgba(30,144,255,0.1), transparent 35%), var(--off-white)",
       }}
