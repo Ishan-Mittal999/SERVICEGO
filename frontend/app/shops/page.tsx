@@ -384,11 +384,6 @@ function ShopsPageContent() {
           <p style={{ marginTop: "1rem", color: "var(--gray-500)" }}>Loading shops...</p>
         ) : (
           <section style={{ marginTop: "1rem", display: "grid", gap: "0.8rem" }}>
-            <div className="shop-discount-strip" role="note" aria-label="Discount offer">
-              <span className="shop-discount-icon" aria-hidden="true">*</span>
-              <span>60% OFF up to Rs140 above Rs159</span>
-            </div>
-
             {visibleVendors.length === 0 ? (
               <div
                 style={{
