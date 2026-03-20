@@ -155,7 +155,7 @@ export default function HomePage() {
     fetchServices();
   }, []);
 
-  const detectAndSaveUserLocation = async () => {
+  const detectAndSaveUserLocation = async (showErrorToUser = true) => {
     try {
       setIsDetectingLocation(true);
       const detected = await detectUserLocation();
@@ -164,7 +164,9 @@ export default function HomePage() {
       setLocationError(null);
     } catch (error) {
       console.error("Failed to detect location", error);
-      setLocationError("Location unavailable. Showing quick picks.");
+      if (showErrorToUser) {
+        setLocationError("Location unavailable. Showing quick picks.");
+      }
     } finally {
       setIsDetectingLocation(false);
     }
@@ -177,7 +179,8 @@ export default function HomePage() {
       return;
     }
 
-    detectAndSaveUserLocation();
+    // Silent auto-try on first visit. Show error only when user taps location button.
+    detectAndSaveUserLocation(false);
   }, []);
 
   useEffect(() => {
@@ -524,7 +527,9 @@ export default function HomePage() {
               <button
                 type="button"
                 className="hero-location-pill"
-                onClick={detectAndSaveUserLocation}
+                onClick={() => {
+                  void detectAndSaveUserLocation(true);
+                }}
               >
                 <span className="hero-location-marker" aria-hidden="true">📍</span>
                 <span className="hero-location-copy">
