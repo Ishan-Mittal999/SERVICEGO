@@ -157,6 +157,7 @@ function ShopsPageContent() {
 
   const serviceId = searchParams.get("serviceId") || "";
   const serviceQuery = normalizeShopText(searchParams.get("serviceQuery") || "");
+  const selectedSubService = normalizeShopText(searchParams.get("subService") || "");
 
   useEffect(() => {
     const storedLocation = readUserLocation();
@@ -243,7 +244,15 @@ function ShopsPageContent() {
       ? vendors.filter((vendor) => String(vendor.service_id) === targetServiceId)
       : vendors;
 
-    return serviceFiltered.sort((left, right) => {
+    const subServiceFiltered = selectedSubService
+      ? serviceFiltered.filter((vendor) =>
+          parseVendorListField((vendor as Record<string, unknown>).sub_services).some((item) =>
+            normalizeShopText(item).includes(selectedSubService)
+          )
+        )
+      : serviceFiltered;
+
+    return subServiceFiltered.sort((left, right) => {
       const leftInactive = left.is_active === false ? 1 : 0;
       const rightInactive = right.is_active === false ? 1 : 0;
       if (leftInactive !== rightInactive) {
@@ -254,7 +263,7 @@ function ShopsPageContent() {
       const rightDistance = vendorDistances[String(right.id)] ?? Number.POSITIVE_INFINITY;
       return leftDistance - rightDistance;
     });
-  }, [vendors, selectedService, vendorDistances]);
+  }, [vendors, selectedService, selectedSubService, vendorDistances]);
 
   const visibleVendors = useMemo(() => {
     const normalizedQuery = browseQuery.trim().toLowerCase();
@@ -408,7 +417,10 @@ function ShopsPageContent() {
           </div>
 
           <div className="shop-preorder-category">
-            <span>🏬 Verified Service Partners</span>
+            <span>
+              🏬 Verified Service Partners
+              {selectedSubService ? ` for ${searchParams.get("subService")}` : ""}
+            </span>
           </div>
         </section>
 

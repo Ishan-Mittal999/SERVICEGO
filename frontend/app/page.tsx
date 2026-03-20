@@ -381,7 +381,7 @@ export default function HomePage() {
       return;
     }
 
-    router.push(`/shops?serviceQuery=${encodeURIComponent(card.label)}`);
+    router.push(`/subservices?serviceQuery=${encodeURIComponent(card.label)}`);
   };
 
   const filteredServices = useMemo(() => {
@@ -429,7 +429,7 @@ export default function HomePage() {
       bookingId: undefined,
     });
 
-    router.push(`/shops?serviceId=${encodeURIComponent(String(service.id))}`);
+    router.push(`/subservices?serviceId=${encodeURIComponent(String(service.id))}`);
   };
 
   const handleSearch = (query?: string) => {
