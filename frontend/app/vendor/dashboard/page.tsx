@@ -931,25 +931,50 @@ function showBrowserRequestAlert(count: number) {
     ? "New booking request available in your service category."
     : `${count} new booking requests are available in your service category.`;
 
-  if ("Notification" in window) {
-    if (Notification.permission === "granted") {
-      new Notification("ServiceGo vendor request", { body: message });
-      return;
+  try {
+    if ("Notification" in window && typeof Notification === "function") {
+      if (Notification.permission === "granted") {
+        new Notification("ServiceGo vendor request", { body: message });
+        return;
+      }
+
+      if (Notification.permission === "default" && typeof Notification.requestPermission === "function") {
+        Promise.resolve(Notification.requestPermission())
+          .then((permission) => {
+            if (permission === "granted") {
+              try {
+                new Notification("ServiceGo vendor request", { body: message });
+                return;
+              } catch {
+                // Some mobile browsers expose Notification but fail to instantiate it.
+              }
+            }
+
+            try {
+              window.alert(message);
+            } catch {
+              // Final fallback is intentionally silent to avoid hard crash loops.
+            }
+          })
+          .catch(() => {
+            try {
+              window.alert(message);
+            } catch {
+              // Ignore fallback failures.
+            }
+          });
+        return;
+      }
     }
 
-    if (Notification.permission === "default") {
-      Notification.requestPermission().then((permission) => {
-        if (permission === "granted") {
-          new Notification("ServiceGo vendor request", { body: message });
-        } else {
-          window.alert(message);
-        }
-      });
-      return;
+    window.alert(message);
+  } catch {
+    try {
+      window.alert(message);
+    } catch {
+      // Ignore fallback failures.
     }
   }
-
-  window.alert(message);
 }
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -982,34 +1007,54 @@ async function registerVendorPushSubscription(vendorAuthId: string) {
     return;
   }
 
-  const registration = await navigator.serviceWorker.register("/sw.js");
-  await navigator.serviceWorker.ready;
+  let registration;
+
+  try {
+    registration = await navigator.serviceWorker.register("/sw.js");
+    await navigator.serviceWorker.ready;
+  } catch {
+    return;
+  }
 
   let permission = Notification.permission;
   if (permission === "default") {
-    permission = await Notification.requestPermission();
+    try {
+      permission = await Notification.requestPermission();
+    } catch {
+      return;
+    }
   }
 
   if (permission !== "granted") {
     return;
   }
 
-  let subscription = await registration.pushManager.getSubscription();
-  if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(WEB_PUSH_PUBLIC_KEY),
-    });
+  let subscription = null;
+
+  try {
+    subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(WEB_PUSH_PUBLIC_KEY),
+      });
+    }
+  } catch {
+    return;
   }
 
-  await fetch(apiUrl("/push/subscribe"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      vendor_auth_id: vendorAuthId,
-      subscription,
-    }),
-  });
+  try {
+    await fetch(apiUrl("/push/subscribe"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        vendor_auth_id: vendorAuthId,
+        subscription,
+      }),
+    });
+  } catch {
+    // Ignore network errors for push subscription sync.
+  }
 }
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
