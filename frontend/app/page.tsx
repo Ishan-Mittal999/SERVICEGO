@@ -391,7 +391,7 @@ export default function HomePage() {
       <header className="navbar">
         <div className="container">
           <Link href="/" className="navbar-logo" aria-label="Go to homepage" onClick={closeMobileNav}>
-            <img src="/logo.png" alt="ServiceGo" className="logo-icon" />
+            <img src="/newwlogo.png" alt="ServiceGo" className="logo-icon" />
             <span>ServiceGo</span>
           </Link>
 
