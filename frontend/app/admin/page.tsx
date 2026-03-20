@@ -176,6 +176,23 @@ export default function AdminPage() {
     await fetchBookings();
   };
 
+  const deleteBooking = async (bookingId: string) => {
+    const response = await fetch(apiUrl(`/booking/${bookingId}`), {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.error || "Could not delete booking");
+    }
+
+    if (activeAssignId === bookingId) {
+      setActiveAssignId(null);
+    }
+
+    await fetchBookings();
+  };
+
   return (
     <div
       className="min-h-screen p-6 md:p-8"
@@ -370,6 +387,24 @@ export default function AdminPage() {
                           Reopen
                         </button>
                       )}
+
+                      <button
+                        onClick={async () => {
+                          const shouldDelete = window.confirm("Delete this booking? This action cannot be undone.");
+                          if (!shouldDelete) {
+                            return;
+                          }
+
+                          try {
+                            await deleteBooking(booking.id);
+                          } catch (error) {
+                            setErrorMessage(error instanceof Error ? error.message : "Could not delete booking");
+                          }
+                        }}
+                        className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition"
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 );

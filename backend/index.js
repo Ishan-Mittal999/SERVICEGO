@@ -499,6 +499,36 @@ app.put("/booking/:id/reopen", async (req, res) => {
   }
 });
 
+app.delete("/booking/:id", async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+
+    const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("id", bookingId)
+      .single();
+
+    if (bookingError || !booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    const { error } = await supabase
+      .from("bookings")
+      .delete()
+      .eq("id", bookingId);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({ message: "Booking deleted successfully" });
+  } catch (err) {
+    console.error("Server Crash:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/vendors", async (req, res) => {
   try {
     const { data, error } = await supabase
