@@ -11,6 +11,8 @@ export const API_BASE_URL = (
     : fallbackApiBaseUrl
 ).replace(/\/$/, "");
 
+export const WEB_PUSH_PUBLIC_KEY = process.env.NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY?.trim() || "";
+
 export function apiUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${API_BASE_URL}${normalizedPath}`;

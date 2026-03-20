@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { apiUrl } from "@/lib/env";
+import { apiUrl, WEB_PUSH_PUBLIC_KEY } from "@/lib/env";
 import { useRouter } from "next/navigation";
 import { detectUserLocation } from "@/lib/location";
 
@@ -952,6 +952,66 @@ function showBrowserRequestAlert(count: number) {
   window.alert(message);
 }
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; i += 1) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+
+  return outputArray;
+}
+
+async function registerVendorPushSubscription(vendorAuthId: string) {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return;
+  }
+
+  if (!WEB_PUSH_PUBLIC_KEY) {
+    return;
+  }
+
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return;
+  }
+
+  if (!("Notification" in window)) {
+    return;
+  }
+
+  const registration = await navigator.serviceWorker.register("/sw.js");
+  await navigator.serviceWorker.ready;
+
+  let permission = Notification.permission;
+  if (permission === "default") {
+    permission = await Notification.requestPermission();
+  }
+
+  if (permission !== "granted") {
+    return;
+  }
+
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(WEB_PUSH_PUBLIC_KEY),
+    });
+  }
+
+  await fetch(apiUrl("/push/subscribe"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      vendor_auth_id: vendorAuthId,
+      subscription,
+    }),
+  });
+}
+
 // ─── DATA ────────────────────────────────────────────────────────────────────
 
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
@@ -1280,6 +1340,7 @@ export default function VendorDashboard() {
   const [isUpdatingVendorLocation, setIsUpdatingVendorLocation] = useState(false);
   const [locationUpdateMessage, setLocationUpdateMessage] = useState<string | null>(null);
   const alertedRequestIdsRef = useRef<string[]>([]);
+  const initializedAlertStateRef = useRef(false);
 
     useEffect(() => {
     let poller: number | undefined;
@@ -1288,6 +1349,7 @@ export default function VendorDashboard() {
             const canContinue = await loadVendor();
             if (!canContinue) return;
             await loadBookings();
+      await setupPushForVendor();
       poller = window.setInterval(() => {
         loadBookings();
       }, 6000);
@@ -1302,6 +1364,22 @@ export default function VendorDashboard() {
     };
     }, []);
 
+  const setupPushForVendor = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        return;
+      }
+
+      await registerVendorPushSubscription(user.id);
+    } catch (error) {
+      console.error("Push setup failed:", error);
+    }
+  };
+
   useEffect(() => {
     if (!online) {
       return;
@@ -1315,6 +1393,11 @@ export default function VendorDashboard() {
     const unseenRequestIds = freshRequestIds.filter((id) => !previousRequestIds.includes(id));
     alertedRequestIdsRef.current = freshRequestIds;
 
+    if (!initializedAlertStateRef.current) {
+      initializedAlertStateRef.current = true;
+      return;
+    }
+
     if (unseenRequestIds.length === 0) {
       return;
     }
@@ -1327,6 +1410,41 @@ export default function VendorDashboard() {
         : `${unseenRequestIds.length} new booking requests just arrived. Review them before another vendor accepts them.`
     );
   }, [bookings, online]);
+
+  useEffect(() => {
+    if (!vendor?.service_id || !online) {
+      return;
+    }
+
+    const serviceId = String(vendor.service_id);
+    const channel = supabase
+      .channel(`vendor-booking-alert-${serviceId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "bookings",
+          filter: `service_id=eq.${serviceId}`,
+        },
+        (payload) => {
+          const booking = payload.new as { status?: string; vendor_id?: string | null };
+          if (booking.status !== "pending" || booking.vendor_id) {
+            return;
+          }
+
+          playRequestTone();
+          showBrowserRequestAlert(1);
+          setDashboardMessage("A new booking request just arrived. Review it before another vendor accepts it.");
+          loadBookings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [vendor?.service_id, online]);
 
     const loadVendor = async () => {
         const { data: { user } } = await supabase.auth.getUser();

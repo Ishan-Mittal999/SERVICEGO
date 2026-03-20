@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const { createClient } = require("@supabase/supabase-js");
+const webpush = require("web-push");
 
 const app = express();
 app.use(cors());
@@ -11,6 +12,14 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 );
+
+if (process.env.WEB_PUSH_PUBLIC_KEY && process.env.WEB_PUSH_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.WEB_PUSH_SUBJECT || "mailto:support@servicego.local",
+    process.env.WEB_PUSH_PUBLIC_KEY,
+    process.env.WEB_PUSH_PRIVATE_KEY
+  );
+}
 
 const BOOKING_SELECT = `
   *,
@@ -26,6 +35,52 @@ async function getBookingWithRelations(bookingId) {
     .single();
 
   return { data, error };
+}
+
+function canSendPushNotifications() {
+  return Boolean(process.env.WEB_PUSH_PUBLIC_KEY && process.env.WEB_PUSH_PRIVATE_KEY);
+}
+
+async function sendPushToServiceVendors(serviceId, payload) {
+  if (!canSendPushNotifications()) {
+    return;
+  }
+
+  const normalizedServiceId = String(serviceId);
+
+  const { data: subscriptions, error } = await supabase
+    .from("vendor_push_subscriptions")
+    .select("auth_user_id, subscription")
+    .eq("service_id", normalizedServiceId);
+
+  if (error) {
+    console.error("Push subscription fetch failed:", error.message);
+    return;
+  }
+
+  if (!subscriptions || subscriptions.length === 0) {
+    return;
+  }
+
+  await Promise.all(
+    subscriptions.map(async (entry) => {
+      try {
+        await webpush.sendNotification(entry.subscription, JSON.stringify(payload));
+      } catch (pushError) {
+        const statusCode = pushError?.statusCode;
+
+        // Remove invalid or expired subscriptions so future sends stay clean.
+        if (statusCode === 404 || statusCode === 410) {
+          await supabase
+            .from("vendor_push_subscriptions")
+            .delete()
+            .eq("auth_user_id", entry.auth_user_id);
+        }
+
+        console.error("Push send failed:", pushError?.message || pushError);
+      }
+    })
+  );
 }
 
 // Root route
@@ -71,6 +126,13 @@ app.post("/booking", async (req, res) => {
       console.error("Supabase Error:", error);
       return res.status(500).json({ error: error.message });
     }
+
+    await sendPushToServiceVendors(service_id, {
+      title: "New service request",
+      body: `${customer_name} requested a service in your category.`,
+      url: "/vendor/dashboard",
+      bookingId: data.id,
+    });
 
     return res.status(201).json({
       message: "Booking created successfully",
@@ -524,6 +586,71 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
   });
 
   res.json(dedupedBookings);
+});
+
+app.post("/push/subscribe", async (req, res) => {
+  try {
+    const { vendor_auth_id, subscription } = req.body;
+
+    if (!vendor_auth_id || !subscription?.endpoint) {
+      return res.status(400).json({ error: "Vendor auth ID and push subscription are required" });
+    }
+
+    const { data: vendor, error: vendorError } = await supabase
+      .from("vendors")
+      .select("auth_user_id, service_id")
+      .eq("auth_user_id", vendor_auth_id)
+      .single();
+
+    if (vendorError || !vendor) {
+      return res.status(404).json({ error: "Vendor not found" });
+    }
+
+    const { error: upsertError } = await supabase
+      .from("vendor_push_subscriptions")
+      .upsert(
+        {
+          auth_user_id: vendor_auth_id,
+          service_id: String(vendor.service_id),
+          subscription,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "auth_user_id" }
+      );
+
+    if (upsertError) {
+      return res.status(500).json({ error: upsertError.message });
+    }
+
+    return res.status(200).json({ message: "Push subscription saved" });
+  } catch (err) {
+    console.error("Push subscribe failure:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/push/unsubscribe", async (req, res) => {
+  try {
+    const { vendor_auth_id } = req.body;
+
+    if (!vendor_auth_id) {
+      return res.status(400).json({ error: "Vendor auth ID is required" });
+    }
+
+    const { error } = await supabase
+      .from("vendor_push_subscriptions")
+      .delete()
+      .eq("auth_user_id", vendor_auth_id);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({ message: "Push subscription removed" });
+  } catch (err) {
+    console.error("Push unsubscribe failure:", err);
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // Render provides PORT at runtime; fallback keeps local dev unchanged.
