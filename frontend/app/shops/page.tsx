@@ -6,14 +6,12 @@ import { apiUrl } from "@/lib/env";
 import { mergeBookingDraft } from "@/lib/booking-flow";
 import { readShopCart } from "@/lib/shop-cart";
 import {
-  detectUserLocation,
   distanceInKm,
   geocodeArea,
   getVendorLocation,
   parseCoordinatesFromArea,
   readUserLocation,
   saveVendorLocation,
-  writeUserLocation,
   type UserLocation,
 } from "@/lib/location";
 
@@ -132,15 +130,10 @@ function ShopsPageContent() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [cartCount, setCartCount] = useState(0);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
-  const [nearbyOnly, setNearbyOnly] = useState(true);
-  const [radiusKm, setRadiusKm] = useState(15);
   const [vendorLocations, setVendorLocations] = useState<Record<string, { lat: number; lng: number }>>({});
-  const [isResolvingVendors, setIsResolvingVendors] = useState(false);
   const [browseQuery, setBrowseQuery] = useState("");
 
   const serviceId = searchParams.get("serviceId") || "";
-  const radiusOptions = [5, 10, 15, 25, 50];
 
   useEffect(() => {
     const storedLocation = readUserLocation();
@@ -213,21 +206,7 @@ function ShopsPageContent() {
   const filteredVendors = useMemo(() => {
     const serviceFiltered = vendors.filter((vendor) => String(vendor.service_id) === String(serviceId));
 
-    if (!nearbyOnly || !userLocation) {
-      return serviceFiltered.sort((left, right) => {
-        const leftInactive = left.is_active === false ? 1 : 0;
-        const rightInactive = right.is_active === false ? 1 : 0;
-        return leftInactive - rightInactive;
-      });
-    }
-
-    const distanceFiltered = serviceFiltered.filter((vendor) => {
-      const vendorId = String(vendor.id);
-      const distance = vendorDistances[vendorId];
-      return typeof distance === "number" && distance <= radiusKm;
-    });
-
-    return distanceFiltered.sort((left, right) => {
+    return serviceFiltered.sort((left, right) => {
       const leftInactive = left.is_active === false ? 1 : 0;
       const rightInactive = right.is_active === false ? 1 : 0;
       if (leftInactive !== rightInactive) {
@@ -238,7 +217,7 @@ function ShopsPageContent() {
       const rightDistance = vendorDistances[String(right.id)] ?? Number.POSITIVE_INFINITY;
       return leftDistance - rightDistance;
     });
-  }, [vendors, serviceId, nearbyOnly, userLocation, vendorDistances, radiusKm]);
+  }, [vendors, serviceId, vendorDistances]);
 
   const visibleVendors = useMemo(() => {
     const normalizedQuery = browseQuery.trim().toLowerCase();
@@ -255,31 +234,6 @@ function ShopsPageContent() {
     return next;
   }, [filteredVendors, browseQuery]);
 
-  const detectAndSaveUserLocation = async () => {
-    try {
-      setIsDetectingLocation(true);
-      const detected = await detectUserLocation();
-      writeUserLocation(detected);
-      setUserLocation(detected);
-      setNearbyOnly(true);
-      setErrorMessage(null);
-    } catch (error) {
-      console.error("Failed to detect location", error);
-      setErrorMessage("Location access denied or unavailable. Showing all shops.");
-      setNearbyOnly(false);
-    } finally {
-      setIsDetectingLocation(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!userLocation) {
-      detectAndSaveUserLocation();
-    }
-    // First-time ask only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation]);
-
   useEffect(() => {
     if (vendors.length === 0) {
       return;
@@ -288,8 +242,6 @@ function ShopsPageContent() {
     let isMounted = true;
 
     const resolveVendorLocations = async () => {
-      setIsResolvingVendors(true);
-
       const next: Record<string, { lat: number; lng: number }> = {};
 
       for (const vendor of vendors) {
@@ -352,7 +304,6 @@ function ShopsPageContent() {
 
       if (isMounted) {
         setVendorLocations(next);
-        setIsResolvingVendors(false);
       }
     };
 
@@ -425,55 +376,6 @@ function ShopsPageContent() {
           </div>
         </section>
 
-        <section className="shop-browse-controls">
-          <div className="shop-classic-filter-row" aria-label="Shop filters">
-            <label className="shop-classic-nearby">
-              <input
-                type="checkbox"
-                checked={nearbyOnly}
-                onChange={(event) => setNearbyOnly(event.target.checked)}
-                disabled={!userLocation}
-              />
-              Nearby only
-            </label>
-
-            <select
-              value={radiusKm}
-              onChange={(event) => {
-                setRadiusKm(Number(event.target.value));
-                setNearbyOnly(true);
-              }}
-              disabled={!userLocation || !nearbyOnly}
-              className="shop-classic-radius"
-            >
-              {radiusOptions.map((radius) => (
-                <option key={radius} value={radius}>
-                  Within {radius} km
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <p className="shop-controls-note">
-            {userLocation
-              ? `Current location: ${userLocation.area || userLocation.city || "Detected"}${userLocation.postcode ? ` - ${userLocation.postcode}` : ""}`
-              : "Allow location once to enable nearby filtering. Saved for future visits."}
-            <button
-              type="button"
-              className="shop-controls-inline-action"
-              onClick={detectAndSaveUserLocation}
-            >
-              {isDetectingLocation ? "Detecting..." : userLocation ? "Update" : "Use location"}
-            </button>
-          </p>
-
-          <p className="shop-controls-note shop-controls-note--muted">
-            {isResolvingVendors
-              ? "Resolving vendor locations for distance sorting..."
-              : "Choose a shop to continue your booking."}
-          </p>
-        </section>
-
         {errorMessage ? (
           <p style={{ color: "#b42318", marginTop: "0.9rem" }}>{errorMessage}</p>
         ) : null}
@@ -497,9 +399,7 @@ function ShopsPageContent() {
                   color: "var(--gray-600)",
                 }}
               >
-                {nearbyOnly && userLocation
-                  ? `No shops found within ${radiusKm} km. Increase radius or turn off nearby filter.`
-                  : "No shops found for this service right now."}
+                No shops found for this service right now.
               </div>
             ) : (
               visibleVendors.map((vendor) => {
