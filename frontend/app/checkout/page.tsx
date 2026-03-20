@@ -55,6 +55,8 @@ export default function CheckoutPage() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const leafletMapRef = useRef<any>(null);
   const reverseGeocodeTimerRef = useRef<number | null>(null);
+  const reverseGeocodeRequestRef = useRef(0);
+  const mapPrimedRef = useRef(false);
 
   useEffect(() => {
     const currentCart = readShopCart();
@@ -133,9 +135,16 @@ export default function CheckoutPage() {
   const syncAddressFromCoords = async (lat: number, lng: number) => {
     setMapCoords({ lat, lng });
     setIsResolvingPin(true);
+    const requestId = reverseGeocodeRequestRef.current + 1;
+    reverseGeocodeRequestRef.current = requestId;
 
     try {
       const reverse = await reverseGeocode(lat, lng);
+
+      if (reverseGeocodeRequestRef.current !== requestId) {
+        return;
+      }
+
       const city = reverse.address?.city || reverse.address?.town || reverse.address?.village || "";
       const display = reverse.display_name || "";
 
@@ -148,10 +157,16 @@ export default function CheckoutPage() {
       }
       setErrorMessage(null);
     } catch (error) {
+      if (reverseGeocodeRequestRef.current !== requestId) {
+        return;
+      }
+
       console.error("Failed to resolve address from map pin", error);
       setErrorMessage("Could not fetch address for selected pin. You can still type it manually.");
     } finally {
-      setIsResolvingPin(false);
+      if (reverseGeocodeRequestRef.current === requestId) {
+        setIsResolvingPin(false);
+      }
     }
   };
 
@@ -169,12 +184,19 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (!addressEditorOpen) {
+      mapPrimedRef.current = false;
       if (leafletMapRef.current) {
         leafletMapRef.current.remove();
         leafletMapRef.current = null;
       }
       return;
     }
+
+    if (mapPrimedRef.current) {
+      return;
+    }
+
+    mapPrimedRef.current = true;
 
     const primeMapCoords = async () => {
       if (manualAddress.trim()) {
@@ -239,7 +261,13 @@ export default function CheckoutPage() {
 
         leafletMapRef.current = map;
       } else {
-        leafletMapRef.current.setView([mapCoords.lat, mapCoords.lng], leafletMapRef.current.getZoom());
+        const currentCenter = leafletMapRef.current.getCenter();
+        const latDiff = Math.abs(currentCenter.lat - mapCoords.lat);
+        const lngDiff = Math.abs(currentCenter.lng - mapCoords.lng);
+
+        if (latDiff > 0.00001 || lngDiff > 0.00001) {
+          leafletMapRef.current.setView([mapCoords.lat, mapCoords.lng], leafletMapRef.current.getZoom());
+        }
       }
 
       window.setTimeout(() => {
