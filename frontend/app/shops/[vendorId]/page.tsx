@@ -33,6 +33,26 @@ type MenuItem = {
   name: string;
   description: string;
   price: number;
+  kind: "package" | "addon";
+};
+
+const getDemandScore = (value: string) => {
+  let score = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    score += value.charCodeAt(index);
+  }
+  return score % 100;
+};
+
+const getItemVisual = (itemId: string) => {
+  const palette = [
+    "linear-gradient(135deg, #f43f5e 0%, #ef4444 40%, #dc2626 100%)",
+    "linear-gradient(135deg, #1d4ed8 0%, #06b6d4 48%, #0e7490 100%)",
+    "linear-gradient(135deg, #16a34a 0%, #22c55e 45%, #15803d 100%)",
+    "linear-gradient(135deg, #f97316 0%, #f59e0b 42%, #d97706 100%)",
+  ];
+
+  return palette[getDemandScore(itemId) % palette.length];
 };
 
 export default function ShopDetailPage() {
@@ -44,6 +64,9 @@ export default function ShopDetailPage() {
   const [vendor, setVendor] = useState<Vendor | null>(null);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<ShopCart | null>(null);
+  const [menuQuery, setMenuQuery] = useState("");
+  const [recommendedOnly, setRecommendedOnly] = useState(false);
+  const [highDemandOnly, setHighDemandOnly] = useState(false);
 
   const vendorId = params.vendorId;
   const serviceId = searchParams.get("serviceId") || "";
@@ -52,6 +75,7 @@ export default function ShopDetailPage() {
     const loadData = async () => {
       try {
         setLoading(true);
+
         const [servicesResponse, vendorsResponse] = await Promise.all([
           fetch(apiUrl("/services"), { cache: "no-store" }),
           fetch(apiUrl("/vendors"), { cache: "no-store" }),
@@ -108,6 +132,7 @@ export default function ShopDetailPage() {
       name: item.name,
       description: item.description,
       price: item.price,
+      kind: "package" as const,
     }));
 
     const addonItems = blueprint.addons.map((item) => ({
@@ -115,6 +140,7 @@ export default function ShopDetailPage() {
       name: item.name,
       description: item.description,
       price: item.price,
+      kind: "addon" as const,
     }));
 
     return [...packageItems, ...addonItems];
@@ -184,10 +210,26 @@ export default function ShopDetailPage() {
   const cartCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   const cartTotal = getCartTotal(cart);
 
+  const visibleMenuItems = useMemo(() => {
+    const normalizedQuery = menuQuery.trim().toLowerCase();
+
+    return menuItems.filter((item) => {
+      const matchesQuery = !normalizedQuery
+        || `${item.name} ${item.description}`.toLowerCase().includes(normalizedQuery);
+      const matchesRecommended = !recommendedOnly || item.kind === "package";
+      const matchesHighDemand = !highDemandOnly || getDemandScore(item.id) >= 55;
+
+      return matchesQuery && matchesRecommended && matchesHighDemand;
+    });
+  }, [highDemandOnly, menuItems, menuQuery, recommendedOnly]);
+
+  const packageItems = visibleMenuItems.filter((item) => item.kind === "package");
+  const addonItems = visibleMenuItems.filter((item) => item.kind === "addon");
+
   if (loading) {
     return (
       <main className="landing" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-        <p style={{ color: "var(--gray-500)" }}>Loading shop menu...</p>
+        <p style={{ color: "var(--gray-500)" }}>Loading service options...</p>
       </main>
     );
   }
@@ -196,7 +238,7 @@ export default function ShopDetailPage() {
     return (
       <main className="landing" style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: "2rem" }}>
         <div style={{ textAlign: "center" }}>
-          <p style={{ color: "var(--gray-500)" }}>Shop not found.</p>
+          <p style={{ color: "var(--gray-500)" }}>Service partner not found.</p>
           <button className="btn-book" type="button" onClick={() => router.push("/")}>Back Home</button>
         </div>
       </main>
@@ -204,187 +246,232 @@ export default function ShopDetailPage() {
   }
 
   return (
-    <main
-      className="landing mobile-page-shell"
-      style={{
-        minHeight: "100vh",
-        padding: "6rem 1rem 7rem",
-        background:
-          "radial-gradient(circle at 80% 8%, rgba(122,106,0,0.12), transparent 35%), radial-gradient(circle at 16% 14%, rgba(30,144,255,0.1), transparent 35%), var(--off-white)",
-      }}
-    >
-      <div className="container" style={{ maxWidth: "920px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-          <div>
-            <h1 style={{ margin: 0, color: "var(--gray-800)", fontFamily: "var(--font-display)" }}>{vendor.name || "Shop"}</h1>
-            <p style={{ marginTop: "0.35rem", marginBottom: 0, color: "var(--gray-500)" }}>
-              {vendor.area || "Area not available"} • {service.name}
-            </p>
+    <main className="landing mobile-page-shell service-menu-shell">
+      <div className="container service-menu-wrap" style={{ maxWidth: "980px" }}>
+        <header className="service-menu-header">
+          <button type="button" className="service-menu-back" onClick={goBackToVendorSelection} aria-label="Back">
+            ←
+          </button>
+
+          <div className="service-menu-search-wrap">
+            <input
+              value={menuQuery}
+              onChange={(event) => setMenuQuery(event.target.value)}
+              placeholder={`Search in ${service.name.toLowerCase()} plans`}
+              aria-label="Search services"
+            />
           </div>
 
-          <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={() => router.push("/checkout")}
-              style={{
-                borderRadius: "999px",
-                border: "1px solid rgba(122,106,0,0.25)",
-                background: "var(--white)",
-                color: "var(--gold)",
-                fontWeight: 700,
-                padding: "0.62rem 1rem",
-                cursor: "pointer",
-              }}
-            >
-              Cart ({cartCount})
-            </button>
-            <button
-              type="button"
-              onClick={goBackToVendorSelection}
-              style={{
-                border: "1px solid var(--gray-300)",
-                background: "var(--white)",
-                color: "var(--gray-700)",
-                borderRadius: "999px",
-                padding: "0.62rem 1rem",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Back to Vendor Selection
-            </button>
+          <button type="button" className="service-menu-kebab" aria-label="More options">⋮</button>
+        </header>
+
+        <section className="service-menu-meta">
+          <h1>{vendor.name || "Service Partner"}</h1>
+          <p>{vendor.area || "Area not available"} • {service.name}</p>
+
+          <div className="service-menu-cart-row">
+            <button type="button" className="service-menu-cart-btn" onClick={() => router.push("/checkout")}>Cart ({cartCount})</button>
+            <span>{visibleMenuItems.length} options</span>
           </div>
-        </div>
+        </section>
 
-        <section style={{ marginTop: "1rem", display: "grid", gap: "0.75rem" }}>
-          {menuItems.map((item) => (
-            (() => {
-              const itemQuantity = itemQuantities[item.id] ?? 0;
+        <section className="service-offer-strip" aria-label="Service offer">
+          <span className="service-offer-chip">Offers</span>
+          <span>Save up to 20% on bundled service plans</span>
+          <button
+            type="button"
+            onClick={() => {
+              setRecommendedOnly(false);
+              setHighDemandOnly(false);
+            }}
+          >
+            Reset
+          </button>
+        </section>
 
-              return (
-                <article
-                  className="shop-menu-card"
-                  key={item.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => addToCart(item)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      addToCart(item);
-                    }
-                  }}
-                  style={{
-                    background: "var(--white)",
-                    border: "1px solid var(--gray-200)",
-                    borderRadius: "14px",
-                    padding: "1rem",
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto",
-                    gap: "0.8rem",
-                    alignItems: "center",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div>
-                    <h3 style={{ margin: 0, color: "var(--gray-800)" }}>{item.name}</h3>
-                    <p style={{ margin: "0.3rem 0", color: "var(--gray-500)", fontSize: "0.9rem" }}>{item.description}</p>
-                    <strong style={{ color: "var(--gray-800)" }}>{formatPrice(item.price)}</strong>
-                  </div>
+        <section className="service-filter-row" aria-label="Service filters">
+          <button
+            type="button"
+            className={`service-filter-chip ${recommendedOnly ? "active" : ""}`}
+            onClick={() => setRecommendedOnly((current) => !current)}
+          >
+            Recommended plans
+          </button>
 
-                  {itemQuantity > 0 ? (
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}>
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          decreaseItemQuantity(item.id);
-                        }}
-                        style={{
-                          width: "2rem",
-                          height: "2rem",
-                          borderRadius: "999px",
-                          border: "1px solid var(--gray-300)",
-                          background: "var(--white)",
-                          color: "var(--gray-700)",
-                          fontSize: "1rem",
-                          fontWeight: 700,
-                          cursor: "pointer",
-                        }}
-                        aria-label={`Decrease ${item.name}`}
-                      >
-                        -
-                      </button>
+          <button
+            type="button"
+            className={`service-filter-chip ${highDemandOnly ? "active" : ""}`}
+            onClick={() => setHighDemandOnly((current) => !current)}
+          >
+            Highly rebooked
+          </button>
 
-                      <span style={{ minWidth: "1.25rem", textAlign: "center", color: "var(--gray-800)", fontWeight: 700 }}>
-                        {itemQuantity}
-                      </span>
+          <button type="button" className="service-filter-chip" onClick={goBackToVendorSelection}>
+            Change vendor
+          </button>
+        </section>
 
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          addToCart(item);
-                        }}
-                        style={{
-                          width: "2rem",
-                          height: "2rem",
-                          borderRadius: "999px",
-                          border: "1px solid rgba(122,106,0,0.28)",
-                          background: "var(--white)",
-                          color: "var(--gold)",
-                          fontSize: "1rem",
-                          fontWeight: 700,
-                          cursor: "pointer",
-                        }}
-                        aria-label={`Increase ${item.name}`}
-                      >
-                        +
-                      </button>
+        <section className="service-menu-section">
+          {packageItems.length > 0 ? (
+            <>
+              <h2 className="service-menu-section-title">Best Service Plans</h2>
+              {packageItems.map((item) => {
+                const itemQuantity = itemQuantities[item.id] ?? 0;
+
+                return (
+                  <article
+                    className="service-item-card"
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => addToCart(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        addToCart(item);
+                      }
+                    }}
+                  >
+                    <div className="service-item-content">
+                      <span className="service-item-badge">Verified</span>
+                      <h3>{item.name}</h3>
+                      <p>{item.description}</p>
+                      <div className="service-item-price">{formatPrice(item.price)}</div>
+                      <div className="service-item-note">Ideal for quick and reliable fixes.</div>
                     </div>
-                  ) : (
-                    <span aria-hidden="true" style={{ color: "var(--gold)", fontWeight: 700 }}>
-                      Add
-                    </span>
-                  )}
-                </article>
-              );
-            })()
-          ))}
+
+                    <div className="service-item-visual-wrap">
+                      <div className="service-item-visual" style={{ background: getItemVisual(item.id) }}>
+                        <span>Service plan</span>
+                      </div>
+
+                      {itemQuantity > 0 ? (
+                        <div className="service-item-stepper" onClick={(event) => event.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => decreaseItemQuantity(item.id)}
+                            aria-label={`Decrease ${item.name}`}
+                          >
+                            −
+                          </button>
+                          <span>{itemQuantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => addToCart(item)}
+                            aria-label={`Increase ${item.name}`}
+                          >
+                            +
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="service-item-add-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            addToCart(item);
+                          }}
+                        >
+                          Add
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </>
+          ) : null}
+
+          {addonItems.length > 0 ? (
+            <>
+              <h2 className="service-menu-section-title">Extra Add-ons</h2>
+              {addonItems.map((item) => {
+                const itemQuantity = itemQuantities[item.id] ?? 0;
+
+                return (
+                  <article
+                    className="service-item-card"
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => addToCart(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        addToCart(item);
+                      }
+                    }}
+                  >
+                    <div className="service-item-content">
+                      <span className="service-item-badge">Optional</span>
+                      <h3>{item.name}</h3>
+                      <p>{item.description}</p>
+                      <div className="service-item-price">{formatPrice(item.price)}</div>
+                      <div className="service-item-note">Add only if you need this support.</div>
+                    </div>
+
+                    <div className="service-item-visual-wrap">
+                      <div className="service-item-visual" style={{ background: getItemVisual(item.id) }}>
+                        <span>Add-on support</span>
+                      </div>
+
+                      {itemQuantity > 0 ? (
+                        <div className="service-item-stepper" onClick={(event) => event.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => decreaseItemQuantity(item.id)}
+                            aria-label={`Decrease ${item.name}`}
+                          >
+                            −
+                          </button>
+                          <span>{itemQuantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => addToCart(item)}
+                            aria-label={`Increase ${item.name}`}
+                          >
+                            +
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="service-item-add-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            addToCart(item);
+                          }}
+                        >
+                          Add
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </>
+          ) : null}
+
+          {visibleMenuItems.length === 0 ? (
+            <div className="service-menu-empty">
+              No results found for this search/filter. Try removing a filter.
+            </div>
+          ) : null}
         </section>
       </div>
 
-      {cartCount > 0 && (
-        <div
-          style={{
-            position: "fixed",
-            left: "50%",
-            transform: "translateX(-50%)",
-            bottom: "1rem",
-            width: "min(760px, calc(100% - 1.5rem))",
-            background: "var(--white)",
-            border: "1px solid var(--gray-200)",
-            borderRadius: "14px",
-            boxShadow: "var(--shadow-lg)",
-            padding: "0.75rem 0.9rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "0.7rem",
-            zIndex: 1000,
-          }}
-        >
+      {cartCount > 0 ? (
+        <div className="service-menu-cart-sticky">
           <div>
-            <div style={{ color: "var(--gray-800)", fontWeight: 700 }}>{cartCount} items in cart</div>
-            <div style={{ color: "var(--gray-500)", fontSize: "0.86rem" }}>Total: {formatPrice(cartTotal)}</div>
+            <div className="service-menu-cart-count">{cartCount} items selected</div>
+            <div className="service-menu-cart-total">Total: {formatPrice(cartTotal)}</div>
           </div>
 
-          <button className="btn-book" type="button" onClick={() => router.push("/checkout")}>
-            Go to Payment
+          <button className="service-menu-cart-cta" type="button" onClick={() => router.push("/checkout")}>
+            Proceed to Checkout
           </button>
         </div>
-      )}
+      ) : null}
     </main>
   );
 }
