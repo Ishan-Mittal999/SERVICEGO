@@ -4504,6 +4504,15 @@ input, select, textarea { font-family: var(--font-body); }
     padding-bottom: 1.4rem !important;
   }
 
+  .shop-feed-card {
+    width: 100%;
+    border-radius: 18px;
+  }
+
+  .shop-feed-media {
+    min-height: 232px;
+  }
+
   .checkout-layout {
     grid-template-columns: 1fr !important;
   }
