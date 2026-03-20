@@ -26,6 +26,13 @@ type Service = {
   keywords?: string[];
 };
 
+type ServiceCard = {
+  key: string;
+  label: string;
+  image: string;
+  service: Service | null;
+};
+
 const SERVICE_IMAGE_LIBRARY: Array<{ image: string; label: string; terms: string[] }> = [
   { image: "/service_ac.png", label: "AC Service", terms: ["ac", "air conditioner", "air conditioning", "split ac", "window ac", "hvac"] },
   { image: "/service_electrical.png", label: "Electrical", terms: ["electrical", "electrician", "wiring", "electric", "switch", "socket", "mcb", "fan"] },
@@ -117,15 +124,6 @@ const getServiceImageConfig = (service: Service) => {
   const match = SERVICE_IMAGE_LIBRARY.find((entry) => entry.terms.some((term) => source.includes(term)));
   return match || null;
 };
-
-const getServiceImage = (service: Service) => {
-  return getServiceImageConfig(service)?.image || null;
-};
-
-const getServiceLabel = (service: Service) => {
-  return getServiceImageConfig(service)?.label || service.name;
-};
-
 
 export default function HomePage() {
   const router = useRouter();
@@ -338,9 +336,24 @@ export default function HomePage() {
   const normalizedSearchTerm = useMemo(() => normalizeText(searchTerm), [searchTerm]);
 
   const servicesWithImages = useMemo(
-    () => services.filter((service) => Boolean(getServiceImage(service))),
+    () => services.filter((service) => Boolean(getServiceImageConfig(service)?.image)),
     [services]
   );
+
+  const serviceCards = useMemo<ServiceCard[]>(() => {
+    return SERVICE_IMAGE_LIBRARY.map((entry) => {
+      const matchedService = services.find(
+        (service) => getServiceImageConfig(service)?.image === entry.image
+      ) ?? null;
+
+      return {
+        key: entry.image,
+        label: entry.label,
+        image: entry.image,
+        service: matchedService,
+      };
+    });
+  }, [services]);
 
   const filteredServices = useMemo(() => {
     if (!normalizedSearchTerm) {
@@ -357,7 +370,25 @@ export default function HomePage() {
       .map((entry) => entry.service);
   }, [servicesWithImages, normalizedSearchTerm]);
 
-  const heroQuickServices = useMemo(() => filteredServices.slice(0, 8), [filteredServices]);
+  const filteredServiceCards = useMemo(() => {
+    if (!normalizedSearchTerm) {
+      return serviceCards;
+    }
+
+    return serviceCards.filter((card) => {
+      if (normalizeText(card.label).includes(normalizedSearchTerm)) {
+        return true;
+      }
+
+      if (!card.service) {
+        return false;
+      }
+
+      return getServiceSearchScore(card.service, normalizedSearchTerm) > 0;
+    });
+  }, [serviceCards, normalizedSearchTerm]);
+
+  const heroQuickServices = useMemo(() => filteredServiceCards, [filteredServiceCards]);
 
   const suggestions = useMemo(() => filteredServices.slice(0, 6), [filteredServices]);
 
@@ -646,16 +677,23 @@ export default function HomePage() {
                 )}
 
                 <div className="hero-service-strip" aria-label="Quick service cards">
-                  {heroQuickServices.map((service) => (
+                  {heroQuickServices.map((card) => (
                     <button
-                      key={service.id}
+                      key={card.key}
                       type="button"
                       className="hero-service-pill"
-                      onClick={() => startBookingFlow(service)}
-                      aria-label={service.name}
+                      onClick={() => {
+                        if (card.service) {
+                          startBookingFlow(card.service);
+                          return;
+                        }
+
+                        handleSearch(card.label);
+                      }}
+                      aria-label={card.label}
                     >
-                      <img src={getServiceImage(service) || "/newwlogo.png"} alt="" className="hero-service-pill-image" loading="lazy" />
-                      <span>{getServiceLabel(service)}</span>
+                      <img src={card.image} alt="" className="hero-service-pill-image" loading="lazy" />
+                      <span>{card.label}</span>
                     </button>
                   ))}
                 </div>
@@ -714,8 +752,8 @@ export default function HomePage() {
 
           <p className="search-results-meta">
             {normalizedSearchTerm
-              ? `Showing ${filteredServices.length} result${filteredServices.length === 1 ? "" : "s"} for "${submittedQuery || searchTerm.trim()}"`
-              : `Showing all ${servicesWithImages.length} services`}
+              ? `Showing ${filteredServiceCards.length} result${filteredServiceCards.length === 1 ? "" : "s"} for "${submittedQuery || searchTerm.trim()}"`
+              : `Showing all ${serviceCards.length} services`}
           </p>
 
           <div className="services-grid">
@@ -724,29 +762,36 @@ export default function HomePage() {
               <p>Loading services...</p>
             ) : servicesError ? (
               <p>{servicesError}</p>
-            ) : filteredServices.length === 0 ? (
+            ) : filteredServiceCards.length === 0 ? (
               <p>
                 No services matched "{submittedQuery || searchTerm.trim()}". Try keywords like AC, Electrical, or Carpenter.
               </p>
             ) : (
-              filteredServices.map((service) => (
+              filteredServiceCards.map((card) => (
                 <button
-                  key={service.id}
+                  key={card.key}
                   type="button"
                   className={`service-card service-card--icon animate-on-scroll ${searchHasRun ? "visible" : ""}`}
-                  onClick={() => startBookingFlow(service)}
-                  aria-label={service.name}
-                  title={service.name}
+                  onClick={() => {
+                    if (card.service) {
+                      startBookingFlow(card.service);
+                      return;
+                    }
+
+                    handleSearch(card.label);
+                  }}
+                  aria-label={card.label}
+                  title={card.label}
                 >
                   <div className="service-icon" aria-hidden="true">
                     <img
-                      src={getServiceImage(service) || "/newwlogo.png"}
+                      src={card.image}
                       alt=""
                       className="service-icon-image"
                       loading="lazy"
                     />
                   </div>
-                  <h3>{getServiceLabel(service)}</h3>
+                  <h3>{card.label}</h3>
                 </button>
               ))
             )}
