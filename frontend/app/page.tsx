@@ -26,21 +26,19 @@ type Service = {
   keywords?: string[];
 };
 
-const POPULAR_SEARCHES = ["Plumbing", "Electrical", "Cleaning", "AC Repair"];
-
-const SERVICE_IMAGE_LIBRARY: Array<{ image: string; terms: string[] }> = [
-  { image: "/service_ac.png", terms: ["ac", "air conditioner", "air conditioning", "split ac", "window ac", "hvac"] },
-  { image: "/service_electrical.png", terms: ["electrical", "electrician", "wiring", "electric", "switch", "socket", "mcb", "fan"] },
-  { image: "/service_carpenter.png", terms: ["carpenter", "carpentry", "wood", "furniture", "wardrobe", "door"] },
-  { image: "/service_chimney.png", terms: ["chimney", "kitchen chimney", "exhaust"] },
-  { image: "/service_cooler.png", terms: ["cooler", "air cooler", "desert cooler"] },
-  { image: "/service_fridge.png", terms: ["fridge", "refrigerator", "refrigeration"] },
-  { image: "/service_geyser.png", terms: ["geyser", "water heater", "heater"] },
-  { image: "/service_microwave.png", terms: ["microwave", "oven", "otg"] },
-  { image: "/service_mixer.png", terms: ["mixer", "blender", "grinder", "mixi", "juicer"] },
-  { image: "/service_press.png", terms: ["press", "iron", "ironing", "istree"] },
-  { image: "/service_ro.png", terms: ["ro", "water purifier", "purifier", "aquaguard", "water filter"] },
-  { image: "/kettle_service.png", terms: ["kettle", "electric kettle"] },
+const SERVICE_IMAGE_LIBRARY: Array<{ image: string; label: string; terms: string[] }> = [
+  { image: "/service_ac.png", label: "AC Service", terms: ["ac", "air conditioner", "air conditioning", "split ac", "window ac", "hvac"] },
+  { image: "/service_electrical.png", label: "Electrical", terms: ["electrical", "electrician", "wiring", "electric", "switch", "socket", "mcb", "fan"] },
+  { image: "/service_carpenter.png", label: "Carpenter", terms: ["carpenter", "carpentry", "wood", "furniture", "wardrobe", "door"] },
+  { image: "/service_chimney.png", label: "Chimney", terms: ["chimney", "kitchen chimney", "exhaust"] },
+  { image: "/service_cooler.png", label: "Cooler", terms: ["cooler", "air cooler", "desert cooler"] },
+  { image: "/service_fridge.png", label: "Fridge", terms: ["fridge", "refrigerator", "refrigeration"] },
+  { image: "/service_geyser.png", label: "Geyser", terms: ["geyser", "water heater", "heater"] },
+  { image: "/service_microwave.png", label: "Microwave", terms: ["microwave", "oven", "otg"] },
+  { image: "/service_mixer.png", label: "Mixer", terms: ["mixer", "blender", "grinder", "mixi", "juicer"] },
+  { image: "/service_press.png", label: "Press/Iron", terms: ["press", "iron", "ironing", "istree"] },
+  { image: "/service_ro.png", label: "RO Service", terms: ["ro", "water purifier", "purifier", "aquaguard", "water filter"] },
+  { image: "/kettle_service.png", label: "Kettle", terms: ["kettle", "electric kettle"] },
 ];
 
 const normalizeText = (value: string) => value.trim().toLowerCase();
@@ -114,10 +112,18 @@ const getServiceDisplayIcon = (service: Service) => {
   return service.icon || "🛠️";
 };
 
-const getServiceImage = (service: Service) => {
+const getServiceImageConfig = (service: Service) => {
   const source = `${service.name || ""} ${service.description || ""} ${service.category || ""} ${(service.tags || []).join(" ")} ${(service.keywords || []).join(" ")}`.toLowerCase();
   const match = SERVICE_IMAGE_LIBRARY.find((entry) => entry.terms.some((term) => source.includes(term)));
-  return match?.image || null;
+  return match || null;
+};
+
+const getServiceImage = (service: Service) => {
+  return getServiceImageConfig(service)?.image || null;
+};
+
+const getServiceLabel = (service: Service) => {
+  return getServiceImageConfig(service)?.label || service.name;
 };
 
 
@@ -133,7 +139,6 @@ export default function HomePage() {
   const [searchHasRun, setSearchHasRun] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [activeTag, setActiveTag] = useState<string | null>(null);
   const [enableHeroVideo, setEnableHeroVideo] = useState(false);
   const [heroVideoReady, setHeroVideoReady] = useState(false);
   const [heroVideoFailed, setHeroVideoFailed] = useState(false);
@@ -352,6 +357,8 @@ export default function HomePage() {
       .map((entry) => entry.service);
   }, [servicesWithImages, normalizedSearchTerm]);
 
+  const heroQuickServices = useMemo(() => filteredServices.slice(0, 8), [filteredServices]);
+
   const suggestions = useMemo(() => filteredServices.slice(0, 6), [filteredServices]);
 
   const openServiceShops = (service: Service) => {
@@ -399,7 +406,6 @@ export default function HomePage() {
     setSubmittedQuery("");
     setSearchHasRun(false);
     setShowSuggestions(false);
-    setActiveTag(null);
     searchInputRef.current?.focus();
   };
 
@@ -591,7 +597,6 @@ export default function HomePage() {
                       setSearchTerm(e.target.value);
                       setSearchHasRun(false);
                       setSubmittedQuery("");
-                      setActiveTag(null);
                       setShowSuggestions(true);
                     }}
                     onKeyDown={(e) => {
@@ -631,7 +636,6 @@ export default function HomePage() {
                         className="search-suggestion-item"
                         onClick={() => {
                           openServiceShops(service);
-                          setActiveTag(null);
                         }}
                       >
                         <span className="suggestion-name">{service.name}</span>
@@ -641,18 +645,17 @@ export default function HomePage() {
                   </div>
                 )}
 
-                <div className="popular-tags">
-                  {POPULAR_SEARCHES.map((tag) => (
+                <div className="hero-service-strip" aria-label="Quick service cards">
+                  {heroQuickServices.map((service) => (
                     <button
-                      key={tag}
+                      key={service.id}
                       type="button"
-                      className={activeTag === tag ? "popular-tag active" : "popular-tag"}
-                      onClick={() => {
-                        setActiveTag(tag);
-                        handleSearch(tag);
-                      }}
+                      className="hero-service-pill"
+                      onClick={() => startBookingFlow(service)}
+                      aria-label={service.name}
                     >
-                      {tag}
+                      <img src={getServiceImage(service) || "/newwlogo.png"} alt="" className="hero-service-pill-image" loading="lazy" />
+                      <span>{getServiceLabel(service)}</span>
                     </button>
                   ))}
                 </div>
@@ -743,7 +746,7 @@ export default function HomePage() {
                       loading="lazy"
                     />
                   </div>
-                  <h3>{service.name}</h3>
+                  <h3>{getServiceLabel(service)}</h3>
                 </button>
               ))
             )}

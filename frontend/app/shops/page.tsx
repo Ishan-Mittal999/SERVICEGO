@@ -347,7 +347,6 @@ function ShopsPageContent() {
       <div className="container" style={{ maxWidth: "100%", padding: "0 clamp(0.35rem, 2vw, 0.75rem)" }}>
         <section className="shop-preorder-hero">
           <div className="shop-preorder-topbar">
-            <button type="button" className="shop-preorder-close" onClick={() => router.push("/")}>✕</button>
             <Link href="/" className="shop-preorder-brand" aria-label="Go to homepage">
               <img src="/newwlogo.png" alt="ServiceGo" className="shop-preorder-logo" />
               <div>

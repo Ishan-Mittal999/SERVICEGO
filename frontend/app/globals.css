@@ -2040,35 +2040,51 @@ input, select, textarea { font-family: var(--font-body); }
   line-height: 1.35;
 }
 
-/* Popular Tags */
-.popular-tags {
+/* Hero quick service cards */
+.hero-service-strip {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: 0.62rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
   margin-bottom: var(--space-xl);
+  scrollbar-width: thin;
 }
 
-.popular-tags .popular-tag,
-.popular-tags span {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(8px);
+.hero-service-pill {
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(12px);
   color: var(--white);
-  padding: 6px 16px;
-  border-radius: var(--radius-full);
-  font-size: 0.85rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 148px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  padding: 0.45rem 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.48rem;
+  text-align: left;
   cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
+  transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
 }
 
-.popular-tags .popular-tag:hover,
-.popular-tags span:hover {
-  background: rgba(255, 255, 255, 0.25);
+.hero-service-pill:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 215, 0, 0.5);
 }
 
-.popular-tags .popular-tag.active {
-  background: rgba(255, 215, 0, 0.25);
-  border-color: rgba(255, 215, 0, 0.7);
+.hero-service-pill-image {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 4px;
+}
+
+.hero-service-pill span {
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 /* Animated Badge */
@@ -3509,8 +3525,8 @@ input, select, textarea { font-family: var(--font-body); }
 }
 
 .service-card .service-icon {
-  width: 96px;
-  height: 96px;
+  width: 112px;
+  height: 112px;
   margin: 0 auto;
   background: var(--gold-bg);
   border-radius: var(--radius-md);
@@ -3522,15 +3538,15 @@ input, select, textarea { font-family: var(--font-body); }
 }
 
 .service-card .service-icon-image {
-  width: 82px;
-  height: 82px;
+  width: 96px;
+  height: 96px;
   object-fit: contain;
   display: block;
 }
 
 .service-card--icon {
   border-radius: 14px;
-  min-width: 142px;
+  min-width: 184px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4605,12 +4621,17 @@ input, select, textarea { font-family: var(--font-body); }
 
 @media (max-width: 480px) {
   .hero h1 { font-size: 1.8rem; }
-  .services-grid { grid-template-columns: 1fr; max-width: 320px; margin: 0 auto; }
+  .services-grid { gap: 0.72rem; }
   .trust-bar .container { flex-direction: column; gap: var(--space-md); }
   .app-buttons { flex-direction: column; }
-  .popular-tags { gap: 6px; }
-  .popular-tags .popular-tag,
-  .popular-tags span { font-size: 0.78rem; padding: 5px 12px; }
+  .hero-service-pill {
+    min-width: calc((100vw - 3rem) / 2);
+    padding: 0.45rem 0.56rem;
+  }
+  .hero-service-pill-image {
+    width: 40px;
+    height: 40px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -4764,14 +4785,18 @@ input, select, textarea { font-family: var(--font-body); }
   }
 
   .service-card .service-icon {
-    width: 84px;
-    height: 84px;
+    width: 94px;
+    height: 94px;
     font-size: 1.45rem;
   }
 
   .service-card .service-icon-image {
-    width: 72px;
-    height: 72px;
+    width: 80px;
+    height: 80px;
+  }
+
+  .service-card--icon {
+    min-width: calc((100vw - 3rem) / 2);
   }
 
   .search-helper-text {
