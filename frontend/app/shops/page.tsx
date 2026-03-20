@@ -387,12 +387,12 @@ function ShopsPageContent() {
       className="landing mobile-page-shell"
       style={{
         minHeight: "100vh",
-        padding: "6rem 1rem 2rem",
+          padding: "6rem clamp(0.25rem, 4vw, 1rem) 2rem",
         background:
           "radial-gradient(circle at 85% 10%, rgba(122,106,0,0.12), transparent 36%), radial-gradient(circle at 15% 14%, rgba(30,144,255,0.1), transparent 35%), var(--off-white)",
       }}
     >
-      <div className="container" style={{ maxWidth: "980px" }}>
+        <div className="container" style={{ maxWidth: "100%", padding: "0 clamp(0.25rem, 4vw, 1rem)" }}>
         <section className="shop-preorder-hero">
           <div className="shop-preorder-topbar">
             <button type="button" className="shop-preorder-close" onClick={() => router.push("/")}>✕</button>
@@ -616,8 +616,8 @@ export default function ShopsPage() {
   return (
     <Suspense
       fallback={
-        <main className="landing" style={{ minHeight: "100vh", padding: "6rem 1rem 2rem" }}>
-          <div className="container" style={{ maxWidth: "980px" }}>
+        <main className="landing" style={{ minHeight: "100vh", padding: "6rem clamp(0.25rem, 4vw, 1rem) 2rem" }}>
+          <div className="container" style={{ maxWidth: "100%", padding: "0 clamp(0.25rem, 4vw, 1rem)" }}>
             <p style={{ margin: 0, color: "var(--gray-500)" }}>Loading shops...</p>
           </div>
         </main>
