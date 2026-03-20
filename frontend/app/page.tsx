@@ -29,18 +29,18 @@ type Service = {
 const POPULAR_SEARCHES = ["Plumbing", "Electrical", "Cleaning", "AC Repair"];
 
 const SERVICE_IMAGE_LIBRARY: Array<{ image: string; terms: string[] }> = [
-  { image: "/service_ac.png", terms: ["ac", "air conditioner", "air conditioning"] },
-  { image: "/service_electrical.png", terms: ["electrical", "electrician", "wiring", "electric"] },
-  { image: "/service_carpenter.png", terms: ["carpenter", "carpentry", "wood"] },
-  { image: "/service_chimney.png", terms: ["chimney"] },
-  { image: "/service_cooler.png", terms: ["cooler"] },
-  { image: "/service_fridge.png", terms: ["fridge", "refrigerator"] },
-  { image: "/service_geyser.png", terms: ["geyser", "water heater"] },
-  { image: "/service_microwave.png", terms: ["microwave", "oven"] },
-  { image: "/service_mixer.png", terms: ["mixer", "blender", "grinder"] },
-  { image: "/service_press.png", terms: ["press", "iron"] },
-  { image: "/service_ro.png", terms: ["ro", "water purifier", "purifier"] },
-  { image: "/kettle_service.png", terms: ["kettle"] },
+  { image: "/service_ac.png", terms: ["ac", "air conditioner", "air conditioning", "split ac", "window ac", "hvac"] },
+  { image: "/service_electrical.png", terms: ["electrical", "electrician", "wiring", "electric", "switch", "socket", "mcb", "fan"] },
+  { image: "/service_carpenter.png", terms: ["carpenter", "carpentry", "wood", "furniture", "wardrobe", "door"] },
+  { image: "/service_chimney.png", terms: ["chimney", "kitchen chimney", "exhaust"] },
+  { image: "/service_cooler.png", terms: ["cooler", "air cooler", "desert cooler"] },
+  { image: "/service_fridge.png", terms: ["fridge", "refrigerator", "refrigeration"] },
+  { image: "/service_geyser.png", terms: ["geyser", "water heater", "heater"] },
+  { image: "/service_microwave.png", terms: ["microwave", "oven", "otg"] },
+  { image: "/service_mixer.png", terms: ["mixer", "blender", "grinder", "mixi", "juicer"] },
+  { image: "/service_press.png", terms: ["press", "iron", "ironing", "istree"] },
+  { image: "/service_ro.png", terms: ["ro", "water purifier", "purifier", "aquaguard", "water filter"] },
+  { image: "/kettle_service.png", terms: ["kettle", "electric kettle"] },
 ];
 
 const normalizeText = (value: string) => value.trim().toLowerCase();
