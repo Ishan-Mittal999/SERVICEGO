@@ -440,6 +440,7 @@ const styles = `
   }
 
   .card-body { padding: 16px 24px 24px; }
+  .card-body { overflow-x: auto; }
 
   .view-all {
     font-size: 12px;
@@ -455,7 +456,7 @@ const styles = `
   .view-all:hover { text-decoration: underline; }
 
   /* BOOKINGS TABLE */
-  .booking-table { width: 100%; border-collapse: collapse; }
+  .booking-table { width: 100%; border-collapse: collapse; min-width: 680px; }
   .booking-table th {
     text-align: left;
     font-size: 11px;
@@ -874,6 +875,12 @@ const styles = `
 
   .empty-icon { font-size: 36px; opacity: 0.4; }
 
+  .profile-layout {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 20px;
+  }
+
   /* RESPONSIVE */
   @media (max-width: 1200px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -881,13 +888,124 @@ const styles = `
   }
 
   @media (max-width: 900px) {
-    .sidebar { width: 60px; }
-    .sidebar-logo, .vendor-badge, .nav-label, .nav-item span { display: none; }
-    .main { margin-left: 60px; }
+    .sidebar {
+      width: 100%;
+      height: 68px;
+      left: 0;
+      right: 0;
+      top: auto;
+      bottom: 0;
+      flex-direction: row;
+      align-items: center;
+      padding: 0 8px;
+      z-index: 120;
+    }
+
+    .sidebar-logo,
+    .vendor-badge,
+    .sidebar-footer,
+    .nav-label {
+      display: none;
+    }
+
+    .nav-section {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0;
+      overflow: visible;
+    }
+
+    .nav-item {
+      padding: 8px 10px;
+      flex-direction: column;
+      gap: 4px;
+      border-radius: 10px;
+      min-width: 84px;
+      justify-content: center;
+      font-size: 11px;
+    }
+
+    .nav-item.active::before {
+      left: 10px;
+      right: 10px;
+      width: auto;
+      height: 2px;
+      top: 0;
+      bottom: auto;
+      border-radius: 0 0 2px 2px;
+    }
+
+    .nav-icon {
+      font-size: 16px;
+      width: auto;
+      line-height: 1;
+    }
+
+    .nav-text {
+      display: inline;
+      line-height: 1;
+    }
+
+    .nav-badge {
+      position: absolute;
+      top: 4px;
+      right: 6px;
+      margin-left: 0;
+      padding: 2px 6px;
+    }
+
+    .main {
+      margin-left: 0;
+      padding-bottom: 76px;
+    }
+
     .grid-2 { grid-template-columns: 1fr; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    .page-content { padding: 20px 16px; }
-    .topbar { padding: 0 16px; }
+    .page-content { padding: 16px 12px; }
+    .topbar {
+      padding: 0 12px;
+      height: auto;
+      min-height: 62px;
+      gap: 10px;
+    }
+
+    .topbar-left h1 { font-size: 18px; }
+    .topbar-left p { font-size: 11px; }
+
+    .topbar-right {
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .topbar-btn {
+      width: 34px;
+      height: 34px;
+      font-size: 15px;
+    }
+
+    .availability-toggle { padding: 5px 10px; }
+    .toggle-text { font-size: 11px; }
+
+    .profile-layout {
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .booking-table { min-width: 620px; }
+  }
+
+  @media (max-width: 640px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-card { padding: 14px; border-radius: 12px; }
+    .stat-value { font-size: 30px; }
+    .stat-label { font-size: 12px; }
+    .card-header { padding: 14px 14px 0; }
+    .card-body { padding: 12px 14px 14px; }
+    .tabs { padding: 0 14px; }
+    .alert-banner { padding: 12px 14px; }
+    .booking-table { min-width: 580px; }
   }
 `;
 
@@ -1283,7 +1401,7 @@ function ProfilePage({
     const filledFields = [vendor?.name, vendor?.phone, vendor?.service_id, vendor?.area, vendor?.experience].filter(Boolean).length;
     const completion = Math.round((filledFields / 5) * 100);
     return (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20 }}>
+        <div className="profile-layout">
             <div>
                 <div className="card" style={{ marginBottom: 20 }}>
                     <div className="profile-completion">
@@ -1672,7 +1790,7 @@ export default function VendorDashboard() {
                                 onClick={() => setActivePage(item.id)}
                             >
                                 <span className="nav-icon">{item.icon}</span>
-                                <span>{item.label}</span>
+                                <span className="nav-text">{item.label}</span>
                                 {badge > 0 && <span className="nav-badge">{badge}</span>}
                             </div>
                             );
@@ -1685,7 +1803,7 @@ export default function VendorDashboard() {
                                 onClick={() => setActivePage(item.id)}
                             >
                                 <span className="nav-icon">{item.icon}</span>
-                                <span>{item.label}</span>
+                                <span className="nav-text">{item.label}</span>
                             </div>
                         ))}
                     </nav>
