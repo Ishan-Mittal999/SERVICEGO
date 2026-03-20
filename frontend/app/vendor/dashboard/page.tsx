@@ -931,10 +931,44 @@ function showBrowserRequestAlert(count: number) {
     ? "New booking request available in your service category."
     : `${count} new booking requests are available in your service category.`;
 
+  const showFallbackAlert = () => {
+    try {
+      window.alert(message);
+    } catch {
+      // Ignore fallback failures.
+    }
+  };
+
+  const showViaServiceWorker = () => {
+    if (!("serviceWorker" in navigator)) {
+      showFallbackAlert();
+      return;
+    }
+
+    navigator.serviceWorker
+      .getRegistration()
+      .then((registration) => {
+        if (!registration) {
+          showFallbackAlert();
+          return;
+        }
+
+        return registration.showNotification("ServiceGo vendor request", {
+          body: message,
+          icon: "/logo.png",
+          badge: "/logo.png",
+          data: { url: "/vendor/dashboard" },
+        });
+      })
+      .catch(() => {
+        showFallbackAlert();
+      });
+  };
+
   try {
     if ("Notification" in window && typeof Notification === "function") {
       if (Notification.permission === "granted") {
-        new Notification("ServiceGo vendor request", { body: message });
+        showViaServiceWorker();
         return;
       }
 
@@ -942,38 +976,22 @@ function showBrowserRequestAlert(count: number) {
         Promise.resolve(Notification.requestPermission())
           .then((permission) => {
             if (permission === "granted") {
-              try {
-                new Notification("ServiceGo vendor request", { body: message });
-                return;
-              } catch {
-                // Some mobile browsers expose Notification but fail to instantiate it.
-              }
+              showViaServiceWorker();
+              return;
             }
 
-            try {
-              window.alert(message);
-            } catch {
-              // Final fallback is intentionally silent to avoid hard crash loops.
-            }
+            showFallbackAlert();
           })
           .catch(() => {
-            try {
-              window.alert(message);
-            } catch {
-              // Ignore fallback failures.
-            }
+            showFallbackAlert();
           });
         return;
       }
     }
 
-    window.alert(message);
+    showFallbackAlert();
   } catch {
-    try {
-      window.alert(message);
-    } catch {
-      // Ignore fallback failures.
-    }
+    showFallbackAlert();
   }
 }
 
