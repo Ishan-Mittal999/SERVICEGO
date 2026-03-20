@@ -28,6 +28,21 @@ type Service = {
 
 const POPULAR_SEARCHES = ["Plumbing", "Electrical", "Cleaning", "AC Repair"];
 
+const SERVICE_IMAGE_LIBRARY: Array<{ image: string; terms: string[] }> = [
+  { image: "/service_ac.png", terms: ["ac", "air conditioner", "air conditioning"] },
+  { image: "/service_electrical.png", terms: ["electrical", "electrician", "wiring", "electric"] },
+  { image: "/service_carpenter.png", terms: ["carpenter", "carpentry", "wood"] },
+  { image: "/service_chimney.png", terms: ["chimney"] },
+  { image: "/service_cooler.png", terms: ["cooler"] },
+  { image: "/service_fridge.png", terms: ["fridge", "refrigerator"] },
+  { image: "/service_geyser.png", terms: ["geyser", "water heater"] },
+  { image: "/service_microwave.png", terms: ["microwave", "oven"] },
+  { image: "/service_mixer.png", terms: ["mixer", "blender", "grinder"] },
+  { image: "/service_press.png", terms: ["press", "iron"] },
+  { image: "/service_ro.png", terms: ["ro", "water purifier", "purifier"] },
+  { image: "/kettle_service.png", terms: ["kettle"] },
+];
+
 const normalizeText = (value: string) => value.trim().toLowerCase();
 
 const getServiceSearchScore = (service: Service, query: string) => {
@@ -97,6 +112,12 @@ const getServiceDisplayIcon = (service: Service) => {
   }
 
   return service.icon || "🛠️";
+};
+
+const getServiceImage = (service: Service) => {
+  const source = `${service.name || ""} ${service.description || ""} ${service.category || ""} ${(service.tags || []).join(" ")} ${(service.keywords || []).join(" ")}`.toLowerCase();
+  const match = SERVICE_IMAGE_LIBRARY.find((entry) => entry.terms.some((term) => source.includes(term)));
+  return match?.image || null;
 };
 
 
@@ -311,12 +332,17 @@ export default function HomePage() {
 
   const normalizedSearchTerm = useMemo(() => normalizeText(searchTerm), [searchTerm]);
 
+  const servicesWithImages = useMemo(
+    () => services.filter((service) => Boolean(getServiceImage(service))),
+    [services]
+  );
+
   const filteredServices = useMemo(() => {
     if (!normalizedSearchTerm) {
-      return services;
+      return servicesWithImages;
     }
 
-    return services
+    return servicesWithImages
       .map((service) => ({
         service,
         score: getServiceSearchScore(service, normalizedSearchTerm),
@@ -324,7 +350,7 @@ export default function HomePage() {
       .filter((entry) => entry.score > 0)
       .sort((left, right) => right.score - left.score)
       .map((entry) => entry.service);
-  }, [services, normalizedSearchTerm]);
+  }, [servicesWithImages, normalizedSearchTerm]);
 
   const suggestions = useMemo(() => filteredServices.slice(0, 6), [filteredServices]);
 
@@ -686,7 +712,7 @@ export default function HomePage() {
           <p className="search-results-meta">
             {normalizedSearchTerm
               ? `Showing ${filteredServices.length} result${filteredServices.length === 1 ? "" : "s"} for "${submittedQuery || searchTerm.trim()}"`
-              : `Showing all ${services.length} services`}
+              : `Showing all ${servicesWithImages.length} services`}
           </p>
 
           <div className="services-grid">
@@ -697,7 +723,7 @@ export default function HomePage() {
               <p>{servicesError}</p>
             ) : filteredServices.length === 0 ? (
               <p>
-                No services matched "{submittedQuery || searchTerm.trim()}". Try keywords like Plumbing, Cleaning, or AC.
+                No services matched "{submittedQuery || searchTerm.trim()}". Try keywords like AC, Electrical, or Carpenter.
               </p>
             ) : (
               filteredServices.map((service) => (
@@ -710,8 +736,14 @@ export default function HomePage() {
                   title={service.name}
                 >
                   <div className="service-icon" aria-hidden="true">
-                    {getServiceDisplayIcon(service)}
+                    <img
+                      src={getServiceImage(service) || "/newwlogo.png"}
+                      alt=""
+                      className="service-icon-image"
+                      loading="lazy"
+                    />
                   </div>
+                  <h3>{service.name}</h3>
                 </button>
               ))
             )}
