@@ -16,9 +16,12 @@ export const metadata: Metadata = {
   title: "ServiceGo",
   description: "Trusted local services at your doorstep.",
   icons: {
-    icon: [{ url: "/newwlogo.png", type: "image/png" }],
-    shortcut: [{ url: "/newwlogo.png", type: "image/png" }],
-    apple: [{ url: "/newwlogo.png", type: "image/png" }],
+    icon: [
+      { url: "/favicon.ico?v=2", type: "image/x-icon" },
+      { url: "/newwlogo.png?v=2", type: "image/png" },
+    ],
+    shortcut: [{ url: "/favicon.ico?v=2", type: "image/x-icon" }],
+    apple: [{ url: "/apple-icon.png?v=2", type: "image/png" }],
   },
 };
 
