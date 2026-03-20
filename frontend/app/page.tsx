@@ -779,7 +779,7 @@ export default function HomePage() {
             How It Works
           </h2>
           <p className="section-subtitle animate-on-scroll">
-            Search, sign up, confirm location, choose pricing, and wait for assignment
+            Search, confirm location, create booking, and connect with available vendors
           </p>
 
           <div className="steps-flow">
@@ -795,14 +795,14 @@ export default function HomePage() {
                 desc: "Confirm your location, compare packages, and select add-ons.",
               },
               {
-                icon: "⏳",
-                title: "Wait for Assignment",
-                desc: "Your booking goes live while our team assigns the right vendor.",
+                icon: "✅",
+                title: "Create Booking",
+                desc: "Place your booking and nearby vendors get instant notifications.",
               },
               {
                 icon: "👷",
-                title: "Vendor Assigned",
-                desc: "The page updates with vendor details as soon as assignment happens.",
+                title: "Vendor Accepts",
+                desc: "An available vendor accepts your request and starts the service.",
               },
             ].map((step, index) => (
               <div
