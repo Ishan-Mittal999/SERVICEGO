@@ -44,46 +44,6 @@ const SHOP_CARD_BACKGROUNDS = [
   "linear-gradient(135deg, #7c3aed 0%, #4f46e5 45%, #312e81 100%)",
 ];
 
-const SHOP_CARD_IMAGES = [
-  "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1565299585323-38174c4a6ca5?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1543353071-873f17a7a088?auto=format&fit=crop&w=1200&q=80",
-];
-
-const SERVICE_IMAGE_LIBRARY: Record<string, string[]> = {
-  plumbing: [
-    "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1621905251918-48416bd8575a?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1631545806609-e2f6a5f0f3fe?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1621451537084-482c73073a0f?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&q=80",
-  ],
-  electrical: [
-    "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1555963966-b7ae5404b6ed?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1616627454822-4d1ef127f8d7?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
-  ],
-  cleaning: [
-    "https://images.unsplash.com/photo-1581578731563-015f66f4f3cc?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1563453392212-326f5e854473?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1558317374-067fb5f30001?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1628177142898-93e36e4e3a50?auto=format&fit=crop&w=1200&q=80",
-  ],
-  ac: [
-    "https://images.unsplash.com/photo-1558618047-fcd25c85cd64?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1621905251918-48416bd8575a?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1563453392212-326f5e854473?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1200&q=80",
-  ],
-  default: SHOP_CARD_IMAGES,
-};
-
 const toCardVariantIndex = (vendorId: string | number) => {
   const normalized = String(vendorId);
   let total = 0;
@@ -136,23 +96,30 @@ const toCardPrice = (experience?: number) => {
   return Math.max(99, Math.round(89 + experience * 3));
 };
 
-const getServiceKey = (serviceName?: string) => {
-  const normalized = (serviceName || "").toLowerCase();
-
-  if (normalized.includes("plumb")) {
-    return "plumbing";
-  }
-  if (normalized.includes("elect")) {
-    return "electrical";
-  }
-  if (normalized.includes("clean")) {
-    return "cleaning";
-  }
-  if (normalized.includes("ac") || normalized.includes("air")) {
-    return "ac";
+const parseVendorListField = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
   }
 
-  return "default";
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (!normalized) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(normalized);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+      }
+    } catch {
+      // Fallback to comma-separated text.
+    }
+
+    return normalized.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+
+  return [];
 };
 
 function ShopsPageContent() {
@@ -171,7 +138,6 @@ function ShopsPageContent() {
   const [vendorLocations, setVendorLocations] = useState<Record<string, { lat: number; lng: number }>>({});
   const [isResolvingVendors, setIsResolvingVendors] = useState(false);
   const [browseQuery, setBrowseQuery] = useState("");
-  const [carouselTick, setCarouselTick] = useState(0);
 
   const serviceId = searchParams.get("serviceId") || "";
   const radiusOptions = [5, 10, 15, 25, 50];
@@ -227,11 +193,6 @@ function ShopsPageContent() {
     [services, serviceId]
   );
 
-  const serviceImages = useMemo(() => {
-    const key = getServiceKey(selectedService?.name);
-    return SERVICE_IMAGE_LIBRARY[key] ?? SERVICE_IMAGE_LIBRARY.default;
-  }, [selectedService?.name]);
-
   const vendorDistances = useMemo(() => {
     if (!userLocation) {
       return {} as Record<string, number>;
@@ -251,19 +212,28 @@ function ShopsPageContent() {
 
   const filteredVendors = useMemo(() => {
     const serviceFiltered = vendors.filter((vendor) => String(vendor.service_id) === String(serviceId));
-    const activeFiltered = serviceFiltered.filter((vendor) => vendor.is_active !== false);
 
     if (!nearbyOnly || !userLocation) {
-      return activeFiltered;
+      return serviceFiltered.sort((left, right) => {
+        const leftInactive = left.is_active === false ? 1 : 0;
+        const rightInactive = right.is_active === false ? 1 : 0;
+        return leftInactive - rightInactive;
+      });
     }
 
-    const distanceFiltered = activeFiltered.filter((vendor) => {
+    const distanceFiltered = serviceFiltered.filter((vendor) => {
       const vendorId = String(vendor.id);
       const distance = vendorDistances[vendorId];
       return typeof distance === "number" && distance <= radiusKm;
     });
 
     return distanceFiltered.sort((left, right) => {
+      const leftInactive = left.is_active === false ? 1 : 0;
+      const rightInactive = right.is_active === false ? 1 : 0;
+      if (leftInactive !== rightInactive) {
+        return leftInactive - rightInactive;
+      }
+
       const leftDistance = vendorDistances[String(left.id)] ?? Number.POSITIVE_INFINITY;
       const rightDistance = vendorDistances[String(right.id)] ?? Number.POSITIVE_INFINITY;
       return leftDistance - rightDistance;
@@ -284,16 +254,6 @@ function ShopsPageContent() {
 
     return next;
   }, [filteredVendors, browseQuery]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setCarouselTick((tick) => tick + 1);
-    }, 2400);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, []);
 
   const detectAndSaveUserLocation = async () => {
     try {
@@ -415,6 +375,10 @@ function ShopsPageContent() {
       addressLine: undefined,
     });
 
+    if (vendor.is_active === false) {
+      return;
+    }
+
     router.push(`/shops/${encodeURIComponent(String(vendor.id))}?serviceId=${encodeURIComponent(String(selectedService.id))}`);
   };
 
@@ -535,26 +499,32 @@ function ShopsPageContent() {
               >
                 {nearbyOnly && userLocation
                   ? `No shops found within ${radiusKm} km. Increase radius or turn off nearby filter.`
-                  : "No active shops found for this service right now."}
+                  : "No shops found for this service right now."}
               </div>
             ) : (
               visibleVendors.map((vendor) => {
-                const imageOffset = toCardVariantIndex(vendor.id);
-                const activeImageIndex = (carouselTick + imageOffset) % serviceImages.length;
-                const activeImage = serviceImages[activeImageIndex];
+                const shopImages = parseVendorListField((vendor as Record<string, unknown>).shop_image_urls);
+                const subServices = parseVendorListField((vendor as Record<string, unknown>).sub_services);
+                const primaryImage = shopImages[0] || "";
+                const isOffline = vendor.is_active === false;
 
                 return (
                   <article
                     className="shop-feed-card"
                     key={String(vendor.id)}
-                    role="button"
-                    tabIndex={0}
+                    role={isOffline ? "article" : "button"}
+                    tabIndex={isOffline ? -1 : 0}
                     onClick={() => openShop(vendor)}
                     onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
+                      if (!isOffline && (event.key === "Enter" || event.key === " ")) {
                         event.preventDefault();
                         openShop(vendor);
                       }
+                    }}
+                    style={{
+                      cursor: isOffline ? "not-allowed" : "pointer",
+                      filter: isOffline ? "grayscale(1)" : "none",
+                      opacity: isOffline ? 0.88 : 1,
                     }}
                   >
                     <div
@@ -563,26 +533,51 @@ function ShopsPageContent() {
                         background: SHOP_CARD_BACKGROUNDS[toCardVariantIndex(vendor.id)],
                       }}
                     >
-                      <img
-                        src={activeImage}
-                        alt={`${vendor.name || "Shop"} preview`}
-                        className="shop-feed-photo"
-                        loading="lazy"
-                      />
+                      {primaryImage ? (
+                        <img
+                          src={primaryImage}
+                          alt={`${vendor.name || "Shop"} preview`}
+                          className="shop-feed-photo"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            height: 166,
+                            display: "grid",
+                            placeItems: "center",
+                            color: "rgba(255,255,255,0.9)",
+                            fontWeight: 700,
+                            letterSpacing: 0.2,
+                          }}
+                        >
+                          No Photo Uploaded
+                        </div>
+                      )}
                       <span className="shop-feed-tag">
                         {`${selectedService?.name || "Service"} · ₹${toCardPrice(vendor.experience)}`}
                       </span>
                       <span className="shop-feed-save" aria-hidden="true" title="Save shop">
                         🔖
                       </span>
-                      <div className="shop-feed-dots" aria-hidden="true">
-                        {serviceImages.map((image, index) => (
-                          <span
-                            key={`${image}-${index}`}
-                            className={index === activeImageIndex ? "active" : ""}
-                          />
-                        ))}
-                      </div>
+                      {isOffline ? (
+                        <span
+                          style={{
+                            position: "absolute",
+                            right: 10,
+                            bottom: 10,
+                            background: "rgba(17,24,39,0.92)",
+                            color: "#fff",
+                            borderRadius: 999,
+                            padding: "0.3rem 0.6rem",
+                            fontSize: "0.72rem",
+                            fontWeight: 700,
+                            letterSpacing: 0.2,
+                          }}
+                        >
+                          Not taking orders
+                        </span>
+                      ) : null}
                     </div>
 
                     <div className="shop-feed-content">
@@ -598,11 +593,11 @@ function ShopsPageContent() {
                       </p>
 
                       <p className="shop-feed-submeta">
-                        Booked by 10k+ users
+                        {(subServices.length > 0 ? subServices.slice(0, 3).join(" • ") : "Sub-services not added yet")}
                       </p>
 
                       <p className="shop-feed-offer">
-                        ⚙ 50% OFF on selected services
+                        {isOffline ? "⚫ Currently offline" : `⚙ ${toShopOffer(vendor.experience)}`}
                       </p>
                     </div>
                   </article>

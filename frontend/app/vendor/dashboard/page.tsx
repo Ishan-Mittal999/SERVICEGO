@@ -1126,6 +1126,32 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
+function parseVendorListField(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (!normalized) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(normalized);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+      }
+    } catch {
+      // Fallback to comma-separated values.
+    }
+
+    return normalized.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+
+  return [];
+}
+
 async function registerVendorPushSubscription(vendorAuthId: string) {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return;
@@ -1387,6 +1413,8 @@ function ProfilePage({
   bookings,
   email,
   onUpdateLocation,
+  onSaveProfile,
+  isSavingProfile,
   isUpdatingLocation,
   locationUpdateMessage,
 }: {
@@ -1394,12 +1422,52 @@ function ProfilePage({
   bookings: any[];
   email: string;
   onUpdateLocation: () => Promise<void>;
+  onSaveProfile: (payload: {
+    name: string;
+    phone: string;
+    area: string;
+    experience: number;
+    aboutShop: string;
+    subServices: string[];
+    shopImageUrls: string[];
+  }) => Promise<void>;
+  isSavingProfile: boolean;
   isUpdatingLocation: boolean;
   locationUpdateMessage: string | null;
 }) {
     const completedJobs = bookings.filter((b: any) => b.status === "completed").length;
     const filledFields = [vendor?.name, vendor?.phone, vendor?.service_id, vendor?.area, vendor?.experience].filter(Boolean).length;
     const completion = Math.round((filledFields / 5) * 100);
+    const [name, setName] = useState(vendor?.name || "");
+    const [phone, setPhone] = useState(vendor?.phone || "");
+    const [area, setArea] = useState(vendor?.area || "");
+    const [experience, setExperience] = useState(String(vendor?.experience || 0));
+    const [aboutShop, setAboutShop] = useState(String(vendor?.about_shop || ""));
+    const [subServicesText, setSubServicesText] = useState(parseVendorListField(vendor?.sub_services).join(", "));
+    const [shopImageUrlsText, setShopImageUrlsText] = useState(parseVendorListField(vendor?.shop_image_urls).join("\n"));
+
+    useEffect(() => {
+      setName(vendor?.name || "");
+      setPhone(vendor?.phone || "");
+      setArea(vendor?.area || "");
+      setExperience(String(vendor?.experience || 0));
+      setAboutShop(String(vendor?.about_shop || ""));
+      setSubServicesText(parseVendorListField(vendor?.sub_services).join(", "));
+      setShopImageUrlsText(parseVendorListField(vendor?.shop_image_urls).join("\n"));
+    }, [vendor]);
+
+    const submitProfile = async () => {
+      await onSaveProfile({
+        name: name.trim(),
+        phone: phone.trim(),
+        area: area.trim(),
+        experience: Number(experience) || 0,
+        aboutShop: aboutShop.trim(),
+        subServices: subServicesText.split(",").map((item) => item.trim()).filter(Boolean),
+        shopImageUrls: shopImageUrlsText.split("\n").map((item) => item.trim()).filter(Boolean),
+      });
+    };
+
     return (
         <div className="profile-layout">
             <div>
@@ -1440,23 +1508,63 @@ function ProfilePage({
             <div className="card">
                 <div className="card-header"><span className="card-title">Profile Details</span></div>
                 <div className="card-body">
+                    <div style={{ marginBottom: 18 }}>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>Registered Email</label>
+                        <div style={{
+                            width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4",
+                            borderRadius: 10, fontSize: 14, background: theme.bg, color: theme.dark,
+                        }}>
+                            {email || "Not added"}
+                        </div>
+                    </div>
+
                     {[
-                        { label: "Full Name", value: vendor?.name || "", type: "text" },
-                      { label: "Registered Email", value: email || "", type: "email" },
-                        { label: "Phone Number", value: vendor?.phone || "", type: "tel" },
-                        { label: "Service Area", value: vendor?.area || "", type: "text" },
-                        { label: "Years of Experience", value: String(vendor?.experience || ""), type: "number" },
+                        { label: "Full Name", value: name, setter: setName, type: "text" },
+                        { label: "Phone Number", value: phone, setter: setPhone, type: "tel" },
+                        { label: "Service Area", value: area, setter: setArea, type: "text" },
+                        { label: "Years of Experience", value: experience, setter: setExperience, type: "number" },
                     ].map((f, i) => (
                         <div key={i} style={{ marginBottom: 18 }}>
                             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>{f.label}</label>
-                            <div style={{
-                                width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4",
-                                borderRadius: 10, fontSize: 14, background: theme.bg, color: theme.dark,
-                            }}>
-                                {f.value || "Not added"}
-                            </div>
+                            <input
+                              value={f.value}
+                              onChange={(event) => f.setter(event.target.value)}
+                              type={f.type}
+                              style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark }}
+                            />
                         </div>
                     ))}
+
+                    <div style={{ marginBottom: 18 }}>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>Sub-services (comma separated)</label>
+                      <textarea
+                        value={subServicesText}
+                        onChange={(event) => setSubServicesText(event.target.value)}
+                        rows={3}
+                        style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark, resize: "vertical" }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: 18 }}>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>Shop image URLs (one URL per line)</label>
+                      <textarea
+                        value={shopImageUrlsText}
+                        onChange={(event) => setShopImageUrlsText(event.target.value)}
+                        rows={4}
+                        style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark, resize: "vertical" }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: 18 }}>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>About Shop</label>
+                      <textarea
+                        value={aboutShop}
+                        onChange={(event) => setAboutShop(event.target.value)}
+                        rows={3}
+                        style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark, resize: "vertical" }}
+                      />
+                    </div>
+
                     <div style={{ marginBottom: 18 }}>
                         <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>Current Status</label>
                         <div className={`status-pill ${bookings.length > 0 ? "confirmed" : "pending"}`}>
@@ -1481,8 +1589,17 @@ function ProfilePage({
                         ) : null}
                     </div>
                     <p style={{ fontSize: 12, color: theme.muted, lineHeight: 1.6 }}>
-                        Profile editing can be added later once the vendor flow is stable. For now this page shows the live account details used in bookings.
+                        Keep profile details accurate so customers can trust your listing and book faster.
                     </p>
+                    <button
+                      type="button"
+                      onClick={submitProfile}
+                      disabled={isSavingProfile}
+                      className="action-btn accept"
+                      style={{ marginTop: 12, width: "100%", justifyContent: "center", opacity: isSavingProfile ? 0.8 : 1 }}
+                    >
+                      {isSavingProfile ? "Saving profile..." : "Save Profile Changes"}
+                    </button>
                 </div>
             </div>
         </div>
@@ -1506,6 +1623,8 @@ const pageTitles = {
 type VendorProfile = {
   service_id?: string | number | null;
   area?: string | null;
+  is_active?: boolean;
+  auth_user_id?: string | null;
   [key: string]: unknown;
 };
 
@@ -1519,6 +1638,7 @@ export default function VendorDashboard() {
     const [profileChecked, setProfileChecked] = useState(false);
   const [dashboardMessage, setDashboardMessage] = useState<string | null>(null);
   const [isUpdatingVendorLocation, setIsUpdatingVendorLocation] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [locationUpdateMessage, setLocationUpdateMessage] = useState<string | null>(null);
   const alertedRequestIdsRef = useRef<string[]>([]);
   const initializedAlertStateRef = useRef(false);
@@ -1650,6 +1770,7 @@ export default function VendorDashboard() {
         }
 
         setVendor(vendorData);
+        setOnline(vendorData.is_active !== false);
         setProfileChecked(true);
         return true;
     };
@@ -1733,6 +1854,119 @@ export default function VendorDashboard() {
       }
     };
 
+    const toggleAvailability = async () => {
+      if (!vendor) {
+        return;
+      }
+
+      const nextOnline = !online;
+      setOnline(nextOnline);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push("/vendor/login");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("vendors")
+        .update({ is_active: nextOnline } as never)
+        .eq("auth_user_id", user.id);
+
+      if (error) {
+        setOnline(!nextOnline);
+        setDashboardMessage("Could not update online/offline status. Please try again.");
+        return;
+      }
+
+      setVendor((current: VendorProfile | null) => ({ ...(current || {}), is_active: nextOnline }));
+      setDashboardMessage(nextOnline ? "You are now online and visible for bookings." : "You are offline. Your shop appears as not taking orders.");
+    };
+
+    const showNotificationSummary = () => {
+      const pendingRequests = bookings.filter((booking: any) => booking.status === "pending").length;
+      const assignedJobs = bookings.filter((booking: any) => booking.status === "assigned").length;
+      const completedJobs = bookings.filter((booking: any) => booking.status === "completed").length;
+      setDashboardMessage(`Notifications: ${pendingRequests} pending, ${assignedJobs} active, ${completedJobs} completed bookings.`);
+    };
+
+    const saveVendorProfile = async (payload: {
+      name: string;
+      phone: string;
+      area: string;
+      experience: number;
+      aboutShop: string;
+      subServices: string[];
+      shopImageUrls: string[];
+    }) => {
+      try {
+        setIsSavingProfile(true);
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          router.push("/vendor/login");
+          return;
+        }
+
+        const extendedPayload = {
+          name: payload.name,
+          phone: payload.phone,
+          area: payload.area,
+          experience: payload.experience,
+          about_shop: payload.aboutShop || null,
+          sub_services: payload.subServices,
+          shop_image_urls: payload.shopImageUrls,
+        };
+
+        let { error } = await supabase
+          .from("vendors")
+          .update(extendedPayload as never)
+          .eq("auth_user_id", user.id);
+
+        if (error) {
+          const basicPayload = {
+            name: payload.name,
+            phone: payload.phone,
+            area: payload.area,
+            experience: payload.experience,
+          };
+
+          const fallback = await supabase
+            .from("vendors")
+            .update(basicPayload as never)
+            .eq("auth_user_id", user.id);
+          error = fallback.error;
+        }
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        setVendor((current: VendorProfile | null) => ({
+          ...(current || {}),
+          name: payload.name,
+          phone: payload.phone,
+          area: payload.area,
+          experience: payload.experience,
+          about_shop: payload.aboutShop,
+          sub_services: payload.subServices,
+          shop_image_urls: payload.shopImageUrls,
+        }));
+
+        setDashboardMessage("Profile updated successfully.");
+      } catch (error) {
+        setDashboardMessage(error instanceof Error ? error.message : "Could not save profile changes.");
+      } finally {
+        setIsSavingProfile(false);
+      }
+    };
+
     const renderPage = () => {
         switch (activePage) {
             case "home": return <DashboardHome bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} vendor={vendor} pendingCount={bookings.filter((b: any) => b.status === "pending").length} openProfile={() => setActivePage("profile")} />;
@@ -1744,6 +1978,8 @@ export default function VendorDashboard() {
                   bookings={bookings}
                   email={vendorEmail}
                   onUpdateLocation={updateVendorLocation}
+                  onSaveProfile={saveVendorProfile}
+                  isSavingProfile={isSavingProfile}
                   isUpdatingLocation={isUpdatingVendorLocation}
                   locationUpdateMessage={locationUpdateMessage}
                 />
@@ -1825,12 +2061,12 @@ export default function VendorDashboard() {
                         <div className="topbar-right">
                             <div
                                 className={`availability-toggle ${online ? "" : "offline"}`}
-                                onClick={() => setOnline(o => !o)}
+                              onClick={toggleAvailability}
                             >
                                 <div className="toggle-dot" />
                                 <span className="toggle-text">{online ? "Online" : "Offline"}</span>
                             </div>
-                            <button className="topbar-btn">
+                            <button className="topbar-btn" onClick={showNotificationSummary}>
                                 🔔
                                 <div className="notif-dot" />
                             </button>

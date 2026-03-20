@@ -19,6 +19,18 @@ export default function VendorOnboardingPage() {
   const [serviceId, setServiceId] = useState("");
   const [experience, setExperience] = useState("1");
   const [area, setArea] = useState("");
+  const [ownerName, setOwnerName] = useState("");
+  const [businessAddress, setBusinessAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
+  const [aboutShop, setAboutShop] = useState("");
+  const [openTime, setOpenTime] = useState("09:00");
+  const [closeTime, setCloseTime] = useState("20:00");
+  const [serviceRadiusKm, setServiceRadiusKm] = useState("10");
+  const [minimumOrderValue, setMinimumOrderValue] = useState("0");
+  const [subServicesText, setSubServicesText] = useState("");
+  const [shopImageUrls, setShopImageUrls] = useState<string[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -80,6 +92,39 @@ export default function VendorOnboardingPage() {
     );
   };
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) {
+      return;
+    }
+
+    const oversized = files.find((file) => file.size > 1.5 * 1024 * 1024);
+    if (oversized) {
+      setErrorMessage("Please upload images smaller than 1.5MB each.");
+      return;
+    }
+
+    const imageData = await Promise.all(
+      files.slice(0, 5).map(
+        (file) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ""));
+            reader.onerror = () => reject(new Error("Could not read image"));
+            reader.readAsDataURL(file);
+          })
+      )
+    ).catch(() => {
+      setErrorMessage("Could not process uploaded images.");
+      return [] as string[];
+    });
+
+    if (imageData.length > 0) {
+      setShopImageUrls(imageData.filter(Boolean));
+      setErrorMessage(null);
+    }
+  };
+
   const saveVendorProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -95,6 +140,11 @@ export default function VendorOnboardingPage() {
       return;
     }
 
+    const parsedSubServices = subServicesText
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
     const payload = {
       auth_user_id: user.id,
       name: shopName,
@@ -103,11 +153,41 @@ export default function VendorOnboardingPage() {
       area,
       experience: Number(experience),
       is_active: true,
+      owner_name: ownerName || null,
+      business_address: businessAddress || null,
+      city: city || null,
+      pincode: pincode || null,
+      gst_number: gstNumber || null,
+      about_shop: aboutShop || null,
+      open_time: openTime || null,
+      close_time: closeTime || null,
+      service_radius_km: Number(serviceRadiusKm) || null,
+      minimum_order_value: Number(minimumOrderValue) || 0,
+      sub_services: parsedSubServices,
+      shop_image_urls: shopImageUrls,
     };
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from("vendors")
       .upsert(payload as never, { onConflict: "auth_user_id" });
+
+    // Fallback for installations where advanced vendor columns are not yet present.
+    if (error) {
+      const basePayload = {
+        auth_user_id: user.id,
+        name: shopName,
+        phone,
+        service_id: serviceId || null,
+        area,
+        experience: Number(experience),
+        is_active: true,
+      };
+
+      const fallbackResult = await supabase
+        .from("vendors")
+        .upsert(basePayload as never, { onConflict: "auth_user_id" });
+      error = fallbackResult.error;
+    }
 
     if (error) {
       setErrorMessage(error.message);
@@ -143,6 +223,16 @@ export default function VendorOnboardingPage() {
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+            required
+            className="auth-input auth-input--spaced"
+          />
+
+          <label className="auth-label">
+            Owner Name
+          </label>
+          <input
+            value={ownerName}
+            onChange={(e) => setOwnerName(e.target.value)}
             required
             className="auth-input auth-input--spaced"
           />
@@ -199,6 +289,143 @@ export default function VendorOnboardingPage() {
           >
             {isGettingLocation ? "Fetching location..." : "Use Current Location"}
           </button>
+
+          <label className="auth-label" style={{ marginTop: "0.85rem" }}>
+            Business Address
+          </label>
+          <input
+            value={businessAddress}
+            onChange={(e) => setBusinessAddress(e.target.value)}
+            placeholder="Street, landmark, locality"
+            required
+            className="auth-input auth-input--spaced"
+          />
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
+            <div>
+              <label className="auth-label">City</label>
+              <input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                required
+                className="auth-input auth-input--spaced"
+              />
+            </div>
+            <div>
+              <label className="auth-label">Pincode</label>
+              <input
+                value={pincode}
+                onChange={(e) => setPincode(e.target.value)}
+                pattern="[0-9]{6}"
+                required
+                className="auth-input auth-input--spaced"
+              />
+            </div>
+          </div>
+
+          <label className="auth-label">
+            GST Number (optional)
+          </label>
+          <input
+            value={gstNumber}
+            onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+            placeholder="22AAAAA0000A1Z5"
+            className="auth-input auth-input--spaced"
+          />
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
+            <div>
+              <label className="auth-label">Opening Time</label>
+              <input
+                type="time"
+                value={openTime}
+                onChange={(e) => setOpenTime(e.target.value)}
+                required
+                className="auth-input auth-input--spaced"
+              />
+            </div>
+            <div>
+              <label className="auth-label">Closing Time</label>
+              <input
+                type="time"
+                value={closeTime}
+                onChange={(e) => setCloseTime(e.target.value)}
+                required
+                className="auth-input auth-input--spaced"
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
+            <div>
+              <label className="auth-label">Service Radius (km)</label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={serviceRadiusKm}
+                onChange={(e) => setServiceRadiusKm(e.target.value)}
+                required
+                className="auth-input auth-input--spaced"
+              />
+            </div>
+            <div>
+              <label className="auth-label">Minimum Order Value</label>
+              <input
+                type="number"
+                min={0}
+                value={minimumOrderValue}
+                onChange={(e) => setMinimumOrderValue(e.target.value)}
+                className="auth-input auth-input--spaced"
+              />
+            </div>
+          </div>
+
+          <label className="auth-label">Sub-services offered</label>
+          <textarea
+            value={subServicesText}
+            onChange={(e) => setSubServicesText(e.target.value)}
+            placeholder="Pipe leakage repair, Tap installation, Tank cleaning"
+            rows={3}
+            className="auth-input auth-input--spaced"
+            style={{ resize: "vertical", minHeight: 90, paddingTop: 12 }}
+          />
+
+          <label className="auth-label">Shop Images (Upload your own)</label>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImageUpload}
+            className="auth-input auth-input--spaced"
+          />
+
+          {shopImageUrls.length > 0 ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem", marginBottom: "0.4rem" }}>
+              {shopImageUrls.map((image, index) => (
+                <img
+                  key={`${index}-${image.slice(0, 24)}`}
+                  src={image}
+                  alt={`Shop preview ${index + 1}`}
+                  style={{ width: "100%", height: 72, objectFit: "cover", borderRadius: 8, border: "1px solid #dfe3ea" }}
+                />
+              ))}
+            </div>
+          ) : (
+            <p style={{ margin: "0 0 0.8rem", fontSize: "0.85rem", color: "#667085" }}>
+              No shop image uploaded yet. Your shop card will show a neutral placeholder until you upload.
+            </p>
+          )}
+
+          <label className="auth-label">About your shop</label>
+          <textarea
+            value={aboutShop}
+            onChange={(e) => setAboutShop(e.target.value)}
+            placeholder="Tell customers about your service quality, team, and specialties"
+            rows={3}
+            className="auth-input auth-input--spaced"
+            style={{ resize: "vertical", minHeight: 90, paddingTop: 12 }}
+          />
 
           {errorMessage ? (
             <p style={{ color: "#b42318", marginTop: "0.8rem", fontSize: "0.88rem" }}>
