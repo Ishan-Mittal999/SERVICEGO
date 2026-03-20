@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
 import { mergeBookingDraft } from "@/lib/booking-flow";
@@ -347,13 +348,13 @@ function ShopsPageContent() {
         <section className="shop-preorder-hero">
           <div className="shop-preorder-topbar">
             <button type="button" className="shop-preorder-close" onClick={() => router.push("/")}>✕</button>
-            <div className="shop-preorder-brand">
-              <div className="shop-preorder-avatar" aria-hidden="true">{selectedService?.icon || "S"}</div>
+            <Link href="/" className="shop-preorder-brand" aria-label="Go to homepage">
+              <img src="/newwlogo.png" alt="ServiceGo" className="shop-preorder-logo" />
               <div>
-                <strong>ServiceGo</strong>
+                <strong>Service<span>Go</span></strong>
                 <p>Trusted Local Services</p>
               </div>
-            </div>
+            </Link>
             <div className="shop-preorder-actions">
               <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/checkout")} aria-label="Cart">🛒</button>
               <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/bookings")} aria-label="Recent orders">🕒</button>

@@ -2358,19 +2358,15 @@ input, select, textarea { font-family: var(--font-body); }
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  text-decoration: none;
 }
 
-.shop-preorder-avatar {
+.shop-preorder-logo {
   width: 34px;
   height: 34px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #7a6a00, #a08a0f);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-size: 0.9rem;
-  font-weight: 800;
-  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: 8px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .shop-preorder-brand strong {
@@ -2378,6 +2374,10 @@ input, select, textarea { font-family: var(--font-body); }
   color: #2f2b1c;
   font-size: 1.04rem;
   line-height: 1;
+}
+
+.shop-preorder-brand strong span {
+  color: #7a6a00;
 }
 
 .shop-preorder-brand p {
