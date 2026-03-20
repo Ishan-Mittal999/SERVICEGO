@@ -121,6 +121,27 @@ const parseVendorListField = (value: unknown): string[] => {
   return [];
 };
 
+const normalizeShopText = (value: string) => value.trim().toLowerCase();
+
+const getShopServiceScore = (service: Service, query: string) => {
+  if (!query) {
+    return 0;
+  }
+
+  const name = normalizeShopText(service.name || "");
+  const description = normalizeShopText(service.description || "");
+  const combined = `${name} ${description}`;
+
+  let score = 0;
+  if (name === query) score += 100;
+  if (name.startsWith(query)) score += 70;
+  if (name.includes(query)) score += 50;
+  if (description.includes(query)) score += 20;
+  if (query.split(/\s+/).every((word) => combined.includes(word))) score += 15;
+
+  return score;
+};
+
 function ShopsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -135,6 +156,7 @@ function ShopsPageContent() {
   const [browseQuery, setBrowseQuery] = useState("");
 
   const serviceId = searchParams.get("serviceId") || "";
+  const serviceQuery = normalizeShopText(searchParams.get("serviceQuery") || "");
 
   useEffect(() => {
     const storedLocation = readUserLocation();
@@ -182,10 +204,21 @@ function ShopsPageContent() {
     loadData();
   }, []);
 
-  const selectedService = useMemo(
-    () => services.find((item) => String(item.id) === String(serviceId)) ?? null,
-    [services, serviceId]
-  );
+  const selectedService = useMemo(() => {
+    if (serviceId) {
+      return services.find((item) => String(item.id) === String(serviceId)) ?? null;
+    }
+
+    if (!serviceQuery) {
+      return null;
+    }
+
+    const best = services
+      .map((service) => ({ service, score: getShopServiceScore(service, serviceQuery) }))
+      .sort((left, right) => right.score - left.score)[0];
+
+    return best && best.score > 0 ? best.service : null;
+  }, [services, serviceId, serviceQuery]);
 
   const vendorDistances = useMemo(() => {
     if (!userLocation) {
@@ -205,7 +238,10 @@ function ShopsPageContent() {
   }, [userLocation, vendorLocations]);
 
   const filteredVendors = useMemo(() => {
-    const serviceFiltered = vendors.filter((vendor) => String(vendor.service_id) === String(serviceId));
+    const targetServiceId = selectedService ? String(selectedService.id) : "";
+    const serviceFiltered = targetServiceId
+      ? vendors.filter((vendor) => String(vendor.service_id) === targetServiceId)
+      : vendors;
 
     return serviceFiltered.sort((left, right) => {
       const leftInactive = left.is_active === false ? 1 : 0;
@@ -218,7 +254,7 @@ function ShopsPageContent() {
       const rightDistance = vendorDistances[String(right.id)] ?? Number.POSITIVE_INFINITY;
       return leftDistance - rightDistance;
     });
-  }, [vendors, serviceId, vendorDistances]);
+  }, [vendors, selectedService, vendorDistances]);
 
   const visibleVendors = useMemo(() => {
     const normalizedQuery = browseQuery.trim().toLowerCase();

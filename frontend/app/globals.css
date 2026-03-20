@@ -2256,11 +2256,19 @@ input, select, textarea { font-family: var(--font-body); }
 
 .services-grid {
   display: flex;
-  align-items: center;
+  align-items: stretch;
+  flex-wrap: nowrap;
   gap: 0.75rem;
   overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 0.35rem;
   scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.services-grid .service-card {
+  scroll-snap-align: start;
 }
 
 .search-results-meta {

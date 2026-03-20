@@ -30,6 +30,7 @@ type ServiceCard = {
   key: string;
   label: string;
   image: string;
+  terms: string[];
   service: Service | null;
 };
 
@@ -350,10 +351,38 @@ export default function HomePage() {
         key: entry.image,
         label: entry.label,
         image: entry.image,
+        terms: entry.terms,
         service: matchedService,
       };
     });
   }, [services]);
+
+  const resolveServiceForCard = (card: ServiceCard) => {
+    if (card.service) {
+      return card.service;
+    }
+
+    const queries = [card.label, ...card.terms];
+    const best = services
+      .map((service) => ({
+        service,
+        score: Math.max(...queries.map((query) => getServiceSearchScore(service, normalizeText(query)))),
+      }))
+      .sort((left, right) => right.score - left.score)[0];
+
+    return best && best.score > 0 ? best.service : null;
+  };
+
+  const openCardInShops = (card: ServiceCard) => {
+    const matchedService = resolveServiceForCard(card);
+
+    if (matchedService) {
+      startBookingFlow(matchedService);
+      return;
+    }
+
+    router.push(`/shops?serviceQuery=${encodeURIComponent(card.label)}`);
+  };
 
   const filteredServices = useMemo(() => {
     if (!normalizedSearchTerm) {
@@ -682,14 +711,7 @@ export default function HomePage() {
                       key={card.key}
                       type="button"
                       className="hero-service-pill"
-                      onClick={() => {
-                        if (card.service) {
-                          startBookingFlow(card.service);
-                          return;
-                        }
-
-                        handleSearch(card.label);
-                      }}
+                      onClick={() => openCardInShops(card)}
                       aria-label={card.label}
                     >
                       <img src={card.image} alt="" className="hero-service-pill-image" loading="lazy" />
@@ -772,14 +794,7 @@ export default function HomePage() {
                   key={card.key}
                   type="button"
                   className={`service-card service-card--icon animate-on-scroll ${searchHasRun ? "visible" : ""}`}
-                  onClick={() => {
-                    if (card.service) {
-                      startBookingFlow(card.service);
-                      return;
-                    }
-
-                    handleSearch(card.label);
-                  }}
+                  onClick={() => openCardInShops(card)}
                   aria-label={card.label}
                   title={card.label}
                 >
