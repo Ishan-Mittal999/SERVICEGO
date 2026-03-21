@@ -56,9 +56,22 @@ const getServiceKey = (serviceName: string) => {
 const normalizeSubserviceText = (value: string) => value.trim().toLowerCase();
 
 const parseVendorListField = (value: unknown): string[] => {
+  const normalizeEntry = (entry: string) => {
+    const trimmed = entry.trim();
+    if (!trimmed) {
+      return "";
+    }
+
+    if (trimmed.includes("::")) {
+      return String(trimmed.split("::")[0] || "").trim();
+    }
+
+    return trimmed;
+  };
+
   if (Array.isArray(value)) {
     return value
-      .map((item) => String(item || "").trim())
+      .map((item) => normalizeEntry(String(item || "")))
       .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
   }
 
@@ -75,7 +88,7 @@ const parseVendorListField = (value: unknown): string[] => {
       }
       if (Array.isArray(parsed)) {
         return parsed
-          .map((item) => String(item || "").trim())
+          .map((item) => normalizeEntry(String(item || "")))
           .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
       }
     } catch {
@@ -84,7 +97,7 @@ const parseVendorListField = (value: unknown): string[] => {
 
     return normalized
       .split(",")
-      .map((item) => item.trim())
+      .map((item) => normalizeEntry(item))
       .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
   }
 

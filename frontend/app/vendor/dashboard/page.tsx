@@ -1187,6 +1187,26 @@ function parseVendorListField(value: unknown): string[] {
   return [];
 }
 
+function parsePricedSubServiceRows(value: unknown): Array<{ name: string; price: string }> {
+  return parseVendorListField(value)
+    .map((entry) => {
+      const normalized = String(entry || "").trim();
+      if (!normalized) {
+        return null;
+      }
+
+      if (normalized.includes("::")) {
+        const [rawName, rawPrice] = normalized.split("::");
+        const name = String(rawName || "").trim();
+        const cleanedPrice = String(rawPrice || "").replace(/[^0-9.]/g, "").trim();
+        return name ? { name, price: cleanedPrice } : null;
+      }
+
+      return { name: normalized, price: "" };
+    })
+    .filter((item): item is { name: string; price: string } => Boolean(item));
+}
+
 async function registerVendorPushSubscription(vendorAuthId: string) {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return;
@@ -1463,6 +1483,8 @@ function ProfilePage({
     area: string;
     experience: number;
     aboutShop: string;
+    selectedServiceNames: string[];
+    serviceBasePrice: number;
     subServices: string[];
     shopImageUrls: string[];
   }) => Promise<void>;
@@ -1478,7 +1500,12 @@ function ProfilePage({
     const [area, setArea] = useState(vendor?.area || "");
     const [experience, setExperience] = useState(String(vendor?.experience || 0));
     const [aboutShop, setAboutShop] = useState(String(vendor?.about_shop || ""));
-    const [subServicesText, setSubServicesText] = useState(parseVendorListField(vendor?.sub_services).join(", "));
+    const [serviceBasePrice, setServiceBasePrice] = useState(String(vendor?.service_base_price || vendor?.minimum_order_value || 0));
+    const [serviceNames, setServiceNames] = useState<string[]>(parseVendorListField(vendor?.selected_service_names));
+    const [newServiceName, setNewServiceName] = useState("");
+    const [subServiceRows, setSubServiceRows] = useState<Array<{ name: string; price: string }>>(parsePricedSubServiceRows(vendor?.sub_services));
+    const [newSubServiceName, setNewSubServiceName] = useState("");
+    const [newSubServicePrice, setNewSubServicePrice] = useState("");
     const [shopImageUrlsText, setShopImageUrlsText] = useState(parseVendorListField(vendor?.shop_image_urls).join("\n"));
 
     useEffect(() => {
@@ -1487,18 +1514,94 @@ function ProfilePage({
       setArea(vendor?.area || "");
       setExperience(String(vendor?.experience || 0));
       setAboutShop(String(vendor?.about_shop || ""));
-      setSubServicesText(parseVendorListField(vendor?.sub_services).join(", "));
+      setServiceBasePrice(String(vendor?.service_base_price || vendor?.minimum_order_value || 0));
+      setServiceNames(parseVendorListField(vendor?.selected_service_names));
+      setNewServiceName("");
+      setSubServiceRows(parsePricedSubServiceRows(vendor?.sub_services));
+      setNewSubServiceName("");
+      setNewSubServicePrice("");
       setShopImageUrlsText(parseVendorListField(vendor?.shop_image_urls).join("\n"));
     }, [vendor]);
 
+    const addServiceName = () => {
+      const normalized = newServiceName.trim();
+      if (!normalized) {
+        return;
+      }
+
+      setServiceNames((current) => {
+        if (current.some((entry) => entry.toLowerCase() === normalized.toLowerCase())) {
+          return current;
+        }
+
+        return [...current, normalized];
+      });
+      setNewServiceName("");
+    };
+
+    const removeServiceName = (nameToRemove: string) => {
+      setServiceNames((current) => current.filter((entry) => entry !== nameToRemove));
+    };
+
+    const addSubServiceRow = () => {
+      const normalized = newSubServiceName.trim();
+      if (!normalized) {
+        return;
+      }
+
+      setSubServiceRows((current) => {
+        if (current.some((row) => row.name.toLowerCase() === normalized.toLowerCase())) {
+          return current;
+        }
+
+        return [...current, { name: normalized, price: newSubServicePrice.trim() }];
+      });
+
+      setNewSubServiceName("");
+      setNewSubServicePrice("");
+    };
+
+    const updateSubServiceRow = (index: number, field: "name" | "price", value: string) => {
+      setSubServiceRows((current) => {
+        const next = [...current];
+        next[index] = {
+          ...next[index],
+          [field]: value,
+        };
+        return next;
+      });
+    };
+
+    const removeSubServiceRow = (index: number) => {
+      setSubServiceRows((current) => current.filter((_, currentIndex) => currentIndex !== index));
+    };
+
     const submitProfile = async () => {
+      const subServicesPayload = subServiceRows
+        .map((row) => {
+          const name = row.name.trim();
+          if (!name) {
+            return "";
+          }
+
+          const numericPrice = Number(row.price);
+          if (Number.isFinite(numericPrice) && numericPrice > 0) {
+            return `${name}::${Math.round(numericPrice)}`;
+          }
+
+          return name;
+        })
+        .filter(Boolean);
+
       await onSaveProfile({
         name: name.trim(),
         phone: phone.trim(),
         area: area.trim(),
         experience: Number(experience) || 0,
         aboutShop: aboutShop.trim(),
-        subServices: subServicesText.split(",").map((item) => item.trim()).filter(Boolean),
+        selectedServiceNames: serviceNames.map((item) => item.trim()).filter(Boolean),
+        serviceBasePrice: Number(serviceBasePrice) || 0,
+        subServices: subServicesPayload,
         shopImageUrls: shopImageUrlsText.split("\n").map((item) => item.trim()).filter(Boolean),
       });
     };
@@ -1558,6 +1661,7 @@ function ProfilePage({
                         { label: "Phone Number", value: phone, setter: setPhone, type: "tel" },
                         { label: "Service Area", value: area, setter: setArea, type: "text" },
                         { label: "Years of Experience", value: experience, setter: setExperience, type: "number" },
+                      { label: "Base Service Price", value: serviceBasePrice, setter: setServiceBasePrice, type: "number" },
                     ].map((f, i) => (
                         <div key={i} style={{ marginBottom: 18 }}>
                             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>{f.label}</label>
@@ -1571,13 +1675,66 @@ function ProfilePage({
                     ))}
 
                     <div style={{ marginBottom: 18 }}>
-                      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>Sub-services (comma separated)</label>
-                      <textarea
-                        value={subServicesText}
-                        onChange={(event) => setSubServicesText(event.target.value)}
-                        rows={3}
-                        style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark, resize: "vertical" }}
-                      />
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>Services</label>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                        {serviceNames.map((serviceName) => (
+                          <span key={serviceName} style={{ display: "inline-flex", alignItems: "center", gap: 6, borderRadius: 999, border: "1px solid #d7dbe6", background: "#f8fafc", padding: "0.26rem 0.56rem", fontSize: 12, fontWeight: 700 }}>
+                            {serviceName}
+                            <button type="button" onClick={() => removeServiceName(serviceName)} style={{ border: "none", background: "transparent", color: "#dc2626", fontWeight: 800, cursor: "pointer" }}>x</button>
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                        <input
+                          value={newServiceName}
+                          onChange={(event) => setNewServiceName(event.target.value)}
+                          placeholder="Add service name"
+                          style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark }}
+                        />
+                        <button type="button" className="action-btn accept" onClick={addServiceName}>Add</button>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 18 }}>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>Sub-services with price</label>
+                      <div style={{ display: "grid", gap: 8, marginBottom: 10 }}>
+                        {subServiceRows.map((row, index) => (
+                          <div key={`${row.name}-${index}`} style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr auto", gap: 8 }}>
+                            <input
+                              value={row.name}
+                              onChange={(event) => updateSubServiceRow(index, "name", event.target.value)}
+                              placeholder="Sub-service"
+                              style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark }}
+                            />
+                            <input
+                              value={row.price}
+                              type="number"
+                              min={0}
+                              onChange={(event) => updateSubServiceRow(index, "price", event.target.value)}
+                              placeholder="Price"
+                              style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark }}
+                            />
+                            <button type="button" className="action-btn" style={{ background: "#fee2e2", color: "#b91c1c", border: "1px solid #fecaca" }} onClick={() => removeSubServiceRow(index)}>Remove</button>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr auto", gap: 8 }}>
+                        <input
+                          value={newSubServiceName}
+                          onChange={(event) => setNewSubServiceName(event.target.value)}
+                          placeholder="New sub-service"
+                          style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark }}
+                        />
+                        <input
+                          value={newSubServicePrice}
+                          type="number"
+                          min={0}
+                          onChange={(event) => setNewSubServicePrice(event.target.value)}
+                          placeholder="Price"
+                          style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark }}
+                        />
+                        <button type="button" className="action-btn accept" onClick={addSubServiceRow}>Add</button>
+                      </div>
                     </div>
 
                     <div style={{ marginBottom: 18 }}>
@@ -1942,6 +2099,8 @@ export default function VendorDashboard() {
       area: string;
       experience: number;
       aboutShop: string;
+      selectedServiceNames: string[];
+      serviceBasePrice: number;
       subServices: string[];
       shopImageUrls: string[];
     }) => {
@@ -1963,6 +2122,8 @@ export default function VendorDashboard() {
           area: payload.area,
           experience: payload.experience,
           about_shop: payload.aboutShop || null,
+          selected_service_names: payload.selectedServiceNames,
+          service_base_price: payload.serviceBasePrice,
           sub_services: payload.subServices,
           shop_image_urls: payload.shopImageUrls,
         };
@@ -1971,6 +2132,20 @@ export default function VendorDashboard() {
           .from("vendors")
           .update(extendedPayload as never)
           .eq("auth_user_id", user.id);
+
+        if (error) {
+          const payloadWithoutNewPricingColumns = {
+            ...extendedPayload,
+          } as Record<string, unknown>;
+
+          delete payloadWithoutNewPricingColumns.service_base_price;
+
+          const fallbackWithLegacyFields = await supabase
+            .from("vendors")
+            .update(payloadWithoutNewPricingColumns as never)
+            .eq("auth_user_id", user.id);
+          error = fallbackWithLegacyFields.error;
+        }
 
         if (error) {
           const basicPayload = {
@@ -1998,6 +2173,8 @@ export default function VendorDashboard() {
           area: payload.area,
           experience: payload.experience,
           about_shop: payload.aboutShop,
+          selected_service_names: payload.selectedServiceNames,
+          service_base_price: payload.serviceBasePrice,
           sub_services: payload.subServices,
           shop_image_urls: payload.shopImageUrls,
         }));

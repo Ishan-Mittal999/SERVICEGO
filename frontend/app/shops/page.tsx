@@ -33,6 +33,14 @@ type Vendor = {
   longitude?: number;
   experience?: number;
   is_active?: boolean;
+  service_base_price?: number;
+  minimum_order_value?: number;
+  sub_service_prices?: unknown;
+};
+
+type PricedSubService = {
+  name: string;
+  price: number | null;
 };
 
 const SHOP_CARD_BACKGROUNDS = [
@@ -60,16 +68,6 @@ const toShopRating = (experience?: number) => {
   }
 
   return Math.max(3.6, Math.min(4.9, 3.5 + experience / 12));
-};
-
-const toShopOffer = (experience?: number) => {
-  if (typeof experience !== "number") {
-    return "50% OFF on selected services";
-  }
-
-  const offer = Math.min(60, Math.max(35, 20 + experience));
-  const cap = 120 + Math.max(0, experience * 4);
-  return `${offer}% OFF up to Rs${cap}`;
 };
 
 const toEtaMinutes = (distance?: number) => {
@@ -119,6 +117,73 @@ const parseVendorListField = (value: unknown): string[] => {
   }
 
   return [];
+};
+
+const parsePositivePrice = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.round(value);
+  }
+
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[^0-9.]/g, "").trim();
+    if (!cleaned) {
+      return null;
+    }
+
+    const numeric = Number(cleaned);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      return Math.round(numeric);
+    }
+  }
+
+  return null;
+};
+
+const parseVendorSubservicePricing = (vendor: Vendor): PricedSubService[] => {
+  const rawEntries = parseVendorListField((vendor as Record<string, unknown>).sub_services);
+  const fallbackPriceMap = (vendor as Record<string, unknown>).sub_service_prices;
+
+  const normalizedPriceMap = new Map<string, number>();
+  if (fallbackPriceMap && typeof fallbackPriceMap === "object" && !Array.isArray(fallbackPriceMap)) {
+    Object.entries(fallbackPriceMap as Record<string, unknown>).forEach(([name, value]) => {
+      const normalizedName = normalizeShopText(name);
+      const numericPrice = parsePositivePrice(value);
+      if (normalizedName && numericPrice !== null) {
+        normalizedPriceMap.set(normalizedName, numericPrice);
+      }
+    });
+  }
+
+  const deduped = new Map<string, PricedSubService>();
+
+  rawEntries.forEach((entry) => {
+    const trimmedEntry = entry.trim();
+    if (!trimmedEntry) {
+      return;
+    }
+
+    let name = trimmedEntry;
+    let parsedPrice: number | null = null;
+
+    if (trimmedEntry.includes("::")) {
+      const [rawName, rawPrice] = trimmedEntry.split("::");
+      name = String(rawName || "").trim();
+      parsedPrice = parsePositivePrice(rawPrice);
+    }
+
+    const normalizedName = normalizeShopText(name);
+    if (!normalizedName) {
+      return;
+    }
+
+    const fallbackPrice = normalizedPriceMap.get(normalizedName) ?? null;
+    deduped.set(normalizedName, {
+      name,
+      price: parsedPrice ?? fallbackPrice,
+    });
+  });
+
+  return Array.from(deduped.values());
 };
 
 const normalizeShopText = (value: string) => value.trim().toLowerCase();
@@ -281,6 +346,36 @@ function ShopsPageContent() {
     return next;
   }, [filteredVendors, browseQuery]);
 
+  const vendorSubserviceMap = useMemo(() => {
+    const map: Record<string, PricedSubService[]> = {};
+    vendors.forEach((vendor) => {
+      map[String(vendor.id)] = parseVendorSubservicePricing(vendor);
+    });
+    return map;
+  }, [vendors]);
+
+  const getVendorFinalPrice = (vendor: Vendor) => {
+    const parsedSubservices = vendorSubserviceMap[String(vendor.id)] || [];
+
+    if (selectedSubService) {
+      const match = parsedSubservices.find(
+        (entry) => normalizeShopText(entry.name) === selectedSubService
+      );
+
+      if (match?.price) {
+        return match.price;
+      }
+    }
+
+    const basePrice = parsePositivePrice(vendor.service_base_price)
+      ?? parsePositivePrice(vendor.minimum_order_value);
+    if (basePrice !== null) {
+      return basePrice;
+    }
+
+    return toCardPrice(vendor.experience);
+  };
+
   useEffect(() => {
     if (vendors.length === 0) {
       return;
@@ -369,7 +464,7 @@ function ShopsPageContent() {
     const resolvedServiceId = selectedService ? String(selectedService.id) : serviceId || "service-custom";
     const resolvedServiceName = selectedService?.name || searchParams.get("serviceQuery") || "Service";
     const resolvedServiceDescription = selectedService?.description || undefined;
-    const selectedPrice = toCardPrice(vendor.experience);
+    const selectedPrice = getVendorFinalPrice(vendor);
     const selectedItemName = selectedSubServiceLabel || `${resolvedServiceName} Visit`;
 
     initializeShopCart({
@@ -467,9 +562,11 @@ function ShopsPageContent() {
             ) : (
               visibleVendors.map((vendor) => {
                 const shopImages = parseVendorListField((vendor as Record<string, unknown>).shop_image_urls);
-                const subServices = parseVendorListField((vendor as Record<string, unknown>).sub_services);
+                const subserviceEntries = vendorSubserviceMap[String(vendor.id)] || [];
+                const subServices = subserviceEntries.map((entry) => entry.name);
                 const primaryImage = shopImages[0] || "";
                 const isOffline = vendor.is_active === false;
+                const finalPrice = getVendorFinalPrice(vendor);
 
                 return (
                   <article
@@ -504,22 +601,13 @@ function ShopsPageContent() {
                           loading="lazy"
                         />
                       ) : (
-                        <div
-                          style={{
-                            height: 166,
-                            display: "grid",
-                            placeItems: "center",
-                            color: "rgba(255,255,255,0.9)",
-                            fontWeight: 700,
-                            letterSpacing: 0.2,
-                          }}
-                        >
+                        <div className="shop-feed-placeholder">
                           No Photo Uploaded
                         </div>
                       )}
                       <span className="shop-feed-tag">
                         {selectedSubService
-                          ? `${selectedSubServiceLabel} · ₹${toCardPrice(vendor.experience)}`
+                          ? `${selectedSubServiceLabel}`
                           : `${selectedService?.name || "Service"}`}
                       </span>
                       <span className="shop-feed-save" aria-hidden="true" title="Save shop">
@@ -557,22 +645,14 @@ function ShopsPageContent() {
                           : toEtaMinutes()}
                       </p>
 
-                      <p className="shop-feed-submeta">
+                      <p className={`shop-feed-submeta ${subServices.length === 0 ? "shop-feed-submeta-empty" : ""}`}>
                         {(subServices.length > 0 ? subServices.slice(0, 3).join(" • ") : "Sub-services not added yet")}
                       </p>
 
                       <div className="shop-feed-footer">
-                        {selectedSubService ? (
-                          <span className="shop-feed-price-chip">Main price: ₹{toCardPrice(vendor.experience)}</span>
-                        ) : (
-                          <span className="shop-feed-price-chip shop-feed-price-chip--muted">Price shows after sub-service selection</span>
-                        )}
+                        <span className="shop-feed-price-chip shop-feed-price-chip--final">Final price ₹{finalPrice}</span>
                         <span className="shop-feed-cta">Continue</span>
                       </div>
-
-                      <p className="shop-feed-offer">
-                        {isOffline ? "⚫ Currently offline" : `⚙ ${toShopOffer(vendor.experience)}`}
-                      </p>
                     </div>
                   </article>
                 );

@@ -1080,22 +1080,22 @@
 
 .shop-feed-card {
   background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 18px;
+  border: 1px solid #dfe5ee;
+  border-radius: 20px;
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.09);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .shop-feed-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 36px rgba(15, 23, 42, 0.13);
+  transform: translateY(-3px);
+  box-shadow: 0 22px 40px rgba(15, 23, 42, 0.15);
 }
 
 .shop-feed-media {
   position: relative;
-  min-height: 176px;
+  min-height: 172px;
   overflow: hidden;
 }
 
@@ -1126,12 +1126,22 @@
   top: 0.65rem;
   left: 0.65rem;
   border-radius: 999px;
-  background: rgba(17, 24, 39, 0.86);
+  background: rgba(17, 24, 39, 0.9);
   color: #ffffff;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.02em;
-  padding: 0.26rem 0.64rem;
+  padding: 0.28rem 0.66rem;
+}
+
+.shop-feed-placeholder {
+  height: 166px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  font-size: 1rem;
 }
 
 .shop-feed-save {
@@ -1170,7 +1180,7 @@
 }
 
 .shop-feed-content {
-  padding: 0.8rem 0.86rem 0.9rem;
+  padding: 0.86rem 0.9rem 0.92rem;
 }
 
 .shop-feed-title-row {
@@ -1183,19 +1193,23 @@
 .shop-feed-title-row h3 {
   margin: 0;
   color: #111827;
-  font-size: 1.26rem;
-  line-height: 1.12;
+  font-size: 1.1rem;
+  line-height: 1.2;
   font-weight: 800;
   font-family: var(--font-display);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shop-feed-rating {
   border-radius: 999px;
   background: var(--blue-dark);
   color: #ffffff;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 800;
-  padding: 0.2rem 0.52rem;
+  padding: 0.22rem 0.54rem;
   white-space: nowrap;
 }
 
@@ -1208,11 +1222,15 @@
 }
 
 .shop-feed-submeta {
-  margin-top: 0.18rem;
+  margin-top: 0.22rem;
   margin-bottom: 0;
   color: #6b7280;
-  font-size: 0.76rem;
-  line-height: 1.35;
+  font-size: 0.77rem;
+  line-height: 1.4;
+}
+
+.shop-feed-submeta-empty {
+  color: #94a3b8;
 }
 
 .shop-feed-footer {
@@ -1233,6 +1251,14 @@
   padding: 0.24rem 0.52rem;
 }
 
+.shop-feed-price-chip--final {
+  border-color: rgba(245, 158, 11, 0.42);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(234, 88, 12, 0.18));
+  color: #9a3412;
+  font-size: 0.78rem;
+  padding: 0.28rem 0.62rem;
+}
+
 .shop-feed-price-chip--muted {
   border-color: rgba(59, 130, 246, 0.24);
   background: rgba(59, 130, 246, 0.1);
@@ -1240,24 +1266,9 @@
 }
 
 .shop-feed-cta {
-  font-size: 0.74rem;
+  font-size: 0.76rem;
   font-weight: 800;
   color: #7a6a00;
-}
-
-.shop-feed-offer {
-  margin-top: 0.38rem;
-  margin-bottom: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border-radius: 999px;
-  border: 1px solid rgba(22, 112, 204, 0.2);
-  background: rgba(22, 112, 204, 0.08);
-  color: var(--blue-dark);
-  font-size: 0.78rem;
-  font-weight: 800;
-  padding: 0.3rem 0.55rem;
 }
 
 .booking-vendor-card {
