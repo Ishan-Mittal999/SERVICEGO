@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
 import { mergeBookingDraft } from "@/lib/booking-flow";
-import { readShopCart } from "@/lib/shop-cart";
+import { initializeShopCart, readShopCart } from "@/lib/shop-cart";
 import {
   distanceInKm,
   geocodeArea,
@@ -157,7 +157,8 @@ function ShopsPageContent() {
 
   const serviceId = searchParams.get("serviceId") || "";
   const serviceQuery = normalizeShopText(searchParams.get("serviceQuery") || "");
-  const selectedSubService = normalizeShopText(searchParams.get("subService") || "");
+  const selectedSubServiceLabel = (searchParams.get("subService") || "").trim();
+  const selectedSubService = normalizeShopText(selectedSubServiceLabel);
 
   useEffect(() => {
     const storedLocation = readUserLocation();
@@ -361,22 +362,41 @@ function ShopsPageContent() {
   }, [vendors]);
 
   const openShop = (vendor: Vendor) => {
-    if (!selectedService) {
-      return;
-    }
-
-    mergeBookingDraft({
-      serviceId: String(selectedService.id),
-      serviceName: selectedService.name,
-      serviceDescription: selectedService.description,
-      addressLine: undefined,
-    });
-
     if (vendor.is_active === false) {
       return;
     }
 
-    router.push(`/shops/${encodeURIComponent(String(vendor.id))}?serviceId=${encodeURIComponent(String(selectedService.id))}`);
+    const resolvedServiceId = selectedService ? String(selectedService.id) : serviceId || "service-custom";
+    const resolvedServiceName = selectedService?.name || searchParams.get("serviceQuery") || "Service";
+    const resolvedServiceDescription = selectedService?.description || undefined;
+    const selectedPrice = toCardPrice(vendor.experience);
+    const selectedItemName = selectedSubServiceLabel || `${resolvedServiceName} Visit`;
+
+    initializeShopCart({
+      vendorId: String(vendor.id),
+      vendorName: vendor.name || "Shop",
+      serviceId: resolvedServiceId,
+      serviceName: resolvedServiceName,
+      city: vendor.area || "",
+      addressLine: vendor.area || "",
+      items: [
+        {
+          id: `selected-${selectedItemName.toLowerCase().replace(/\s+/g, "-")}`,
+          name: selectedItemName,
+          price: selectedPrice,
+          quantity: 1,
+        },
+      ],
+    });
+
+    mergeBookingDraft({
+      serviceId: resolvedServiceId,
+      serviceName: resolvedServiceName,
+      serviceDescription: resolvedServiceDescription,
+      addressLine: undefined,
+    });
+
+    router.push("/checkout?step=payment");
   };
 
   return (
@@ -419,7 +439,7 @@ function ShopsPageContent() {
           <div className="shop-preorder-category">
             <span>
               🏬 Verified Service Partners
-              {selectedSubService ? ` for ${searchParams.get("subService")}` : ""}
+              {selectedSubService ? ` for ${selectedSubServiceLabel}` : ""}
             </span>
           </div>
         </section>
@@ -498,7 +518,9 @@ function ShopsPageContent() {
                         </div>
                       )}
                       <span className="shop-feed-tag">
-                        {`${selectedService?.name || "Service"} · ₹${toCardPrice(vendor.experience)}`}
+                        {selectedSubService
+                          ? `${selectedSubServiceLabel} · ₹${toCardPrice(vendor.experience)}`
+                          : `${selectedService?.name || "Service"}`}
                       </span>
                       <span className="shop-feed-save" aria-hidden="true" title="Save shop">
                         🔖
@@ -538,6 +560,15 @@ function ShopsPageContent() {
                       <p className="shop-feed-submeta">
                         {(subServices.length > 0 ? subServices.slice(0, 3).join(" • ") : "Sub-services not added yet")}
                       </p>
+
+                      <div className="shop-feed-footer">
+                        {selectedSubService ? (
+                          <span className="shop-feed-price-chip">Main price: ₹{toCardPrice(vendor.experience)}</span>
+                        ) : (
+                          <span className="shop-feed-price-chip shop-feed-price-chip--muted">Price shows after sub-service selection</span>
+                        )}
+                        <span className="shop-feed-cta">Continue</span>
+                      </div>
 
                       <p className="shop-feed-offer">
                         {isOffline ? "⚫ Currently offline" : `⚙ ${toShopOffer(vendor.experience)}`}

@@ -80,6 +80,17 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const stepParam = new URLSearchParams(window.location.search).get("step");
+    if (stepParam === "payment") {
+      setStep("payment");
+    }
+  }, []);
+
+  useEffect(() => {
     const loadUser = async () => {
       const {
         data: { user },

@@ -1069,22 +1069,22 @@
 
 .shop-feed-card {
   background: #ffffff;
-  border: 1px solid var(--gray-200);
-  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 0 10px 20px rgba(17, 24, 39, 0.08);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .shop-feed-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 28px rgba(17, 24, 39, 0.14);
+  box-shadow: 0 20px 36px rgba(15, 23, 42, 0.13);
 }
 
 .shop-feed-media {
   position: relative;
-  min-height: 194px;
+  min-height: 176px;
   overflow: hidden;
 }
 
@@ -1112,28 +1112,29 @@
 
 .shop-feed-tag {
   position: absolute;
-  top: 0.6rem;
-  left: 0.6rem;
+  top: 0.65rem;
+  left: 0.65rem;
   border-radius: 999px;
-  background: rgba(92, 80, 0, 0.92);
+  background: rgba(17, 24, 39, 0.86);
   color: #ffffff;
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 0.22rem 0.6rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 0.26rem 0.64rem;
 }
 
 .shop-feed-save {
   position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
+  top: 0.65rem;
+  right: 0.65rem;
   width: 26px;
   height: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.82);
   border-radius: 999px;
   display: grid;
   place-items: center;
   color: #ffffff;
-  background: rgba(22, 112, 204, 0.38);
+  background: rgba(30, 64, 175, 0.42);
   font-size: 0.78rem;
 }
 
@@ -1158,7 +1159,7 @@
 }
 
 .shop-feed-content {
-  padding: 0.72rem 0.78rem 0.82rem;
+  padding: 0.8rem 0.86rem 0.9rem;
 }
 
 .shop-feed-title-row {
@@ -1171,8 +1172,8 @@
 .shop-feed-title-row h3 {
   margin: 0;
   color: #111827;
-  font-size: 1.42rem;
-  line-height: 1.05;
+  font-size: 1.26rem;
+  line-height: 1.12;
   font-weight: 800;
   font-family: var(--font-display);
 }
@@ -1199,11 +1200,42 @@
   margin-top: 0.18rem;
   margin-bottom: 0;
   color: #6b7280;
-  font-size: 0.75rem;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.shop-feed-footer {
+  margin-top: 0.48rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.shop-feed-price-chip {
+  border-radius: 999px;
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  background: rgba(16, 185, 129, 0.1);
+  color: #065f46;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.24rem 0.52rem;
+}
+
+.shop-feed-price-chip--muted {
+  border-color: rgba(59, 130, 246, 0.24);
+  background: rgba(59, 130, 246, 0.1);
+  color: #1d4ed8;
+}
+
+.shop-feed-cta {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #7a6a00;
 }
 
 .shop-feed-offer {
-  margin-top: 0.34rem;
+  margin-top: 0.38rem;
   margin-bottom: 0;
   display: inline-flex;
   align-items: center;
