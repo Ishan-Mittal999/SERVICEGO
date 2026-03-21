@@ -75,6 +75,17 @@
   line-height: 1.7;
 }
 
+.legal-list {
+  margin: 0.3rem 0 0;
+  padding-left: 1.15rem;
+  color: var(--gray-600);
+  line-height: 1.7;
+}
+
+.legal-list li + li {
+  margin-top: 0.24rem;
+}
+
 .legal-actions {
   margin-top: 1.4rem;
 }
@@ -3065,6 +3076,11 @@ input, select, textarea { font-family: var(--font-body); }
   margin: 0.26rem 0 0;
   color: #94a3b8;
   font-size: 0.76rem;
+}
+
+.checkout-policy-text a {
+  color: #4f46e5;
+  text-decoration: underline;
 }
 
 .checkout-money-row {

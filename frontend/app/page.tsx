@@ -50,16 +50,10 @@ const SERVICE_IMAGE_LIBRARY: Array<{ image: string; label: string; terms: string
   { image: "/kettle_service.png", label: "Kettle", terms: ["kettle", "electric kettle"] },
 ];
 
-const NO_SUBSERVICE_SERVICE_KEYS = new Set([
-  "chimney",
-  "press",
-  "refrigerator",
-  "ro",
-  "microwave",
-  "mixer",
-  "heater",
-  "kettle",
-  "cooler",
+const REQUIRES_SUBSERVICE_SERVICE_KEYS = new Set([
+  "ac",
+  "washing_machine",
+  "geyser",
 ]);
 
 const normalizeText = (value: string) => value.trim().toLowerCase();
@@ -84,12 +78,14 @@ const getServiceFlowKey = (serviceName: string) => {
 };
 
 const shouldSkipSubservice = (serviceName: string) => {
-  return NO_SUBSERVICE_SERVICE_KEYS.has(getServiceFlowKey(serviceName));
+  return !REQUIRES_SUBSERVICE_SERVICE_KEYS.has(getServiceFlowKey(serviceName));
 };
 
 const parseServiceSubservices = (value: unknown): string[] => {
   if (Array.isArray(value)) {
-    return value.map((item) => String(item || "").trim()).filter(Boolean);
+    return value
+      .map((item) => String(item || "").trim())
+      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
   }
 
   if (typeof value === "string") {
@@ -100,14 +96,22 @@ const parseServiceSubservices = (value: unknown): string[] => {
 
     try {
       const parsed = JSON.parse(normalized);
+      if (parsed == null) {
+        return [];
+      }
       if (Array.isArray(parsed)) {
-        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+        return parsed
+          .map((item) => String(item || "").trim())
+          .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
       }
     } catch {
       // Fallback to comma-separated values.
     }
 
-    return normalized.split(",").map((item) => item.trim()).filter(Boolean);
+    return normalized
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
   }
 
   return [];
@@ -1004,6 +1008,7 @@ export default function HomePage() {
             <div className="footer-legal-links" aria-label="Legal links">
               <span>Use of this site is subject to our legal policies.</span>
               <Link href="/terms">Terms of Service</Link>
+              <Link href="/cancellation-refund-policy">Cancellation & Refund Policy</Link>
               <Link href="/privacy">Privacy Policy</Link>
             </div>
           </div>

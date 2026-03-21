@@ -57,7 +57,9 @@ const normalizeSubserviceText = (value: string) => value.trim().toLowerCase();
 
 const parseVendorListField = (value: unknown): string[] => {
   if (Array.isArray(value)) {
-    return value.map((item) => String(item || "").trim()).filter(Boolean);
+    return value
+      .map((item) => String(item || "").trim())
+      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
   }
 
   if (typeof value === "string") {
@@ -68,14 +70,22 @@ const parseVendorListField = (value: unknown): string[] => {
 
     try {
       const parsed = JSON.parse(normalized);
+      if (parsed == null) {
+        return [];
+      }
       if (Array.isArray(parsed)) {
-        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+        return parsed
+          .map((item) => String(item || "").trim())
+          .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
       }
     } catch {
       // Fallback to comma separated values.
     }
 
-    return normalized.split(",").map((item) => item.trim()).filter(Boolean);
+    return normalized
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
   }
 
   return [];
@@ -83,7 +93,9 @@ const parseVendorListField = (value: unknown): string[] => {
 
 const parseServiceSubservices = (value: unknown): string[] => {
   if (Array.isArray(value)) {
-    return value.map((item) => String(item || "").trim()).filter(Boolean);
+    return value
+      .map((item) => String(item || "").trim())
+      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
   }
 
   if (typeof value === "string") {
@@ -94,14 +106,22 @@ const parseServiceSubservices = (value: unknown): string[] => {
 
     try {
       const parsed = JSON.parse(normalized);
+      if (parsed == null) {
+        return [];
+      }
       if (Array.isArray(parsed)) {
-        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+        return parsed
+          .map((item) => String(item || "").trim())
+          .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
       }
     } catch {
       // Fallback to comma-separated values.
     }
 
-    return normalized.split(",").map((item) => item.trim()).filter(Boolean);
+    return normalized
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
   }
 
   return [];
@@ -251,6 +271,12 @@ function SubservicesPageContent() {
     }
 
     if (predefined && predefined.length === 0) {
+      setHasAutoRedirected(true);
+      continueWithoutSubservice();
+      return;
+    }
+
+    if (!hasServiceDefinedSubservices && subserviceOptions.length === 0) {
       setHasAutoRedirected(true);
       continueWithoutSubservice();
     }

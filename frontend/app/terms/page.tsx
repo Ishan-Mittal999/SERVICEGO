@@ -26,8 +26,8 @@ export default function TermsPage() {
           <h2>3. Pricing and Payments</h2>
           <p>
             Prices shown at checkout may include service fees, taxes, or add-ons. By confirming a booking, you authorize
-            payment according to the selected method. Cancellation, reschedule, and refund eligibility are governed by the
-            policy presented at checkout.
+            payment according to the selected method. Cancellation, reschedule, and refund eligibility are governed by our{" "}
+            <Link href="/cancellation-refund-policy">Cancellation and Refund Policy</Link>.
           </p>
 
           <h2>4. User Responsibilities</h2>

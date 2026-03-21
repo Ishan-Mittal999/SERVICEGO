@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/env";
@@ -571,7 +572,10 @@ export default function CheckoutPage() {
 
             <section className="checkout-policy-text">
               <h4>CANCELLATION POLICY</h4>
-              <p>Help us reduce food waste by avoiding cancellations after your booking is prepared.</p>
+              <p>
+                Free cancellation is available up to 30 minutes before your scheduled slot. View full details in our{" "}
+                <Link href="/cancellation-refund-policy">Cancellation and Refund Policy</Link>.
+              </p>
             </section>
 
             <section className="checkout-block checkout-money-row">
