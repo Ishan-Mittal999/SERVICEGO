@@ -10,6 +10,7 @@ type Service = {
   id: string | number;
   name: string;
   description?: string;
+  sub_services?: unknown;
 };
 
 type Vendor = {
@@ -72,6 +73,32 @@ const parseVendorListField = (value: unknown): string[] => {
       }
     } catch {
       // Fallback to comma separated values.
+    }
+
+    return normalized.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+
+  return [];
+};
+
+const parseServiceSubservices = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (!normalized) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(normalized);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+      }
+    } catch {
+      // Fallback to comma-separated values.
     }
 
     return normalized.split(",").map((item) => item.trim()).filter(Boolean);
@@ -173,6 +200,14 @@ function SubservicesPageContent() {
       return [];
     }
 
+    const serviceDefinedSubservices = parseServiceSubservices(selectedService.sub_services);
+    const hasServiceDefinedSubservices =
+      (selectedService as Record<string, unknown>).sub_services !== undefined;
+
+    if (hasServiceDefinedSubservices) {
+      return serviceDefinedSubservices;
+    }
+
     const serviceKey = getServiceKey(selectedService.name || "");
     const predefined = PREDEFINED_SUBSERVICE_MAP[serviceKey] || [];
 
@@ -206,12 +241,20 @@ function SubservicesPageContent() {
 
     const serviceKey = getServiceKey(selectedService.name || "");
     const predefined = PREDEFINED_SUBSERVICE_MAP[serviceKey];
+    const hasServiceDefinedSubservices =
+      (selectedService as Record<string, unknown>).sub_services !== undefined;
+
+    if (hasServiceDefinedSubservices && subserviceOptions.length === 0) {
+      setHasAutoRedirected(true);
+      continueWithoutSubservice();
+      return;
+    }
 
     if (predefined && predefined.length === 0) {
       setHasAutoRedirected(true);
       continueWithoutSubservice();
     }
-  }, [selectedService, loading, hasAutoRedirected]);
+  }, [selectedService, loading, hasAutoRedirected, subserviceOptions]);
 
   const openShopsForSubservice = (subService: string) => {
     if (!selectedService) {

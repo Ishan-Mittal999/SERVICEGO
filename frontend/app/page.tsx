@@ -24,6 +24,7 @@ type Service = {
   category?: string;
   tags?: string[];
   keywords?: string[];
+  sub_services?: unknown;
 };
 
 type ServiceCard = {
@@ -84,6 +85,43 @@ const getServiceFlowKey = (serviceName: string) => {
 
 const shouldSkipSubservice = (serviceName: string) => {
   return NO_SUBSERVICE_SERVICE_KEYS.has(getServiceFlowKey(serviceName));
+};
+
+const parseServiceSubservices = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (!normalized) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(normalized);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+      }
+    } catch {
+      // Fallback to comma-separated values.
+    }
+
+    return normalized.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+
+  return [];
+};
+
+const serviceNeedsSubserviceSelection = (service: Service) => {
+  const hasDefinedSubservices =
+    (service as Record<string, unknown>).sub_services !== undefined;
+
+  if (hasDefinedSubservices) {
+    return parseServiceSubservices(service.sub_services).length > 0;
+  }
+
+  return !shouldSkipSubservice(service.name || "");
 };
 
 const getServiceSearchScore = (service: Service, query: string) => {
@@ -469,7 +507,7 @@ export default function HomePage() {
       bookingId: undefined,
     });
 
-    if (shouldSkipSubservice(service.name || "")) {
+    if (!serviceNeedsSubserviceSelection(service)) {
       router.push(`/shops?serviceId=${encodeURIComponent(String(service.id))}`);
       return;
     }

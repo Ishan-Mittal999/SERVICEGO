@@ -206,12 +206,20 @@ export default function AdminPage() {
         <h1 className="text-3xl font-bold" style={{ color: "var(--gray-900)", fontFamily: "var(--font-display)" }}>
           ServiceGo Admin Dashboard
         </h1>
-        <Link
-          href="/admin/vendors"
-          className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-amber-50"
-        >
-          Manage Vendor Profiles
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/admin/services"
+            className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-amber-50"
+          >
+            Manage Services
+          </Link>
+          <Link
+            href="/admin/vendors"
+            className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-amber-50"
+          >
+            Manage Vendor Profiles
+          </Link>
+        </div>
       </div>
 
       {/* ===== Stats Cards ===== */}

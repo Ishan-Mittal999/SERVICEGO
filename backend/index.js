@@ -598,6 +598,91 @@ app.get("/services", async (req, res) => {
   }
 });
 
+app.post("/services", async (req, res) => {
+  try {
+    const payload = { ...(req.body || {}) };
+
+    if (!payload.name || !String(payload.name).trim()) {
+      return res.status(400).json({ error: "Service name is required" });
+    }
+
+    delete payload.id;
+    delete payload.created_at;
+    delete payload.updated_at;
+
+    const { data, error } = await supabase
+      .from("services")
+      .insert([payload])
+      .select("*")
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(201).json({ message: "Service created", service: data });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/services/:id", async (req, res) => {
+  try {
+    const serviceId = req.params.id;
+    const payload = { ...(req.body || {}) };
+
+    if (!serviceId) {
+      return res.status(400).json({ error: "Service ID is required" });
+    }
+
+    delete payload.id;
+    delete payload.created_at;
+    delete payload.updated_at;
+
+    if (Object.keys(payload).length === 0) {
+      return res.status(400).json({ error: "No fields provided to update" });
+    }
+
+    const { data, error } = await supabase
+      .from("services")
+      .update(payload)
+      .eq("id", serviceId)
+      .select("*")
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({ message: "Service updated", service: data });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/services/:id", async (req, res) => {
+  try {
+    const serviceId = req.params.id;
+
+    if (!serviceId) {
+      return res.status(400).json({ error: "Service ID is required" });
+    }
+
+    const { error } = await supabase
+      .from("services")
+      .delete()
+      .eq("id", serviceId);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({ message: "Service deleted" });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 
 
 app.get("/vendors/:auth_id/bookings", async (req, res) => {
