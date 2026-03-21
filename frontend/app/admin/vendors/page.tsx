@@ -282,9 +282,14 @@ export default function AdminVendorsPage() {
         <h1 className="text-3xl font-bold" style={{ color: "var(--gray-900)", fontFamily: "var(--font-display)" }}>
           Admin Vendor Profile Manager
         </h1>
-        <Link href="/admin" className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-amber-50">
-          Back to Dashboard
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/admin/services" className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-amber-50">
+            Manage Services
+          </Link>
+          <Link href="/admin" className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-amber-50">
+            Back to Dashboard
+          </Link>
+        </div>
       </div>
 
       {errorMessage ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div> : null}
