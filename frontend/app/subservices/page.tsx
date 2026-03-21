@@ -18,6 +18,40 @@ type Vendor = {
   sub_services?: unknown;
 };
 
+const PREDEFINED_SUBSERVICE_MAP: Record<string, string[]> = {
+  ac: ["Foam jet service", "AC checkup", "AC installation", "AC uninstallation"],
+  washing_machine: ["Semi automatic machine repair", "Automatic top load repair", "Automatic front load repair"],
+  geyser: ["Install", "Uninstall", "Repair"],
+  chimney: [],
+  press: [],
+  refrigerator: [],
+  ro: [],
+  microwave: [],
+  mixer: [],
+  heater: [],
+  kettle: [],
+  cooler: [],
+};
+
+const getServiceKey = (serviceName: string) => {
+  const normalized = normalizeSubserviceText(serviceName);
+
+  if (normalized.includes("ac")) return "ac";
+  if (normalized.includes("washing")) return "washing_machine";
+  if (normalized.includes("geyser")) return "geyser";
+  if (normalized.includes("chimney")) return "chimney";
+  if (normalized.includes("iron") || normalized.includes("press")) return "press";
+  if (normalized.includes("refrigerator") || normalized.includes("fridge")) return "refrigerator";
+  if (normalized.includes("ro") || normalized.includes("purifier")) return "ro";
+  if (normalized.includes("microwave")) return "microwave";
+  if (normalized.includes("mixer")) return "mixer";
+  if (normalized.includes("heater")) return "heater";
+  if (normalized.includes("kettle")) return "kettle";
+  if (normalized.includes("cooler")) return "cooler";
+
+  return normalized.replace(/\s+/g, "_");
+};
+
 const normalizeSubserviceText = (value: string) => value.trim().toLowerCase();
 
 const parseVendorListField = (value: unknown): string[] => {
@@ -73,6 +107,7 @@ function SubservicesPageContent() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasAutoRedirected, setHasAutoRedirected] = useState(false);
 
   const serviceId = searchParams.get("serviceId") || "";
   const serviceQuery = normalizeSubserviceText(searchParams.get("serviceQuery") || "");
@@ -138,12 +173,16 @@ function SubservicesPageContent() {
       return [];
     }
 
+    const serviceKey = getServiceKey(selectedService.name || "");
+    const predefined = PREDEFINED_SUBSERVICE_MAP[serviceKey] || [];
+
     const relatedVendors = vendors.filter(
       (vendor) => String(vendor.service_id) === String(selectedService.id)
     );
 
     const seen = new Set<string>();
-    const options: string[] = [];
+    const options: string[] = [...predefined];
+    predefined.forEach((item) => seen.add(normalizeSubserviceText(item)));
 
     relatedVendors.forEach((vendor) => {
       parseVendorListField(vendor.sub_services).forEach((item) => {
@@ -157,8 +196,22 @@ function SubservicesPageContent() {
       });
     });
 
-    return options.sort((left, right) => left.localeCompare(right));
+    return options;
   }, [vendors, selectedService]);
+
+  useEffect(() => {
+    if (!selectedService || loading || hasAutoRedirected) {
+      return;
+    }
+
+    const serviceKey = getServiceKey(selectedService.name || "");
+    const predefined = PREDEFINED_SUBSERVICE_MAP[serviceKey];
+
+    if (predefined && predefined.length === 0) {
+      setHasAutoRedirected(true);
+      continueWithoutSubservice();
+    }
+  }, [selectedService, loading, hasAutoRedirected]);
 
   const openShopsForSubservice = (subService: string) => {
     if (!selectedService) {
@@ -243,7 +296,7 @@ function SubservicesPageContent() {
                   <button
                     key={option}
                     type="button"
-                    className="subservice-chip"
+                    className="subservice-chip subservice-card"
                     onClick={() => openShopsForSubservice(option)}
                   >
                     {option}
