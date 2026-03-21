@@ -10,12 +10,14 @@ import { reverseGeocode } from "@/lib/location";
 type Service = {
   id: string;
   name: string;
+  sub_services?: unknown;
 };
 
 type ServiceOption = {
   key: string;
   id: string | null;
   name: string;
+  subServices: string[];
 };
 
 type ServicemanForm = {
@@ -83,6 +85,32 @@ const readFilesAsDataUrl = async (files: File[]) => {
   );
 };
 
+const parseServiceSubservices = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (!normalized) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(normalized);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+      }
+    } catch {
+      // Fallback to comma-separated values.
+    }
+
+    return normalized.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+
+  return [];
+};
+
 const buildDefaultServiceman = (): ServicemanForm => ({
   name: "",
   phone: "",
@@ -132,6 +160,7 @@ export default function VendorOnboardingPage() {
     const all = new Set<string>();
 
     selectedServices.forEach((service) => {
+      service.subServices.forEach((item) => all.add(item));
       const preset = SUBSERVICE_PRESETS[getServiceKey(service.name)] || [];
       preset.forEach((item) => all.add(item));
     });
@@ -159,10 +188,12 @@ export default function VendorOnboardingPage() {
             if (!entry?.name) return;
             const nameText = String(entry.name).trim();
             if (!nameText) return;
+            const entrySubServices = parseServiceSubservices(entry.sub_services);
             normalizedMap.set(normalizeServiceName(nameText), {
               key: String(entry.id),
               id: String(entry.id),
               name: nameText,
+              subServices: entrySubServices,
             });
           });
         }
@@ -177,6 +208,7 @@ export default function VendorOnboardingPage() {
             key: `custom:${normalized}`,
             id: null,
             name: nameText,
+            subServices: SUBSERVICE_PRESETS[getServiceKey(nameText)] || [],
           });
         });
 
@@ -541,28 +573,41 @@ export default function VendorOnboardingPage() {
           />
 
           <label className="auth-label">Service Categories (select multiple)</label>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.55rem", marginBottom: "0.95rem" }}>
+          <div style={{ display: "grid", gap: "0.55rem", marginBottom: "0.95rem" }}>
             {serviceOptions.map((service) => {
               const selected = selectedServiceKeys.includes(service.key);
               return (
-                <button
+                <div
                   key={service.key}
-                  type="button"
-                  onClick={() => toggleServiceSelection(service.key)}
                   style={{
                     border: selected ? "1px solid #7a6a00" : "1px solid #d5dbe4",
                     background: selected ? "rgba(122,106,0,0.08)" : "#fff",
                     color: "#1f2937",
                     borderRadius: 12,
-                    minHeight: 42,
-                    fontSize: "0.83rem",
-                    fontWeight: 700,
-                    textAlign: "left",
-                    padding: "0.48rem 0.58rem",
+                    padding: "0.56rem 0.62rem",
                   }}
                 >
-                  {service.name}
-                </button>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.65rem" }}>
+                    <strong style={{ fontSize: "0.86rem" }}>{service.name}</strong>
+                    <button
+                      type="button"
+                      onClick={() => toggleServiceSelection(service.key)}
+                      className="auth-secondary-btn"
+                      style={{
+                        width: "auto",
+                        padding: "0.35rem 0.68rem",
+                        borderColor: selected ? "#f5c2c7" : "#b7e4c7",
+                        background: selected ? "#fee2e2" : "#dcfce7",
+                        color: selected ? "#b91c1c" : "#166534",
+                      }}
+                    >
+                      {selected ? "Remove" : "Add"}
+                    </button>
+                  </div>
+                  <p style={{ margin: "0.35rem 0 0", fontSize: "0.76rem", color: "#64748b", lineHeight: 1.4 }}>
+                    {service.subServices.length > 0 ? service.subServices.join(" • ") : "No sub-services configured"}
+                  </p>
+                </div>
               );
             })}
           </div>

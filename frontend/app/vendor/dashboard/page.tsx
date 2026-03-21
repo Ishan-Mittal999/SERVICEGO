@@ -1207,6 +1207,23 @@ function parsePricedSubServiceRows(value: unknown): Array<{ name: string; price:
     .filter((item): item is { name: string; price: string } => Boolean(item));
 }
 
+function parseServiceSubservices(value: unknown): string[] {
+  return parseVendorListField(value)
+    .map((entry) => {
+      const trimmed = String(entry || "").trim();
+      if (!trimmed) {
+        return "";
+      }
+
+      if (trimmed.includes("::")) {
+        return String(trimmed.split("::")[0] || "").trim();
+      }
+
+      return trimmed;
+    })
+    .filter(Boolean);
+}
+
 async function registerVendorPushSubscription(vendorAuthId: string) {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return;
@@ -1467,6 +1484,7 @@ function ProfilePage({
   vendor,
   bookings,
   email,
+  serviceCatalog,
   onUpdateLocation,
   onSaveProfile,
   isSavingProfile,
@@ -1476,6 +1494,7 @@ function ProfilePage({
   vendor: any;
   bookings: any[];
   email: string;
+  serviceCatalog: Array<{ id: string; name: string; subServices: string[] }>;
   onUpdateLocation: () => Promise<void>;
   onSaveProfile: (payload: {
     name: string;
@@ -1541,6 +1560,16 @@ function ProfilePage({
 
     const removeServiceName = (nameToRemove: string) => {
       setServiceNames((current) => current.filter((entry) => entry !== nameToRemove));
+    };
+
+    const toggleCatalogService = (serviceName: string) => {
+      setServiceNames((current) => {
+        if (current.some((entry) => entry.toLowerCase() === serviceName.toLowerCase())) {
+          return current.filter((entry) => entry.toLowerCase() !== serviceName.toLowerCase());
+        }
+
+        return [...current, serviceName];
+      });
     };
 
     const addSubServiceRow = () => {
@@ -1673,6 +1702,37 @@ function ProfilePage({
                             />
                         </div>
                     ))}
+
+                    <div style={{ marginBottom: 18 }}>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>Website Services and Sub-services</label>
+                      <div style={{ display: "grid", gap: 8, marginBottom: 10 }}>
+                        {serviceCatalog.map((serviceItem) => {
+                          const alreadyAdded = serviceNames.some((entry) => entry.toLowerCase() === serviceItem.name.toLowerCase());
+                          return (
+                            <div key={serviceItem.id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: "0.56rem 0.66rem", background: "#fff" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                                <strong style={{ fontSize: 13, color: theme.dark }}>{serviceItem.name}</strong>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleCatalogService(serviceItem.name)}
+                                  className="action-btn"
+                                  style={{
+                                    background: alreadyAdded ? "#fee2e2" : "#dcfce7",
+                                    color: alreadyAdded ? "#b91c1c" : "#166534",
+                                    border: alreadyAdded ? "1px solid #fecaca" : "1px solid #bbf7d0",
+                                  }}
+                                >
+                                  {alreadyAdded ? "Remove" : "Add"}
+                                </button>
+                              </div>
+                              <p style={{ margin: "0.38rem 0 0", fontSize: 12, color: "#64748b", lineHeight: 1.4 }}>
+                                {serviceItem.subServices.length > 0 ? serviceItem.subServices.join(" • ") : "No sub-services configured"}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
 
                     <div style={{ marginBottom: 18 }}>
                       <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>Services</label>
@@ -1839,6 +1899,7 @@ export default function VendorDashboard() {
   const [dashboardMessage, setDashboardMessage] = useState<string | null>(null);
   const [isUpdatingVendorLocation, setIsUpdatingVendorLocation] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [serviceCatalog, setServiceCatalog] = useState<Array<{ id: string; name: string; subServices: string[] }>>([]);
   const [locationUpdateMessage, setLocationUpdateMessage] = useState<string | null>(null);
   const alertedRequestIdsRef = useRef<string[]>([]);
   const initializedAlertStateRef = useRef(false);
@@ -1849,6 +1910,7 @@ export default function VendorDashboard() {
         const initialize = async () => {
             const canContinue = await loadVendor();
             if (!canContinue) return;
+            await loadServiceCatalog();
             await loadBookings();
       await setupPushForVendor();
       poller = window.setInterval(() => {
@@ -1981,6 +2043,33 @@ export default function VendorDashboard() {
         const res = await fetch(apiUrl(`/vendors/${user.id}/bookings`));
       const data = await res.json();
       setBookings(Array.isArray(data) ? data : []);
+    };
+
+    const loadServiceCatalog = async () => {
+      try {
+        const response = await fetch(apiUrl("/services"), { cache: "no-store" });
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+          return;
+        }
+
+        const nextCatalog = data
+          .filter((item) => item?.id && item?.name)
+          .map((item) => ({
+            id: String(item.id),
+            name: String(item.name),
+            subServices: parseServiceSubservices(item.sub_services),
+          }))
+          .sort((left, right) => left.name.localeCompare(right.name));
+
+        setServiceCatalog(nextCatalog);
+      } catch {
+        // Ignore catalog load errors in dashboard profile.
+      }
     };
 
     const acceptBooking = async (id: string) => {
@@ -2197,6 +2286,7 @@ export default function VendorDashboard() {
                   vendor={vendor}
                   bookings={bookings}
                   email={vendorEmail}
+                  serviceCatalog={serviceCatalog}
                   onUpdateLocation={updateVendorLocation}
                   onSaveProfile={saveVendorProfile}
                   isSavingProfile={isSavingProfile}
