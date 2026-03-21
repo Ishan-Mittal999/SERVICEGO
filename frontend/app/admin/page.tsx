@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { apiUrl } from "@/lib/env";
 
 type AdminBooking = {
@@ -201,9 +202,17 @@ export default function AdminPage() {
           "radial-gradient(circle at 12% 8%, rgba(122,106,0,0.14), transparent 34%), radial-gradient(circle at 88% 6%, rgba(30,144,255,0.12), transparent 30%), var(--off-white)",
       }}
     >
-      <h1 className="text-3xl font-bold mb-8" style={{ color: "var(--gray-900)", fontFamily: "var(--font-display)" }}>
-        ServiceGo Admin Dashboard
-      </h1>
+      <div className="mb-8 flex items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold" style={{ color: "var(--gray-900)", fontFamily: "var(--font-display)" }}>
+          ServiceGo Admin Dashboard
+        </h1>
+        <Link
+          href="/admin/vendors"
+          className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-amber-50"
+        >
+          Manage Vendor Profiles
+        </Link>
+      </div>
 
       {/* ===== Stats Cards ===== */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">

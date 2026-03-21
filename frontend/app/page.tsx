@@ -49,7 +49,42 @@ const SERVICE_IMAGE_LIBRARY: Array<{ image: string; label: string; terms: string
   { image: "/kettle_service.png", label: "Kettle", terms: ["kettle", "electric kettle"] },
 ];
 
+const NO_SUBSERVICE_SERVICE_KEYS = new Set([
+  "chimney",
+  "press",
+  "refrigerator",
+  "ro",
+  "microwave",
+  "mixer",
+  "heater",
+  "kettle",
+  "cooler",
+]);
+
 const normalizeText = (value: string) => value.trim().toLowerCase();
+
+const getServiceFlowKey = (serviceName: string) => {
+  const normalized = normalizeText(serviceName);
+
+  if (normalized.includes("ac")) return "ac";
+  if (normalized.includes("washing")) return "washing_machine";
+  if (normalized.includes("geyser")) return "geyser";
+  if (normalized.includes("chimney")) return "chimney";
+  if (normalized.includes("iron") || normalized.includes("press")) return "press";
+  if (normalized.includes("refrigerator") || normalized.includes("fridge")) return "refrigerator";
+  if (normalized.includes("ro") || normalized.includes("purifier")) return "ro";
+  if (normalized.includes("microwave")) return "microwave";
+  if (normalized.includes("mixer")) return "mixer";
+  if (normalized.includes("heater")) return "heater";
+  if (normalized.includes("kettle")) return "kettle";
+  if (normalized.includes("cooler")) return "cooler";
+
+  return normalized.replace(/\s+/g, "_");
+};
+
+const shouldSkipSubservice = (serviceName: string) => {
+  return NO_SUBSERVICE_SERVICE_KEYS.has(getServiceFlowKey(serviceName));
+};
 
 const getServiceSearchScore = (service: Service, query: string) => {
   if (!query) {
@@ -381,6 +416,11 @@ export default function HomePage() {
       return;
     }
 
+    if (shouldSkipSubservice(card.label)) {
+      router.push(`/shops?serviceQuery=${encodeURIComponent(card.label)}`);
+      return;
+    }
+
     router.push(`/subservices?serviceQuery=${encodeURIComponent(card.label)}`);
   };
 
@@ -428,6 +468,11 @@ export default function HomePage() {
       serviceDescription: service.description,
       bookingId: undefined,
     });
+
+    if (shouldSkipSubservice(service.name || "")) {
+      router.push(`/shops?serviceId=${encodeURIComponent(String(service.id))}`);
+      return;
+    }
 
     router.push(`/subservices?serviceId=${encodeURIComponent(String(service.id))}`);
   };

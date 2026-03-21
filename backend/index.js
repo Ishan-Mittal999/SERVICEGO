@@ -544,6 +544,40 @@ app.get("/vendors", async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
+app.put("/vendors/:id", async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+    const updatePayload = { ...(req.body || {}) };
+
+    if (!vendorId) {
+      return res.status(400).json({ error: "Vendor ID is required" });
+    }
+
+    delete updatePayload.id;
+    delete updatePayload.created_at;
+    delete updatePayload.updated_at;
+
+    if (Object.keys(updatePayload).length === 0) {
+      return res.status(400).json({ error: "No fields provided to update" });
+    }
+
+    const { data, error } = await supabase
+      .from("vendors")
+      .update(updatePayload)
+      .eq("id", vendorId)
+      .select("*")
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({ message: "Vendor updated", vendor: data });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
 // GET Services route
 app.get("/services", async (req, res) => {
   try {
