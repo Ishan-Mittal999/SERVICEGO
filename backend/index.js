@@ -578,6 +578,39 @@ app.put("/vendors/:id", async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
+app.delete("/vendors/:id", async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+
+    if (!vendorId) {
+      return res.status(400).json({ error: "Vendor ID is required" });
+    }
+
+    const { data: existingVendor, error: fetchError } = await supabase
+      .from("vendors")
+      .select("id, name")
+      .eq("id", vendorId)
+      .single();
+
+    if (fetchError || !existingVendor) {
+      return res.status(404).json({ error: "Vendor not found" });
+    }
+
+    const { error } = await supabase
+      .from("vendors")
+      .delete()
+      .eq("id", vendorId);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({ message: "Vendor deleted", vendorId });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
 // GET Services route
 app.get("/services", async (req, res) => {
   try {

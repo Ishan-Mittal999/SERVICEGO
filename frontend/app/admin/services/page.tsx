@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { ChangeEvent } from "react";
 import Link from "next/link";
 import { apiUrl } from "@/lib/env";
 
@@ -17,6 +18,55 @@ type Service = {
   is_active?: boolean;
   [key: string]: unknown;
 };
+
+type ServiceTemplate = {
+  name: string;
+  tags: string[];
+  keywords: string[];
+  subServices: string[];
+};
+
+const SERVICE_TEMPLATES: ServiceTemplate[] = [
+  {
+    name: "AC Repair",
+    tags: ["ac", "cooling", "home-service"],
+    keywords: ["air conditioner", "split ac", "window ac", "hvac"],
+    subServices: ["Foam jet service", "AC checkup", "AC installation", "AC uninstallation"],
+  },
+  {
+    name: "Washing Machine Repair",
+    tags: ["washing-machine", "repair", "appliance"],
+    keywords: ["front load", "top load", "semi automatic", "automatic"],
+    subServices: ["Semi automatic machine repair", "Automatic top load repair", "Automatic front load repair"],
+  },
+  {
+    name: "Geyser Service",
+    tags: ["geyser", "water-heater", "bathroom"],
+    keywords: ["geyser install", "geyser uninstall", "geyser repair"],
+    subServices: ["Install", "Uninstall", "Repair"],
+  },
+  {
+    name: "RO Service",
+    tags: ["ro", "water-purifier", "filter"],
+    keywords: ["aquaguard", "water filter", "ro repair"],
+    subServices: ["Installation", "Maintenance", "Membrane change", "Leakage fix"],
+  },
+  {
+    name: "Refrigerator Repair",
+    tags: ["fridge", "refrigerator", "cooling"],
+    keywords: ["cooling issue", "gas refill", "compressor"],
+    subServices: ["Cooling issue repair", "Compressor check", "Gas refill", "Door seal replacement"],
+  },
+  {
+    name: "Microwave Repair",
+    tags: ["microwave", "kitchen", "appliance"],
+    keywords: ["heating issue", "plate issue", "button panel"],
+    subServices: ["Heating issue fix", "Control panel repair", "Turntable fix"],
+  },
+];
+
+const COMMON_TAG_OPTIONS = ["home-service", "repair", "installation", "maintenance", "verified", "doorstep"];
+const COMMON_KEYWORD_OPTIONS = ["same day", "technician", "quick service", "trusted", "local expert"];
 
 const toCsv = (value: unknown) => {
   if (!Array.isArray(value)) {
@@ -36,6 +86,41 @@ const parseCsv = (value: string) => {
     .filter(Boolean);
 };
 
+const normalizeToken = (value: string) => value.trim().toLowerCase();
+
+const mergeCsvValues = (current: string, additions: string[]) => {
+  const merged: string[] = [];
+  const seen = new Set<string>();
+
+  [...parseCsv(current), ...additions].forEach((entry) => {
+    const normalized = normalizeToken(entry);
+    if (!normalized || seen.has(normalized)) {
+      return;
+    }
+
+    seen.add(normalized);
+    merged.push(entry.trim());
+  });
+
+  return merged.join(", ");
+};
+
+const removeCsvValue = (current: string, target: string) => {
+  const normalizedTarget = normalizeToken(target);
+  return parseCsv(current)
+    .filter((entry) => normalizeToken(entry) !== normalizedTarget)
+    .join(", ");
+};
+
+const readFileAsDataUrl = (file: File) => {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Could not read image"));
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function AdminServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState("");
@@ -51,6 +136,9 @@ export default function AdminServicesPage() {
   const [tags, setTags] = useState("");
   const [keywords, setKeywords] = useState("");
   const [subServices, setSubServices] = useState("");
+  const [newTag, setNewTag] = useState("");
+  const [newKeyword, setNewKeyword] = useState("");
+  const [newSubService, setNewSubService] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [rawJson, setRawJson] = useState("{}");
@@ -59,6 +147,23 @@ export default function AdminServicesPage() {
     () => services.find((service) => String(service.id) === String(selectedServiceId)) || null,
     [services, selectedServiceId]
   );
+
+  const activeTemplate = useMemo(() => {
+    const normalizedName = normalizeToken(name);
+    if (!normalizedName) {
+      return null;
+    }
+
+    return (
+      SERVICE_TEMPLATES.find((template) => normalizeToken(template.name) === normalizedName)
+      || SERVICE_TEMPLATES.find((template) => normalizedName.includes(normalizeToken(template.name)))
+      || null
+    );
+  }, [name]);
+
+  const tagItems = useMemo(() => parseCsv(tags), [tags]);
+  const keywordItems = useMemo(() => parseCsv(keywords), [keywords]);
+  const subServiceItems = useMemo(() => parseCsv(subServices), [subServices]);
 
   const loadServices = async () => {
     setLoading(true);
@@ -108,6 +213,55 @@ export default function AdminServicesPage() {
     setErrorMessage(null);
     setSuccessMessage(null);
   }, [selectedService]);
+
+  const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMessage("Please upload image smaller than 2MB.");
+      return;
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      if (!dataUrl) {
+        throw new Error("Could not process image");
+      }
+
+      setImageUrl(dataUrl);
+      setErrorMessage(null);
+    } catch {
+      setErrorMessage("Could not process image.");
+    }
+  };
+
+  const removeImage = () => {
+    setImageUrl("");
+  };
+
+  const applyTemplate = (template: ServiceTemplate) => {
+    setName((current) => current.trim() || template.name);
+    setTags((current) => mergeCsvValues(current, template.tags));
+    setKeywords((current) => mergeCsvValues(current, template.keywords));
+    setSubServices((current) => mergeCsvValues(current, template.subServices));
+  };
+
+  const addTokenValue = (
+    value: string,
+    setter: React.Dispatch<React.SetStateAction<string>>,
+    reset: () => void
+  ) => {
+    const normalized = value.trim();
+    if (!normalized) {
+      return;
+    }
+
+    setter((current) => mergeCsvValues(current, [normalized]));
+    reset();
+  };
 
   const saveStructured = async () => {
     if (!selectedService) {
@@ -330,7 +484,6 @@ export default function AdminServicesPage() {
                   <Field label="Service name" value={name} onChange={setName} />
                   <Field label="Category" value={category} onChange={setCategory} />
                   <Field label="Icon (emoji/text)" value={icon} onChange={setIcon} />
-                  <Field label="Image URL (optional)" value={imageUrl} onChange={setImageUrl} />
 
                   <label className="grid gap-1 text-sm text-gray-700">
                     <span className="font-semibold">Active</span>
@@ -346,9 +499,145 @@ export default function AdminServicesPage() {
                 </div>
 
                 <TextAreaField label="Description" value={description} onChange={setDescription} rows={3} />
-                <TextAreaField label="Tags (comma separated)" value={tags} onChange={setTags} rows={2} />
-                <TextAreaField label="Keywords (comma separated)" value={keywords} onChange={setKeywords} rows={2} />
-                <TextAreaField label="Sub-services (comma separated)" value={subServices} onChange={setSubServices} rows={3} />
+
+                <div className="grid gap-2 rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+                  <span className="text-sm font-semibold text-amber-900">Predefined Service Templates</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {SERVICE_TEMPLATES.map((template) => (
+                      <button
+                        key={template.name}
+                        type="button"
+                        onClick={() => applyTemplate(template)}
+                        className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-left text-sm hover:bg-amber-100"
+                      >
+                        <p className="font-semibold text-gray-800">{template.name}</p>
+                        <p className="text-xs text-gray-500 line-clamp-2">{template.subServices.join(" • ")}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid gap-2 text-sm text-gray-700">
+                  <span className="font-semibold">Tags</span>
+                  <div className="flex flex-wrap gap-2">
+                    {tagItems.map((item) => (
+                      <button
+                        key={`tag-${item}`}
+                        type="button"
+                        onClick={() => setTags((current) => removeCsvValue(current, item))}
+                        className="rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
+                      >
+                        {item} x
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {[...(activeTemplate?.tags || []), ...COMMON_TAG_OPTIONS].map((option) => (
+                      <button
+                        key={`tag-option-${option}`}
+                        type="button"
+                        onClick={() => setTags((current) => mergeCsvValues(current, [option]))}
+                        className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700"
+                      >
+                        + {option}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-[1fr,auto] gap-2">
+                    <input value={newTag} onChange={(event) => setNewTag(event.target.value)} placeholder="Add tag" className="rounded-lg border border-gray-300 px-3 py-2" />
+                    <button type="button" onClick={() => addTokenValue(newTag, setTags, () => setNewTag(""))} className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white">Add</button>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 text-sm text-gray-700">
+                  <span className="font-semibold">Keywords</span>
+                  <div className="flex flex-wrap gap-2">
+                    {keywordItems.map((item) => (
+                      <button
+                        key={`keyword-${item}`}
+                        type="button"
+                        onClick={() => setKeywords((current) => removeCsvValue(current, item))}
+                        className="rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
+                      >
+                        {item} x
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {[...(activeTemplate?.keywords || []), ...COMMON_KEYWORD_OPTIONS].map((option) => (
+                      <button
+                        key={`keyword-option-${option}`}
+                        type="button"
+                        onClick={() => setKeywords((current) => mergeCsvValues(current, [option]))}
+                        className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700"
+                      >
+                        + {option}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-[1fr,auto] gap-2">
+                    <input value={newKeyword} onChange={(event) => setNewKeyword(event.target.value)} placeholder="Add keyword" className="rounded-lg border border-gray-300 px-3 py-2" />
+                    <button type="button" onClick={() => addTokenValue(newKeyword, setKeywords, () => setNewKeyword(""))} className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white">Add</button>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 text-sm text-gray-700">
+                  <span className="font-semibold">Sub-services</span>
+                  <div className="flex flex-wrap gap-2">
+                    {subServiceItems.map((item) => (
+                      <button
+                        key={`sub-${item}`}
+                        type="button"
+                        onClick={() => setSubServices((current) => removeCsvValue(current, item))}
+                        className="rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
+                      >
+                        {item} x
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(activeTemplate?.subServices || []).map((option) => (
+                      <button
+                        key={`sub-option-${option}`}
+                        type="button"
+                        onClick={() => setSubServices((current) => mergeCsvValues(current, [option]))}
+                        className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700"
+                      >
+                        + {option}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-[1fr,auto] gap-2">
+                    <input value={newSubService} onChange={(event) => setNewSubService(event.target.value)} placeholder="Add sub-service" className="rounded-lg border border-gray-300 px-3 py-2" />
+                    <button type="button" onClick={() => addTokenValue(newSubService, setSubServices, () => setNewSubService(""))} className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white">Add</button>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 text-sm text-gray-700">
+                  <span className="font-semibold">Service Image (upload from device)</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="rounded-lg border border-gray-300 px-3 py-2"
+                  />
+                  {imageUrl ? (
+                    <div className="grid gap-2">
+                      <img
+                        src={imageUrl}
+                        alt="Service preview"
+                        className="h-28 w-44 rounded-lg border border-gray-200 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        className="w-fit rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700"
+                      >
+                        Remove image
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
 
                 <div className="flex gap-2 flex-wrap">
                   <button

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { ChangeEvent } from "react";
 import Link from "next/link";
 import { apiUrl } from "@/lib/env";
 
@@ -51,6 +52,20 @@ const parseCsv = (text: string) => {
     .filter(Boolean);
 };
 
+const readFilesAsDataUrl = async (files: File[]) => {
+  return Promise.all(
+    files.map(
+      (file) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(new Error("Could not read image"));
+          reader.readAsDataURL(file);
+        })
+    )
+  );
+};
+
 export default function AdminVendorsPage() {
   const [vendors, setVendors] = useState<AdminVendor[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -72,7 +87,7 @@ export default function AdminVendorsPage() {
   const [formServiceIds, setFormServiceIds] = useState("");
   const [formSelectedServiceNames, setFormSelectedServiceNames] = useState("");
   const [formSubServices, setFormSubServices] = useState("");
-  const [formShopImageUrls, setFormShopImageUrls] = useState("");
+  const [formShopImageUrls, setFormShopImageUrls] = useState<string[]>([]);
   const [formServicemenCount, setFormServicemenCount] = useState("");
   const [formServicemenDetails, setFormServicemenDetails] = useState("[]");
   const [formGstNumber, setFormGstNumber] = useState("");
@@ -149,7 +164,7 @@ export default function AdminVendorsPage() {
     setFormServiceIds(toCsv(selectedVendor.service_ids));
     setFormSelectedServiceNames(toCsv(selectedVendor.selected_service_names));
     setFormSubServices(toCsv(selectedVendor.sub_services));
-    setFormShopImageUrls(Array.isArray(selectedVendor.shop_image_urls) ? selectedVendor.shop_image_urls.join("\n") : "");
+    setFormShopImageUrls(Array.isArray(selectedVendor.shop_image_urls) ? selectedVendor.shop_image_urls.map((item) => String(item || "").trim()).filter(Boolean) : []);
     setFormServicemenCount(String(selectedVendor.servicemen_count || 0));
     setFormServicemenDetails(JSON.stringify(selectedVendor.servicemen_details || [], null, 2));
     setFormGstNumber(String(selectedVendor.gst_number || ""));
@@ -194,10 +209,7 @@ export default function AdminVendorsPage() {
       service_ids: parseCsv(formServiceIds),
       selected_service_names: parseCsv(formSelectedServiceNames),
       sub_services: parseCsv(formSubServices),
-      shop_image_urls: formShopImageUrls
-        .split("\n")
-        .map((item) => item.trim())
-        .filter(Boolean),
+      shop_image_urls: formShopImageUrls,
       servicemen_count: Number(formServicemenCount) || 0,
       servicemen_details: servicemenDetails,
       gst_number: formGstNumber || null,
@@ -265,6 +277,71 @@ export default function AdminVendorsPage() {
       await loadData();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Could not update vendor");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleShopImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) {
+      return;
+    }
+
+    const oversized = files.find((file) => file.size > 2 * 1024 * 1024);
+    if (oversized) {
+      setErrorMessage("Please upload images smaller than 2MB each.");
+      return;
+    }
+
+    const imageData = await readFilesAsDataUrl(files).catch(() => {
+      setErrorMessage("Could not process uploaded images.");
+      return [] as string[];
+    });
+
+    if (imageData.length === 0) {
+      return;
+    }
+
+    setFormShopImageUrls((current) => Array.from(new Set([...current, ...imageData.filter(Boolean)])));
+    setErrorMessage(null);
+  };
+
+  const removeShopImage = (index: number) => {
+    setFormShopImageUrls((current) => current.filter((_, currentIndex) => currentIndex !== index));
+  };
+
+  const deleteVendor = async () => {
+    if (!selectedVendor) {
+      return;
+    }
+
+    const vendorName = selectedVendor.name || "this vendor";
+    const shouldDelete = window.confirm(`Delete ${vendorName}? This action cannot be undone.`);
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await fetch(apiUrl(`/vendors/${encodeURIComponent(String(selectedVendor.id))}`), {
+        method: "DELETE",
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not delete vendor");
+      }
+
+      setSuccessMessage("Vendor deleted.");
+      setSelectedVendorId("");
+      await loadData();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not delete vendor");
     } finally {
       setSaving(false);
     }
@@ -376,7 +453,34 @@ export default function AdminVendorsPage() {
                 <TextAreaField label="Service IDs (comma separated)" value={formServiceIds} onChange={setFormServiceIds} rows={2} />
                 <TextAreaField label="Selected service names (comma separated)" value={formSelectedServiceNames} onChange={setFormSelectedServiceNames} rows={2} />
                 <TextAreaField label="Sub-services (comma separated)" value={formSubServices} onChange={setFormSubServices} rows={2} />
-                <TextAreaField label="Shop image URLs (one per line)" value={formShopImageUrls} onChange={setFormShopImageUrls} rows={3} />
+                <div className="grid gap-2 text-sm text-gray-700">
+                  <span className="font-semibold">Shop images (upload from device)</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleShopImageUpload}
+                    className="rounded-lg border border-gray-300 px-3 py-2"
+                  />
+                  {formShopImageUrls.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {formShopImageUrls.map((image, index) => (
+                        <div key={`${index}-${image.slice(0, 24)}`} className="grid gap-1">
+                          <img src={image} alt={`Shop ${index + 1}`} className="h-20 w-full rounded-lg border border-gray-200 object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeShopImage(index)}
+                            className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500">No image uploaded yet.</p>
+                  )}
+                </div>
                 <TextAreaField label="Servicemen details JSON" value={formServicemenDetails} onChange={setFormServicemenDetails} rows={6} />
 
                 <div className="flex gap-2 flex-wrap">
@@ -388,6 +492,19 @@ export default function AdminVendorsPage() {
                     style={{ background: "linear-gradient(135deg, #7A6A00, #8B7500)", opacity: saving ? 0.8 : 1 }}
                   >
                     {saving ? "Saving..." : "Save Profile Fields"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={deleteVendor}
+                    disabled={saving}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold"
+                    style={{
+                      background: saving ? "#fecaca" : "#ef4444",
+                      color: "#ffffff",
+                      opacity: saving ? 0.8 : 1,
+                    }}
+                  >
+                    {saving ? "Working..." : "Delete Vendor"}
                   </button>
                 </div>
 

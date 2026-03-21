@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import { supabase } from "@/lib/supabase";
 import { apiUrl, WEB_PUSH_PUBLIC_KEY } from "@/lib/env";
 import Link from "next/link";
@@ -1224,6 +1225,20 @@ function parseServiceSubservices(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function readFilesAsDataUrl(files: File[]) {
+  return Promise.all(
+    files.map(
+      (file) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(new Error("Could not read image"));
+          reader.readAsDataURL(file);
+        })
+    )
+  );
+}
+
 async function registerVendorPushSubscription(vendorAuthId: string) {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return;
@@ -1525,7 +1540,7 @@ function ProfilePage({
     const [subServiceRows, setSubServiceRows] = useState<Array<{ name: string; price: string }>>(parsePricedSubServiceRows(vendor?.sub_services));
     const [newSubServiceName, setNewSubServiceName] = useState("");
     const [newSubServicePrice, setNewSubServicePrice] = useState("");
-    const [shopImageUrlsText, setShopImageUrlsText] = useState(parseVendorListField(vendor?.shop_image_urls).join("\n"));
+    const [shopImageUrls, setShopImageUrls] = useState<string[]>(parseVendorListField(vendor?.shop_image_urls));
 
     useEffect(() => {
       setName(vendor?.name || "");
@@ -1539,8 +1554,31 @@ function ProfilePage({
       setSubServiceRows(parsePricedSubServiceRows(vendor?.sub_services));
       setNewSubServiceName("");
       setNewSubServicePrice("");
-      setShopImageUrlsText(parseVendorListField(vendor?.shop_image_urls).join("\n"));
+      setShopImageUrls(parseVendorListField(vendor?.shop_image_urls));
     }, [vendor]);
+
+    const handleShopImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files || []);
+      if (files.length === 0) {
+        return;
+      }
+
+      const oversized = files.find((file) => file.size > 2 * 1024 * 1024);
+      if (oversized) {
+        return;
+      }
+
+      const nextImages = await readFilesAsDataUrl(files).catch(() => [] as string[]);
+      if (nextImages.length === 0) {
+        return;
+      }
+
+      setShopImageUrls((current) => Array.from(new Set([...current, ...nextImages.filter(Boolean)])));
+    };
+
+    const removeShopImage = (index: number) => {
+      setShopImageUrls((current) => current.filter((_, currentIndex) => currentIndex !== index));
+    };
 
     const addServiceName = () => {
       const normalized = newServiceName.trim();
@@ -1631,7 +1669,7 @@ function ProfilePage({
         selectedServiceNames: serviceNames.map((item) => item.trim()).filter(Boolean),
         serviceBasePrice: Number(serviceBasePrice) || 0,
         subServices: subServicesPayload,
-        shopImageUrls: shopImageUrlsText.split("\n").map((item) => item.trim()).filter(Boolean),
+        shopImageUrls,
       });
     };
 
@@ -1798,13 +1836,33 @@ function ProfilePage({
                     </div>
 
                     <div style={{ marginBottom: 18 }}>
-                      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>Shop image URLs (one URL per line)</label>
-                      <textarea
-                        value={shopImageUrlsText}
-                        onChange={(event) => setShopImageUrlsText(event.target.value)}
-                        rows={4}
-                        style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark, resize: "vertical" }}
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>Shop images (upload from device)</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleShopImageUpload}
+                        style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark, marginBottom: 8 }}
                       />
+                      {shopImageUrls.length > 0 ? (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+                          {shopImageUrls.map((image, index) => (
+                            <div key={`${index}-${image.slice(0, 24)}`} style={{ display: "grid", gap: 4 }}>
+                              <img src={image} alt={`Shop ${index + 1}`} style={{ width: "100%", height: 82, objectFit: "cover", borderRadius: 8, border: "1px solid #EDEBE4" }} />
+                              <button
+                                type="button"
+                                onClick={() => removeShopImage(index)}
+                                className="action-btn"
+                                style={{ background: "#fee2e2", color: "#b91c1c", border: "1px solid #fecaca", justifyContent: "center" }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p style={{ margin: "0.2rem 0 0", fontSize: 12, color: theme.muted }}>No image uploaded yet.</p>
+                      )}
                     </div>
 
                     <div style={{ marginBottom: 18 }}>
