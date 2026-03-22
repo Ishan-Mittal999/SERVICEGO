@@ -29,6 +29,11 @@ type BookingResponse = {
     email?: string;
     area?: string;
   } | null;
+  assigned_serviceman_name?: string;
+  assigned_serviceman_phone?: string;
+  assigned_serviceman_photo?: string;
+  live_update_message?: string;
+  live_update_eta?: string;
 };
 
 export default function BookingStatusPage() {
@@ -146,17 +151,17 @@ function BookingStatusPageContent() {
         <div className="booking-stage">Step 3 of 3</div>
         <h1 className="booking-title">
           {booking?.status === "assigned"
-            ? "Vendor assigned"
+            ? "Booking confirmed and team assigned"
             : booking?.status === "completed"
               ? "Service completed"
-              : "Waiting for vendor assignment"}
+              : "Booking created successfully"}
         </h1>
         <p className="booking-subtitle">
           {booking?.status === "assigned"
-            ? "Your team has assigned a vendor. All the booking details are ready below."
+            ? "Your booking is confirmed. Your assigned serviceman details are available below."
             : booking?.status === "completed"
               ? "This booking is marked as completed."
-              : "Your request is live. This screen refreshes automatically until a vendor is assigned."}
+              : "Your booking has been created. Live serviceman updates will appear here automatically."}
         </p>
 
         {errorMessage ? <p className="booking-error">{errorMessage}</p> : null}
@@ -176,16 +181,16 @@ function BookingStatusPageContent() {
               </div>
               <div className="booking-status-chip booking-status-chip--active">
                 {booking?.status === "assigned"
-                  ? "Vendor locked in"
+                  ? "Team assigned"
                   : booking?.status === "completed"
                     ? "Service complete"
-                    : "Searching nearby vendors"}
+                    : "Booking created"}
               </div>
               <div className="booking-service-name">{booking?.services?.name ?? draft?.serviceName ?? "Service booking"}</div>
               <p className="booking-muted">
                 {booking?.status === "assigned"
-                  ? "You can now see the assigned vendor and reach out if needed."
-                  : "Please keep this screen open while your team matches the best vendor."}
+                  ? "Your serviceman is now assigned. You can track the latest update below."
+                  : "Your request is confirmed. We will post live serviceman details on this screen."}
               </p>
 
               <div className="booking-checkpoints">
@@ -228,6 +233,37 @@ function BookingStatusPageContent() {
                 </div>
               ) : null}
 
+              <div className="booking-vendor-card">
+                <div className="booking-label">Live team updates</div>
+                {booking?.status === "assigned" || booking?.status === "completed" ? (
+                  <>
+                    <div className="booking-service-name">
+                      {booking.assigned_serviceman_name || booking?.vendors?.name || "Serviceman assigned"}
+                    </div>
+                    {booking.assigned_serviceman_photo ? (
+                      <img
+                        src={booking.assigned_serviceman_photo}
+                        alt="Assigned serviceman"
+                        style={{ width: "100%", maxWidth: 180, borderRadius: 10, border: "1px solid #EDEBE4", margin: "8px 0" }}
+                      />
+                    ) : null}
+                    {booking.assigned_serviceman_phone || booking?.vendors?.phone ? (
+                      <p className="booking-muted">Phone: {booking.assigned_serviceman_phone || booking?.vendors?.phone}</p>
+                    ) : null}
+                    {booking.live_update_eta ? <p className="booking-muted">ETA: {booking.live_update_eta}</p> : null}
+                    {booking.live_update_message ? (
+                      <p className="booking-muted">Update: {booking.live_update_message}</p>
+                    ) : (
+                      <p className="booking-muted">Your serviceman is assigned. Arrival updates will appear here.</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="booking-muted">
+                    Booking is confirmed. Serviceman name, phone, photo, and arrival updates will appear here as soon as assignment starts.
+                  </p>
+                )}
+              </div>
+
               {booking?.vendors && (booking.status === "assigned" || booking.status === "completed") ? (
                 <div className="booking-vendor-card">
                   <div className="booking-label">Assigned vendor</div>
@@ -240,7 +276,7 @@ function BookingStatusPageContent() {
 
               <div className="booking-actions booking-actions--stack">
                 <button className="booking-secondary-btn" type="button" onClick={() => window.location.reload()}>
-                  Refresh status
+                  Check latest update
                 </button>
                 <button className="booking-primary-btn" type="button" onClick={handleReset}>
                   Book another service
