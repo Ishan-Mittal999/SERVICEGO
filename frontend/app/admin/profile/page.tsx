@@ -17,6 +17,33 @@ export default function AdminProfilePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const redirectToLogin = () => {
+    router.replace("/auth/login?next=/admin/profile");
+  };
+
+  const ensureActiveSession = async () => {
+    let {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!session) {
+      const refreshed = await supabase.auth.refreshSession();
+      session = refreshed.data.session;
+      error = refreshed.error;
+
+      if (error) {
+        throw error;
+      }
+    }
+
+    return session;
+  };
+
   useEffect(() => {
     let isActive = true;
 
@@ -25,17 +52,11 @@ export default function AdminProfilePage() {
         setLoading(true);
         setErrorMessage(null);
 
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
-
-        if (error) {
-          throw error;
-        }
+        const session = await ensureActiveSession();
+        const user = session?.user || null;
 
         if (!user) {
-          router.replace("/auth/login?next=/admin/profile");
+          redirectToLogin();
           return;
         }
 
@@ -52,7 +73,13 @@ export default function AdminProfilePage() {
           return;
         }
 
-        setErrorMessage(error instanceof Error ? error.message : "Could not load admin profile.");
+        const message = error instanceof Error ? error.message : "Could not load admin profile.";
+        if (message.toLowerCase().includes("auth session missing")) {
+          redirectToLogin();
+          return;
+        }
+
+        setErrorMessage(message);
       } finally {
         if (isActive) {
           setLoading(false);
@@ -73,6 +100,12 @@ export default function AdminProfilePage() {
       setErrorMessage(null);
       setSuccessMessage(null);
 
+      const session = await ensureActiveSession();
+      if (!session?.user) {
+        redirectToLogin();
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({
         data: {
           full_name: fullName.trim(),
@@ -87,7 +120,13 @@ export default function AdminProfilePage() {
 
       setSuccessMessage("Admin profile updated successfully.");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not save profile.");
+      const message = error instanceof Error ? error.message : "Could not save profile.";
+      if (message.toLowerCase().includes("auth session missing")) {
+        redirectToLogin();
+        return;
+      }
+
+      setErrorMessage(message);
     } finally {
       setSaving(false);
     }
