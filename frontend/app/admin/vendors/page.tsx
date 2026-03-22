@@ -407,6 +407,9 @@ export default function AdminVendorsPage() {
           Pending approvals: {pendingCount}
         </div>
         <div className="flex gap-2">
+          <Link href="/admin/profile" className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-amber-50">
+            Admin Profile
+          </Link>
           <Link href="/admin/services" className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-amber-50">
             Manage Services
           </Link>

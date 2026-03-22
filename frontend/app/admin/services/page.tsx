@@ -426,6 +426,9 @@ export default function AdminServicesPage() {
           Admin Service & Subservice Manager
         </h1>
         <div className="flex gap-2">
+          <Link href="/admin/profile" className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-amber-50">
+            Admin Profile
+          </Link>
           <Link href="/admin/vendors" className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-amber-50">
             Manage Vendor Profiles
           </Link>
