@@ -11,17 +11,70 @@ export default function VendorSignup() {
 	const [name, setName] = useState("");
 	const [phone, setPhone] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isResending, setIsResending] = useState(false);
+	const [isVerificationPending, setIsVerificationPending] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+	const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+	const emailRedirectTo =
+		typeof window !== "undefined"
+			? `${window.location.origin}/vendor/entry`
+			: undefined;
+
+	const openMailbox = (provider: "gmail" | "outlook") => {
+		const url =
+			provider === "gmail"
+				? "https://mail.google.com/mail/u/0/#inbox"
+				: "https://outlook.live.com/mail/0/inbox";
+		window.open(url, "_blank", "noopener,noreferrer");
+	};
+
+	const resendVerificationEmail = async () => {
+		if (!email) {
+			setErrorMessage("Email is required to resend verification link.");
+			return;
+		}
+
+		setErrorMessage(null);
+		setInfoMessage(null);
+		setIsResending(true);
+
+		const { error } = await supabase.auth.resend({
+			type: "signup",
+			email,
+			options: {
+				emailRedirectTo,
+			},
+		});
+
+		if (error) {
+			setErrorMessage(error.message);
+			setIsResending(false);
+			return;
+		}
+
+		setInfoMessage("Verification email sent again. Please check your inbox and spam folder.");
+		setIsResending(false);
+	};
 
 	const signup = async (e: React.FormEvent) => {
 		e.preventDefault();
 
 		setErrorMessage(null);
+		setInfoMessage(null);
 		setIsSubmitting(true);
 
 		const { data, error } = await supabase.auth.signUp({
 			email,
 			password,
+			options: {
+				emailRedirectTo,
+				data: {
+					full_name: name,
+					phone,
+					role: "vendor",
+				},
+			},
 		});
 
 		if (error) {
@@ -37,9 +90,8 @@ export default function VendorSignup() {
 		}
 
 		if (!data.session) {
-			setErrorMessage(
-				"Account created. Please verify your email, then login as Shop Owner to complete registration."
-			);
+			setIsVerificationPending(true);
+			setInfoMessage("Account created. Verification link sent to your email.");
 			setIsSubmitting(false);
 			return;
 		}
@@ -64,6 +116,34 @@ export default function VendorSignup() {
 					Create your vendor account and start receiving bookings.
 				</p>
 
+				{isVerificationPending ? (
+					<section className="auth-verify-card" aria-live="polite">
+						<div className="auth-verify-badge" aria-hidden="true">✓</div>
+						<h2>Check your inbox</h2>
+						<p>
+							We sent a verification link to <strong>{email}</strong>. Verify your email to activate your vendor account.
+						</p>
+						<ul className="auth-verify-steps">
+							<li>Open your mailbox and find the message from ServiceGo.</li>
+							<li>Click the verification button in that email.</li>
+							<li>Return and login as Shop Owner to continue onboarding.</li>
+						</ul>
+
+						<div className="auth-verify-actions">
+							<button type="button" className="auth-secondary-btn" onClick={() => openMailbox("gmail")}>Open Gmail</button>
+							<button type="button" className="auth-secondary-btn" onClick={() => openMailbox("outlook")}>Open Outlook</button>
+							<button
+								type="button"
+								className="auth-primary-btn"
+								onClick={resendVerificationEmail}
+								disabled={isResending}
+							>
+								{isResending ? "Sending..." : "Resend Verification Email"}
+							</button>
+							<button type="button" className="auth-secondary-btn" onClick={() => router.push("/vendor/login")}>Go to Vendor Login</button>
+						</div>
+					</section>
+				) : (
 				<form onSubmit={signup} className="auth-form">
 					<label className="auth-label">
 						Full Name
@@ -111,11 +191,8 @@ export default function VendorSignup() {
 						className="auth-input"
 					/>
 
-					{errorMessage ? (
-						<p style={{ color: "#b42318", marginTop: "0.8rem", fontSize: "0.88rem" }}>
-							{errorMessage}
-						</p>
-					) : null}
+					{errorMessage ? <p className="auth-feedback auth-feedback--error">{errorMessage}</p> : null}
+					{infoMessage ? <p className="auth-feedback auth-feedback--success">{infoMessage}</p> : null}
 
 					<button
 						type="submit"
@@ -126,6 +203,7 @@ export default function VendorSignup() {
 						{isSubmitting ? "Creating account..." : "Create Vendor Account"}
 					</button>
 				</form>
+				)}
 
 				<p className="auth-footer">
 					Already have a vendor account?{" "}
