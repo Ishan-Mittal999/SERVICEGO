@@ -1007,6 +1007,7 @@ export default function HomePage() {
             <span>© 2026 ServiceGo. All rights reserved.</span>
             <div className="footer-legal-links" aria-label="Legal links">
               <span>Use of this site is subject to our legal policies.</span>
+              <Link href="/faqs">FAQs</Link>
               <Link href="/terms">Terms of Service</Link>
               <Link href="/cancellation-refund-policy">Cancellation & Refund Policy</Link>
               <Link href="/privacy">Privacy Policy</Link>
