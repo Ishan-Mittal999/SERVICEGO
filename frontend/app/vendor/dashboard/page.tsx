@@ -1225,6 +1225,67 @@ function parseServiceSubservices(value: unknown): string[] {
     .filter(Boolean);
 }
 
+type VendorServiceman = {
+  id: string;
+  name: string;
+  phone: string;
+  aadharNumber?: string;
+  serviceCategory?: string;
+  photo?: string;
+  aadharPhoto?: string;
+};
+
+function parseVendorServicemen(value: unknown): VendorServiceman[] {
+  const asArray = (() => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+
+    if (typeof value === "string") {
+      const normalized = value.trim();
+      if (!normalized) {
+        return [] as unknown[];
+      }
+
+      try {
+        const parsed = JSON.parse(normalized);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [] as unknown[];
+      }
+    }
+
+    return [] as unknown[];
+  })();
+
+  return asArray
+    .map((entry, index) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const person = entry as Record<string, unknown>;
+      const name = String(person.name || "").trim();
+      const phone = String(person.phone || "").trim();
+      const id = String(person.id || `serviceman-${index + 1}`).trim();
+
+      if (!id || !name) {
+        return null;
+      }
+
+      return {
+        id,
+        name,
+        phone,
+        aadharNumber: String(person.aadharNumber || "").trim(),
+        serviceCategory: String(person.serviceCategory || "").trim(),
+        photo: String(person.photo || "").trim(),
+        aadharPhoto: String(person.aadharPhoto || "").trim(),
+      } as VendorServiceman;
+    })
+    .filter((entry): entry is VendorServiceman => Boolean(entry));
+}
+
 function readFilesAsDataUrl(files: File[]) {
   return Promise.all(
     files.map(
@@ -1321,10 +1382,38 @@ function StatusPill({ status }: { status: string }) {
 
 // ─── PAGES ───────────────────────────────────────────────────────────────────
 
-function DashboardHome({ bookings, acceptBooking, completeBooking, vendor, pendingCount, openProfile }: { bookings: any[]; acceptBooking: (id: string) => Promise<void>; completeBooking: (id: string) => Promise<void>; vendor: any; pendingCount: number; openProfile: () => void }) {
+function DashboardHome({
+  bookings,
+  acceptBooking,
+  completeBooking,
+  vendor,
+  pendingCount,
+  openProfile,
+  servicemen,
+  bookingServicemanSelection,
+  onSelectServiceman,
+}: {
+  bookings: any[];
+  acceptBooking: (id: string, servicemanId: string) => Promise<void>;
+  completeBooking: (id: string) => Promise<void>;
+  vendor: any;
+  pendingCount: number;
+  openProfile: () => void;
+  servicemen: VendorServiceman[];
+  bookingServicemanSelection: Record<string, string>;
+  onSelectServiceman: (bookingId: string, servicemanId: string) => void;
+}) {
     const [bookingTab, setBookingTab] = useState<string>("all");
     const completedCount = bookings.filter((b: any) => b.status === "completed").length;
     const inProgressCount = bookings.filter((b: any) => b.status === "assigned").length;
+    const busyServicemanIds = new Set(
+      bookings
+        .filter((b: any) => b.status === "assigned")
+        .map((b: any) => String(b.assigned_serviceman_id || "").trim())
+        .filter(Boolean)
+    );
+    const freeServicemenCount = servicemen.filter((person) => !busyServicemanIds.has(person.id)).length;
+    const assignedServicemenCount = servicemen.length - freeServicemenCount;
 
     const filtered = bookingTab === "all" ? bookings : bookings.filter((b: any) => b.status === bookingTab);
 
@@ -1343,6 +1432,8 @@ function DashboardHome({ bookings, acceptBooking, completeBooking, vendor, pendi
                     { color: "blue", icon: "🛠", value: String(inProgressCount), label: "In Progress", change: "Assigned jobs", dir: "up" },
                     { color: "gold", icon: "✅", value: String(completedCount), label: "Completed Jobs", change: "Finished work", dir: "up" },
                     { color: "orange", icon: "🔔", value: String(pendingCount), label: "Pending Requests", change: pendingCount > 0 ? "Needs action" : "All clear", dir: pendingCount > 0 ? "down" : "up" },
+              { color: "green", icon: "👷", value: String(freeServicemenCount), label: "Servicemen Free", change: `${servicemen.length} total`, dir: "up" },
+              { color: "blue", icon: "🧰", value: String(assignedServicemenCount), label: "Servicemen Assigned", change: "On active jobs", dir: "up" },
                 ].map((s, i) => (
                     <div key={i} className={`stat-card ${s.color}`}>
                         <div className="stat-icon">{s.icon}</div>
@@ -1400,13 +1491,39 @@ function DashboardHome({ bookings, acceptBooking, completeBooking, vendor, pendi
                                         <td><StatusPill status={b.status} /></td>
                                         <td>
                                           {b.status === "pending" ? (
-                                            <button className="action-btn accept" onClick={() => acceptBooking(b.id)}>
-                                              Accept Job
-                                            </button>
+                                            <div style={{ display: "grid", gap: 6 }}>
+                                              <select
+                                                value={bookingServicemanSelection[String(b.id)] || ""}
+                                                onChange={(event) => onSelectServiceman(String(b.id), event.target.value)}
+                                                style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 12, background: "#fff", color: theme.dark }}
+                                              >
+                                                <option value="">Assign serviceman</option>
+                                                {servicemen
+                                                  .filter((person) => !busyServicemanIds.has(person.id))
+                                                  .map((person) => (
+                                                    <option key={`${b.id}-${person.id}`} value={person.id}>
+                                                      {person.name}{person.phone ? ` (${person.phone})` : ""}
+                                                    </option>
+                                                  ))}
+                                              </select>
+                                              <button
+                                                className="action-btn accept"
+                                                onClick={() => acceptBooking(String(b.id), bookingServicemanSelection[String(b.id)] || "")}
+                                                disabled={!bookingServicemanSelection[String(b.id)]}
+                                                style={{ opacity: bookingServicemanSelection[String(b.id)] ? 1 : 0.7 }}
+                                              >
+                                                Accept Job
+                                              </button>
+                                            </div>
                                           ) : b.status === "assigned" ? (
-                                            <button className="action-btn accept" onClick={() => completeBooking(b.id)}>
-                                              Complete Job
-                                            </button>
+                                            <div style={{ display: "grid", gap: 6 }}>
+                                              <div style={{ fontSize: 11, color: theme.muted }}>
+                                                {b.assigned_serviceman_name ? `Serviceman: ${b.assigned_serviceman_name}` : "Serviceman not assigned"}
+                                              </div>
+                                              <button className="action-btn accept" onClick={() => completeBooking(b.id)}>
+                                                Complete Job
+                                              </button>
+                                            </div>
                                           ) : <button className="action-btn view">View</button>}
                                         </td>
                                     </tr>
@@ -1449,9 +1566,29 @@ function DashboardHome({ bookings, acceptBooking, completeBooking, vendor, pendi
     );
 }
 
-              function BookingsPage({ bookings, acceptBooking, completeBooking }: { bookings: any[]; acceptBooking: (id: string) => Promise<void>; completeBooking: (id: string) => Promise<void> }) {
+              function BookingsPage({
+                bookings,
+                acceptBooking,
+                completeBooking,
+                servicemen,
+                bookingServicemanSelection,
+                onSelectServiceman,
+              }: {
+                bookings: any[];
+                acceptBooking: (id: string, servicemanId: string) => Promise<void>;
+                completeBooking: (id: string) => Promise<void>;
+                servicemen: VendorServiceman[];
+                bookingServicemanSelection: Record<string, string>;
+                onSelectServiceman: (bookingId: string, servicemanId: string) => void;
+              }) {
     const [tab, setTab] = useState<string>("all");
     const filtered = tab === "all" ? bookings : bookings.filter((b: any) => b.status === tab);
+                  const busyServicemanIds = new Set(
+                    bookings
+                      .filter((b: any) => b.status === "assigned")
+                      .map((b: any) => String(b.assigned_serviceman_id || "").trim())
+                      .filter(Boolean)
+                  );
     return (
         <div className="card">
             <div className="card-header">
@@ -1484,7 +1621,39 @@ function DashboardHome({ bookings, acceptBooking, completeBooking, vendor, pendi
                                 <td style={{ fontWeight: 700 }}>—</td>
                                 <td><StatusPill status={b.status} /></td>
                             <td>
-                              {b.status === "pending" ? <button className="action-btn accept" onClick={() => acceptBooking(b.id)}>Accept Job</button> : b.status === "assigned" ? <button className="action-btn accept" onClick={() => completeBooking(b.id)}>Complete Job</button> : <button className="action-btn view">View</button>}
+                              {b.status === "pending" ? (
+                                <div style={{ display: "grid", gap: 6 }}>
+                                  <select
+                                    value={bookingServicemanSelection[String(b.id)] || ""}
+                                    onChange={(event) => onSelectServiceman(String(b.id), event.target.value)}
+                                    style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 12, background: "#fff", color: theme.dark }}
+                                  >
+                                    <option value="">Assign serviceman</option>
+                                    {servicemen
+                                      .filter((person) => !busyServicemanIds.has(person.id))
+                                      .map((person) => (
+                                        <option key={`${b.id}-table-${person.id}`} value={person.id}>
+                                          {person.name}{person.phone ? ` (${person.phone})` : ""}
+                                        </option>
+                                      ))}
+                                  </select>
+                                  <button
+                                    className="action-btn accept"
+                                    onClick={() => acceptBooking(String(b.id), bookingServicemanSelection[String(b.id)] || "")}
+                                    disabled={!bookingServicemanSelection[String(b.id)]}
+                                    style={{ opacity: bookingServicemanSelection[String(b.id)] ? 1 : 0.7 }}
+                                  >
+                                    Accept Job
+                                  </button>
+                                </div>
+                              ) : b.status === "assigned" ? (
+                                <div style={{ display: "grid", gap: 6 }}>
+                                  <div style={{ fontSize: 11, color: theme.muted }}>
+                                    {b.assigned_serviceman_name ? `Serviceman: ${b.assigned_serviceman_name}` : "Serviceman not assigned"}
+                                  </div>
+                                  <button className="action-btn accept" onClick={() => completeBooking(b.id)}>Complete Job</button>
+                                </div>
+                              ) : <button className="action-btn view">View</button>}
                             </td>
                             </tr>
                         ))}
@@ -1521,6 +1690,7 @@ function ProfilePage({
     serviceBasePrice: number;
     subServices: string[];
     shopImageUrls: string[];
+    servicemen: VendorServiceman[];
   }) => Promise<void>;
   isSavingProfile: boolean;
   isUpdatingLocation: boolean;
@@ -1541,6 +1711,7 @@ function ProfilePage({
     const [newSubServiceName, setNewSubServiceName] = useState("");
     const [newSubServicePrice, setNewSubServicePrice] = useState("");
     const [shopImageUrls, setShopImageUrls] = useState<string[]>(parseVendorListField(vendor?.shop_image_urls));
+    const [servicemen, setServicemen] = useState<VendorServiceman[]>(parseVendorServicemen(vendor?.servicemen_details));
 
     useEffect(() => {
       setName(vendor?.name || "");
@@ -1555,7 +1726,38 @@ function ProfilePage({
       setNewSubServiceName("");
       setNewSubServicePrice("");
       setShopImageUrls(parseVendorListField(vendor?.shop_image_urls));
+      setServicemen(parseVendorServicemen(vendor?.servicemen_details));
     }, [vendor]);
+
+    const addServiceman = () => {
+      setServicemen((current) => [
+        ...current,
+        {
+          id: `serviceman-${Date.now()}-${current.length + 1}`,
+          name: "",
+          phone: "",
+          aadharNumber: "",
+          serviceCategory: "",
+          photo: "",
+          aadharPhoto: "",
+        },
+      ]);
+    };
+
+    const updateServiceman = (index: number, field: keyof VendorServiceman, value: string) => {
+      setServicemen((current) => {
+        const next = [...current];
+        next[index] = {
+          ...next[index],
+          [field]: value,
+        };
+        return next;
+      });
+    };
+
+    const removeServiceman = (index: number) => {
+      setServicemen((current) => current.filter((_, currentIndex) => currentIndex !== index));
+    };
 
     const handleShopImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(event.target.files || []);
@@ -1670,6 +1872,17 @@ function ProfilePage({
         serviceBasePrice: Number(serviceBasePrice) || 0,
         subServices: subServicesPayload,
         shopImageUrls,
+        servicemen: servicemen
+          .map((person, index) => ({
+            id: String(person.id || `serviceman-${index + 1}`),
+            name: String(person.name || "").trim(),
+            phone: String(person.phone || "").trim(),
+            aadharNumber: String(person.aadharNumber || "").trim(),
+            serviceCategory: String(person.serviceCategory || "").trim(),
+            photo: String(person.photo || "").trim(),
+            aadharPhoto: String(person.aadharPhoto || "").trim(),
+          }))
+          .filter((person) => person.name),
       });
     };
 
@@ -1836,6 +2049,46 @@ function ProfilePage({
                     </div>
 
                     <div style={{ marginBottom: 18 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, textTransform: "uppercase", letterSpacing: "0.6px" }}>Servicemen</label>
+                        <button type="button" className="action-btn accept" onClick={addServiceman}>Add Serviceman</button>
+                      </div>
+                      {servicemen.length === 0 ? (
+                        <p style={{ margin: "0.2rem 0 0", fontSize: 12, color: theme.muted }}>No serviceman added yet.</p>
+                      ) : (
+                        <div style={{ display: "grid", gap: 10 }}>
+                          {servicemen.map((person, index) => (
+                            <div key={`${person.id}-${index}`} style={{ border: "1px solid #EDEBE4", borderRadius: 10, padding: 10, background: "#fff" }}>
+                              <div style={{ display: "grid", gap: 8 }}>
+                                <input
+                                  value={person.name}
+                                  onChange={(event) => updateServiceman(index, "name", event.target.value)}
+                                  placeholder="Serviceman name"
+                                  style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark }}
+                                />
+                                <input
+                                  value={person.phone}
+                                  onChange={(event) => updateServiceman(index, "phone", event.target.value)}
+                                  placeholder="Phone (XXXXXXXXXX)"
+                                  style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark }}
+                                />
+                                <input
+                                  value={person.serviceCategory || ""}
+                                  onChange={(event) => updateServiceman(index, "serviceCategory", event.target.value)}
+                                  placeholder="Service category handled"
+                                  style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark }}
+                                />
+                                <button type="button" className="action-btn" style={{ background: "#fee2e2", color: "#b91c1c", border: "1px solid #fecaca", justifyContent: "center" }} onClick={() => removeServiceman(index)}>
+                                  Remove Serviceman
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ marginBottom: 18 }}>
                       <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>Shop images (upload from device)</label>
                       <input
                         type="file"
@@ -1960,6 +2213,7 @@ export default function VendorDashboard() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [serviceCatalog, setServiceCatalog] = useState<Array<{ id: string; name: string; subServices: string[] }>>([]);
   const [locationUpdateMessage, setLocationUpdateMessage] = useState<string | null>(null);
+  const [bookingServicemanSelection, setBookingServicemanSelection] = useState<Record<string, string>>({});
   const alertedRequestIdsRef = useRef<string[]>([]);
   const initializedAlertStateRef = useRef(false);
 
@@ -2141,17 +2395,22 @@ export default function VendorDashboard() {
       }
     };
 
-    const acceptBooking = async (id: string) => {
+    const acceptBooking = async (id: string, servicemanId: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push("/vendor/login");
         return;
       }
 
+      if (!servicemanId) {
+        setDashboardMessage("Please assign a serviceman before accepting this booking.");
+        return;
+      }
+
       const response = await fetch(apiUrl(`/booking/${id}/accept`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vendor_auth_id: user.id }),
+        body: JSON.stringify({ vendor_auth_id: user.id, serviceman_id: servicemanId }),
       });
 
       const payload = await response.json().catch(() => null);
@@ -2161,8 +2420,20 @@ export default function VendorDashboard() {
         return;
       }
 
+      setBookingServicemanSelection((current) => {
+        const next = { ...current };
+        delete next[String(id)];
+        return next;
+      });
       setDashboardMessage("Booking accepted. The customer and admin can now see you as the assigned vendor.");
       await loadBookings();
+    };
+
+    const selectServicemanForBooking = (bookingId: string, servicemanId: string) => {
+      setBookingServicemanSelection((current) => ({
+        ...current,
+        [bookingId]: servicemanId,
+      }));
     };
 
     const completeBooking = async (id: string) => {
@@ -2271,6 +2542,7 @@ export default function VendorDashboard() {
       serviceBasePrice: number;
       subServices: string[];
       shopImageUrls: string[];
+      servicemen: VendorServiceman[];
     }) => {
       try {
         setIsSavingProfile(true);
@@ -2294,6 +2566,8 @@ export default function VendorDashboard() {
           service_base_price: payload.serviceBasePrice,
           sub_services: payload.subServices,
           shop_image_urls: payload.shopImageUrls,
+          servicemen_details: payload.servicemen,
+          servicemen_count: payload.servicemen.length,
         };
 
         let { error } = await supabase
@@ -2345,6 +2619,8 @@ export default function VendorDashboard() {
           service_base_price: payload.serviceBasePrice,
           sub_services: payload.subServices,
           shop_image_urls: payload.shopImageUrls,
+          servicemen_details: payload.servicemen,
+          servicemen_count: payload.servicemen.length,
         }));
 
         setDashboardMessage("Profile updated successfully.");
@@ -2356,9 +2632,10 @@ export default function VendorDashboard() {
     };
 
     const renderPage = () => {
+        const parsedServicemen = parseVendorServicemen(vendor?.servicemen_details);
         switch (activePage) {
-            case "home": return <DashboardHome bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} vendor={vendor} pendingCount={bookings.filter((b: any) => b.status === "pending").length} openProfile={() => setActivePage("profile")} />;
-            case "bookings": return <BookingsPage bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} />;
+            case "home": return <DashboardHome bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} vendor={vendor} pendingCount={bookings.filter((b: any) => b.status === "pending").length} openProfile={() => setActivePage("profile")} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;
+            case "bookings": return <BookingsPage bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;
             case "profile":
               return (
                 <ProfilePage

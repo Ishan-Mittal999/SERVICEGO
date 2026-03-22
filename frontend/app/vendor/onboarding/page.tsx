@@ -497,7 +497,8 @@ export default function VendorOnboardingPage() {
     }, {});
 
     const normalizedServicemen = servicemen
-      .map((person) => ({
+      .map((person, index) => ({
+        id: String((person as Record<string, unknown>).id || `serviceman-${index + 1}`),
         name: person.name.trim(),
         phone: person.phone.trim(),
         aadharNumber: person.aadharNumber.trim(),
@@ -666,11 +667,6 @@ export default function VendorOnboardingPage() {
                       {selected ? "Remove" : "Add"}
                     </button>
                   </div>
-                  <p style={{ margin: "0.35rem 0 0", fontSize: "0.76rem", color: "#64748b", lineHeight: 1.4 }}>
-                    {getEffectiveServiceSubServices(service.name, service.subServices).length > 0
-                      ? getEffectiveServiceSubServices(service.name, service.subServices).join(" • ")
-                      : "No sub-services configured"}
-                  </p>
                 </div>
               );
             })}

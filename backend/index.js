@@ -96,6 +96,73 @@ function isVendorApproved(vendor) {
   return status === "approved";
 }
 
+function parseVendorServicemen(value) {
+  const parsedArray = (() => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+
+    if (typeof value === "string") {
+      const normalized = value.trim();
+      if (!normalized) {
+        return [];
+      }
+
+      try {
+        const parsed = JSON.parse(normalized);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    return [];
+  })();
+
+  return parsedArray
+    .map((entry, index) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const id = String(entry.id || `serviceman-${index + 1}`).trim();
+      const name = String(entry.name || "").trim();
+      const phone = String(entry.phone || "").trim();
+
+      if (!id || !name) {
+        return null;
+      }
+
+      return {
+        id,
+        name,
+        phone,
+      };
+    })
+    .filter(Boolean);
+}
+
+async function isServicemanBusy(vendorAuthId, servicemanId, excludeBookingId = null) {
+  let query = supabase
+    .from("bookings")
+    .select("id")
+    .eq("vendor_auth_id", vendorAuthId)
+    .eq("status", "assigned")
+    .eq("assigned_serviceman_id", servicemanId);
+
+  if (excludeBookingId) {
+    query = query.neq("id", excludeBookingId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return Array.isArray(data) && data.length > 0;
+}
+
 // Root route
 app.get("/", (req, res) => {
   res.send("ServiceGo API Running 🚀");
@@ -304,15 +371,19 @@ app.put("/booking/:id/assign", async (req, res) => {
 app.put("/booking/:id/accept", async (req, res) => {
   try {
     const bookingId = req.params.id;
-    const { vendor_auth_id } = req.body;
+    const { vendor_auth_id, serviceman_id } = req.body;
 
     if (!vendor_auth_id) {
       return res.status(400).json({ error: "Vendor auth ID required" });
     }
 
+    if (!serviceman_id) {
+      return res.status(400).json({ error: "Please select a serviceman before accepting this booking" });
+    }
+
     const { data: vendor, error: vendorError } = await supabase
       .from("vendors")
-      .select("id, auth_user_id, service_id, is_active, approval_status")
+      .select("id, auth_user_id, service_id, is_active, approval_status, servicemen_details")
       .eq("auth_user_id", vendor_auth_id)
       .single();
 
@@ -326,6 +397,18 @@ app.put("/booking/:id/accept", async (req, res) => {
 
     if (!isVendorApproved(vendor)) {
       return res.status(403).json({ error: "Your account is pending admin approval" });
+    }
+
+    const servicemen = parseVendorServicemen(vendor.servicemen_details);
+    const assignedServiceman = servicemen.find((person) => person.id === String(serviceman_id));
+
+    if (!assignedServiceman) {
+      return res.status(400).json({ error: "Selected serviceman not found in your profile" });
+    }
+
+    const alreadyBusy = await isServicemanBusy(vendor.auth_user_id, assignedServiceman.id);
+    if (alreadyBusy) {
+      return res.status(409).json({ error: "This serviceman is already assigned to another ongoing job" });
     }
 
     const { data: booking, error: bookingError } = await supabase
@@ -351,7 +434,10 @@ app.put("/booking/:id/accept", async (req, res) => {
       .update({
         vendor_id: vendor.id,
         vendor_auth_id: vendor.auth_user_id,
-        status: "assigned"
+        status: "assigned",
+        assigned_serviceman_id: assignedServiceman.id,
+        assigned_serviceman_name: assignedServiceman.name,
+        assigned_serviceman_phone: assignedServiceman.phone || null,
       })
       .eq("id", bookingId)
       .eq("status", "pending")
@@ -375,6 +461,88 @@ app.put("/booking/:id/accept", async (req, res) => {
     return res.status(200).json({
       message: "Booking accepted successfully",
       booking: data
+    });
+  } catch (err) {
+    console.error("Server Crash:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/booking/:id/serviceman", async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const { vendor_auth_id, serviceman_id } = req.body;
+
+    if (!vendor_auth_id || !serviceman_id) {
+      return res.status(400).json({ error: "Vendor auth ID and serviceman ID are required" });
+    }
+
+    const { data: vendor, error: vendorError } = await supabase
+      .from("vendors")
+      .select("id, auth_user_id, servicemen_details, approval_status")
+      .eq("auth_user_id", vendor_auth_id)
+      .single();
+
+    if (vendorError || !vendor) {
+      return res.status(404).json({ error: "Vendor not found" });
+    }
+
+    if (!isVendorApproved(vendor)) {
+      return res.status(403).json({ error: "Your account is pending admin approval" });
+    }
+
+    const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .select("id, status, vendor_auth_id")
+      .eq("id", bookingId)
+      .single();
+
+    if (bookingError || !booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    if (booking.status !== "assigned") {
+      return res.status(400).json({ error: "Serviceman can only be assigned on active assigned jobs" });
+    }
+
+    if (String(booking.vendor_auth_id || "") !== String(vendor_auth_id)) {
+      return res.status(403).json({ error: "This booking is not assigned to you" });
+    }
+
+    const servicemen = parseVendorServicemen(vendor.servicemen_details);
+    const assignedServiceman = servicemen.find((person) => person.id === String(serviceman_id));
+
+    if (!assignedServiceman) {
+      return res.status(400).json({ error: "Selected serviceman not found in your profile" });
+    }
+
+    const alreadyBusy = await isServicemanBusy(vendor_auth_id, assignedServiceman.id, bookingId);
+    if (alreadyBusy) {
+      return res.status(409).json({ error: "This serviceman is already assigned to another ongoing job" });
+    }
+
+    const { error: updateError } = await supabase
+      .from("bookings")
+      .update({
+        assigned_serviceman_id: assignedServiceman.id,
+        assigned_serviceman_name: assignedServiceman.name,
+        assigned_serviceman_phone: assignedServiceman.phone || null,
+      })
+      .eq("id", bookingId);
+
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message });
+    }
+
+    const { data, error } = await getBookingWithRelations(bookingId);
+
+    if (error || !data) {
+      return res.status(500).json({ error: error?.message || "Serviceman assigned but reload failed" });
+    }
+
+    return res.status(200).json({
+      message: "Serviceman assigned successfully",
+      booking: data,
     });
   } catch (err) {
     console.error("Server Crash:", err);
@@ -406,7 +574,10 @@ app.put("/booking/:id/unassign", async (req, res) => {
         // Admin-cancelled jobs should not reappear in vendor broadcast automatically.
         status: "pending_admin",
         vendor_id: null,
-        vendor_auth_id: null
+        vendor_auth_id: null,
+        assigned_serviceman_id: null,
+        assigned_serviceman_name: null,
+        assigned_serviceman_phone: null,
       })
       .eq("id", bookingId);
 
@@ -501,7 +672,10 @@ app.put("/booking/:id/reopen", async (req, res) => {
       .update({
         status: "pending",
         vendor_id: null,
-        vendor_auth_id: null
+        vendor_auth_id: null,
+        assigned_serviceman_id: null,
+        assigned_serviceman_name: null,
+        assigned_serviceman_phone: null,
       })
       .eq("id", bookingId);
 
