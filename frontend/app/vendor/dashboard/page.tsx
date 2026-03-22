@@ -1282,6 +1282,56 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
+function parsePostgresArrayString(raw: string): string[] {
+  if (!raw.startsWith("{") || !raw.endsWith("}")) {
+    return [];
+  }
+
+  const body = raw.slice(1, -1);
+  if (!body.trim()) {
+    return [];
+  }
+
+  const items: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  let escaped = false;
+
+  for (let index = 0; index < body.length; index += 1) {
+    const char = body[index];
+
+    if (escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      items.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current.trim()) {
+    items.push(current.trim());
+  }
+
+  return items.filter(Boolean);
+}
+
 function parseVendorListField(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value.map((item) => String(item || "").trim()).filter(Boolean);
@@ -1299,7 +1349,16 @@ function parseVendorListField(value: unknown): string[] {
         return parsed.map((item) => String(item || "").trim()).filter(Boolean);
       }
     } catch {
-      // Fallback to comma-separated values.
+      // Fallback to structured string formats.
+    }
+
+    const postgresArray = parsePostgresArrayString(normalized);
+    if (postgresArray.length > 0) {
+      return postgresArray;
+    }
+
+    if (normalized.startsWith("data:image/")) {
+      return [normalized];
     }
 
     return normalized.split(",").map((item) => item.trim()).filter(Boolean);
@@ -1319,6 +1378,56 @@ function isSchemaColumnCompatibilityError(error: { message?: string } | null | u
     message.includes("schema cache") ||
     message.includes("could not find the")
   );
+}
+
+function extractMissingColumnFromSchemaError(error: { message?: string } | null | undefined) {
+  const message = String(error?.message || "");
+  if (!message) {
+    return "";
+  }
+
+  const couldNotFindMatch = message.match(/could not find the ['\"]([^'\"]+)['\"] column/i);
+  if (couldNotFindMatch?.[1]) {
+    return couldNotFindMatch[1].trim();
+  }
+
+  const columnDoesNotExistMatch = message.match(/column ['\"]?([^'\"\s]+)['\"]? .* does not exist/i);
+  if (columnDoesNotExistMatch?.[1]) {
+    return columnDoesNotExistMatch[1].trim();
+  }
+
+  return "";
+}
+
+async function updateVendorWithSchemaCompatibility(userId: string, payload: Record<string, unknown>) {
+  const nextPayload = { ...payload };
+  let lastError: { message?: string } | null = null;
+
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const { error } = await supabase
+      .from("vendors")
+      .update(nextPayload as never)
+      .eq("auth_user_id", userId);
+
+    if (!error) {
+      return null;
+    }
+
+    lastError = error;
+
+    if (!isSchemaColumnCompatibilityError(error)) {
+      return error;
+    }
+
+    const missingColumn = extractMissingColumnFromSchemaError(error);
+    if (!missingColumn || !(missingColumn in nextPayload)) {
+      return error;
+    }
+
+    delete nextPayload[missingColumn];
+  }
+
+  return lastError;
 }
 
 function parsePricedSubServiceRows(value: unknown): Array<{ name: string; price: string }> {
@@ -1410,10 +1519,10 @@ function parseVendorServicemen(value: unknown, fallbackCount = 0): VendorService
         id,
         name,
         phone,
-        aadharNumber: String(person.aadharNumber || "").trim(),
-        serviceCategory: String(person.serviceCategory || "").trim(),
-        photo: String(person.photo || "").trim(),
-        aadharPhoto: String(person.aadharPhoto || "").trim(),
+        aadharNumber: String(person.aadharNumber || person.aadhar_number || "").trim(),
+        serviceCategory: String(person.serviceCategory || person.service_category || "").trim(),
+        photo: String(person.photo || person.profile_photo || person.photo_url || "").trim(),
+        aadharPhoto: String(person.aadharPhoto || person.aadhar_photo || "").trim(),
       } as VendorServiceman;
     })
     .filter((entry): entry is VendorServiceman => Boolean(entry));
@@ -2810,43 +2919,7 @@ export default function VendorDashboard() {
           servicemen_count: payload.servicemen.length,
         };
 
-        let { error } = await supabase
-          .from("vendors")
-          .update(extendedPayload as never)
-          .eq("auth_user_id", user.id);
-
-        if (error && isSchemaColumnCompatibilityError(error)) {
-          const payloadWithoutNewPricingColumns = {
-            ...extendedPayload,
-          } as Record<string, unknown>;
-
-          delete payloadWithoutNewPricingColumns.service_base_price;
-
-          const fallbackWithLegacyFields = await supabase
-            .from("vendors")
-            .update(payloadWithoutNewPricingColumns as never)
-            .eq("auth_user_id", user.id);
-          error = fallbackWithLegacyFields.error;
-        }
-
-        if (error && !isSchemaColumnCompatibilityError(error)) {
-          throw new Error(error.message);
-        }
-
-        if (error && isSchemaColumnCompatibilityError(error)) {
-          const basicPayload = {
-            name: payload.name,
-            phone: payload.phone,
-            area: payload.area,
-            experience: payload.experience,
-          };
-
-          const fallback = await supabase
-            .from("vendors")
-            .update(basicPayload as never)
-            .eq("auth_user_id", user.id);
-          error = fallback.error;
-        }
+        const error = await updateVendorWithSchemaCompatibility(user.id, extendedPayload as Record<string, unknown>);
 
         if (error) {
           throw new Error(error.message);
@@ -2876,7 +2949,7 @@ export default function VendorDashboard() {
     };
 
     const renderPage = () => {
-        const parsedServicemen = parseVendorServicemen(vendor?.servicemen_details);
+      const parsedServicemen = parseVendorServicemen(vendor?.servicemen_details, Number(vendor?.servicemen_count || 0));
         switch (activePage) {
             case "home": return <DashboardHome bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} vendor={vendor} pendingCount={bookings.filter((b: any) => b.status === "pending").length} openProfile={() => setActivePage("profile")} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;
             case "bookings": return <BookingsPage bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;

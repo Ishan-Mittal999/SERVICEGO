@@ -95,6 +95,56 @@ const toCardPrice = (experience?: number) => {
   return Math.max(99, Math.round(89 + experience * 3));
 };
 
+const parsePostgresArrayString = (raw: string): string[] => {
+  if (!raw.startsWith("{") || !raw.endsWith("}")) {
+    return [];
+  }
+
+  const body = raw.slice(1, -1);
+  if (!body.trim()) {
+    return [];
+  }
+
+  const items: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  let escaped = false;
+
+  for (let index = 0; index < body.length; index += 1) {
+    const char = body[index];
+
+    if (escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      items.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current.trim()) {
+    items.push(current.trim());
+  }
+
+  return items.filter(Boolean);
+};
+
 const parseVendorListField = (value: unknown): string[] => {
   if (Array.isArray(value)) {
     return value.map((item) => String(item || "").trim()).filter(Boolean);
@@ -112,7 +162,16 @@ const parseVendorListField = (value: unknown): string[] => {
         return parsed.map((item) => String(item || "").trim()).filter(Boolean);
       }
     } catch {
-      // Fallback to comma-separated text.
+      // Fallback to structured string formats.
+    }
+
+    const postgresArray = parsePostgresArrayString(normalized);
+    if (postgresArray.length > 0) {
+      return postgresArray;
+    }
+
+    if (normalized.startsWith("data:image/")) {
+      return [normalized];
     }
 
     return normalized.split(",").map((item) => item.trim()).filter(Boolean);

@@ -85,6 +85,68 @@ const readFilesAsDataUrl = async (files: File[]) => {
   );
 };
 
+const isSchemaColumnCompatibilityError = (error: { message?: string } | null | undefined) => {
+  const message = String(error?.message || "").toLowerCase();
+  if (!message) {
+    return false;
+  }
+
+  return (
+    (message.includes("column") && message.includes("does not exist")) ||
+    message.includes("schema cache") ||
+    message.includes("could not find the")
+  );
+};
+
+const extractMissingColumnFromSchemaError = (error: { message?: string } | null | undefined) => {
+  const message = String(error?.message || "");
+  if (!message) {
+    return "";
+  }
+
+  const couldNotFindMatch = message.match(/could not find the ['\"]([^'\"]+)['\"] column/i);
+  if (couldNotFindMatch?.[1]) {
+    return couldNotFindMatch[1].trim();
+  }
+
+  const columnDoesNotExistMatch = message.match(/column ['\"]?([^'\"\s]+)['\"]? .* does not exist/i);
+  if (columnDoesNotExistMatch?.[1]) {
+    return columnDoesNotExistMatch[1].trim();
+  }
+
+  return "";
+};
+
+const upsertVendorWithSchemaCompatibility = async (payload: Record<string, unknown>) => {
+  const nextPayload = { ...payload };
+  let lastError: { message?: string } | null = null;
+
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const { error } = await supabase
+      .from("vendors")
+      .upsert(nextPayload as never, { onConflict: "auth_user_id" });
+
+    if (!error) {
+      return null;
+    }
+
+    lastError = error;
+
+    if (!isSchemaColumnCompatibilityError(error)) {
+      return error;
+    }
+
+    const missingColumn = extractMissingColumnFromSchemaError(error);
+    if (!missingColumn || missingColumn === "auth_user_id" || !(missingColumn in nextPayload)) {
+      return error;
+    }
+
+    delete nextPayload[missingColumn];
+  }
+
+  return lastError;
+};
+
 const parseServiceSubservices = (value: unknown): string[] => {
   if (Array.isArray(value)) {
     return value.map((item) => String(item || "").trim()).filter(Boolean);
@@ -547,75 +609,10 @@ export default function VendorOnboardingPage() {
       servicemen_details: normalizedServicemen,
     };
 
-    let { error } = await supabase
-      .from("vendors")
-      .upsert(payload as never, { onConflict: "auth_user_id" });
+    const error = await upsertVendorWithSchemaCompatibility(payload as Record<string, unknown>);
 
     if (error) {
-      const payloadWithoutNewPricingColumns = {
-        ...payload,
-      } as Record<string, unknown>;
-
-      delete payloadWithoutNewPricingColumns.service_base_price;
-      delete payloadWithoutNewPricingColumns.sub_service_prices;
-
-      let fallbackWithLegacyFields = await supabase
-        .from("vendors")
-        .upsert(payloadWithoutNewPricingColumns as never, { onConflict: "auth_user_id" });
-
-      if (
-        fallbackWithLegacyFields.error &&
-        String(fallbackWithLegacyFields.error.message || "").toLowerCase().includes("approval_status")
-      ) {
-        const fallbackWithoutApprovalStatus = {
-          ...payloadWithoutNewPricingColumns,
-        } as Record<string, unknown>;
-
-        delete fallbackWithoutApprovalStatus.approval_status;
-
-        fallbackWithLegacyFields = await supabase
-          .from("vendors")
-          .upsert(fallbackWithoutApprovalStatus as never, { onConflict: "auth_user_id" });
-      }
-
-      error = fallbackWithLegacyFields.error;
-    }
-
-    if (error) {
-      const basePayload = {
-        auth_user_id: user.id,
-        name: shopName,
-        phone,
-        service_id: primaryServiceId,
-        area,
-        experience: Number(experience),
-        is_active: false,
-        approval_status: "pending",
-      };
-
-      let fallbackResult = await supabase
-        .from("vendors")
-        .upsert(basePayload as never, { onConflict: "auth_user_id" });
-
-      if (
-        fallbackResult.error &&
-        String(fallbackResult.error.message || "").toLowerCase().includes("approval_status")
-      ) {
-        const basePayloadWithoutApproval = {
-          ...basePayload,
-        } as Record<string, unknown>;
-        delete basePayloadWithoutApproval.approval_status;
-
-        fallbackResult = await supabase
-          .from("vendors")
-          .upsert(basePayloadWithoutApproval as never, { onConflict: "auth_user_id" });
-      }
-
-      error = fallbackResult.error;
-    }
-
-    if (error) {
-      setErrorMessage(error.message);
+      setErrorMessage(error.message || "Could not save vendor profile.");
       setIsSubmitting(false);
       return;
     }
