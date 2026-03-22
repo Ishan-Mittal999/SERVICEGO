@@ -998,16 +998,22 @@ const styles = `
 
     .grid-2 { grid-template-columns: 1fr; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    .page-content { padding: 16px 12px; }
+    .page-content { padding: 14px 10px; }
     .topbar {
-      padding: 0 12px;
+      padding: 8px 10px;
       height: auto;
       min-height: 62px;
       gap: 10px;
     }
 
-    .topbar-left h1 { font-size: 18px; }
-    .topbar-left p { font-size: 11px; }
+    .topbar-left h1 { font-size: 17px; }
+    .topbar-left p {
+      font-size: 11px;
+      max-width: 48vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
     .topbar-right {
       gap: 8px;
@@ -1028,6 +1034,32 @@ const styles = `
       gap: 14px;
     }
 
+    .stat-card--secondary {
+      padding: 12px 11px;
+      opacity: 0.9;
+    }
+
+    .stat-card--secondary .stat-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+
+    .stat-card--secondary .stat-value {
+      font-size: 20px;
+    }
+
+    .stat-card--secondary .stat-label {
+      font-size: 10px;
+      letter-spacing: 0.04em;
+    }
+
+    .stat-card--secondary .stat-change {
+      display: none;
+    }
+
     .booking-table { min-width: 620px; }
   }
 
@@ -1041,7 +1073,95 @@ const styles = `
     .card-body { padding: 12px 14px 14px; }
     .tabs { padding: 0 14px; }
     .alert-banner { padding: 12px 14px; }
-    .booking-table { min-width: 580px; }
+    .topbar-left p { display: none; }
+    .alert-banner { gap: 8px; }
+    .alert-icon { font-size: 16px; }
+    .alert-text { font-size: 12px; }
+
+    .booking-table {
+      min-width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .booking-table thead {
+      display: none;
+    }
+
+    .booking-table tbody {
+      display: grid;
+      gap: 10px;
+    }
+
+    .booking-table tr {
+      display: grid;
+      grid-template-columns: 1fr;
+      background: #fff;
+      border: 1px solid #EDEBE4;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 2px 6px rgba(16, 24, 40, 0.04);
+    }
+
+    .booking-table td {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px dashed #F1ECE1;
+      font-size: 12px;
+      word-break: break-word;
+    }
+
+    .booking-table td:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .booking-table td::before {
+      font-size: 10px;
+      font-weight: 700;
+      color: ${theme.muted};
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      flex-shrink: 0;
+      min-width: 84px;
+    }
+
+    .booking-table td:nth-child(1)::before { content: "Booking"; }
+    .booking-table td:nth-child(2)::before { content: "Customer"; }
+    .booking-table td:nth-child(3)::before { content: "Service"; }
+    .booking-table td:nth-child(4)::before { content: "Date"; }
+    .booking-table td:nth-child(5)::before { content: "Amount"; }
+    .booking-table td:nth-child(6)::before { content: "Status"; }
+    .booking-table td:nth-child(7)::before { content: "Action"; }
+
+    .booking-table td[colspan] {
+      display: block;
+      border: none;
+      padding: 0;
+    }
+
+    .booking-table td[colspan]::before {
+      content: "";
+      display: none;
+    }
+
+    .booking-table td:last-child > div {
+      width: 100%;
+    }
+
+    .booking-table td:last-child .action-btn,
+    .booking-table td:last-child select {
+      width: 100%;
+    }
+
+    .inline-add-row,
+    .subservice-row,
+    .shop-image-grid {
+      grid-template-columns: 1fr !important;
+    }
   }
 `;
 
@@ -1462,7 +1582,7 @@ function DashboardHome({
               { color: "green", icon: "👷", value: String(freeServicemenCount), label: "Servicemen Free", change: `${servicemen.length} total`, dir: "up" },
               { color: "blue", icon: "🧰", value: String(assignedServicemenCount), label: "Servicemen Assigned", change: "On active jobs", dir: "up" },
                 ].map((s, i) => (
-                    <div key={i} className={`stat-card ${s.color}`}>
+                  <div key={i} className={`stat-card ${s.color} ${i >= 4 ? "stat-card--secondary" : "stat-card--primary"}`}>
                         <div className="stat-icon">{s.icon}</div>
                         <div className="stat-value">{s.value}</div>
                         <div className="stat-label">{s.label}</div>
@@ -2063,7 +2183,7 @@ function ProfilePage({
                           </span>
                         ))}
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                      <div className="inline-add-row" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
                         <input
                           value={newServiceName}
                           onChange={(event) => setNewServiceName(event.target.value)}
@@ -2078,7 +2198,7 @@ function ProfilePage({
                       <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>Sub-services with price</label>
                       <div style={{ display: "grid", gap: 8, marginBottom: 10 }}>
                         {subServiceRows.map((row, index) => (
-                          <div key={`${row.name}-${index}`} style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr auto", gap: 8 }}>
+                          <div key={`${row.name}-${index}`} className="subservice-row" style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr auto", gap: 8 }}>
                             <input
                               value={row.name}
                               onChange={(event) => updateSubServiceRow(index, "name", event.target.value)}
@@ -2097,7 +2217,7 @@ function ProfilePage({
                           </div>
                         ))}
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr auto", gap: 8 }}>
+                      <div className="subservice-row" style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr auto", gap: 8 }}>
                         <input
                           value={newSubServiceName}
                           onChange={(event) => setNewSubServiceName(event.target.value)}
@@ -2169,7 +2289,7 @@ function ProfilePage({
                         <p style={{ margin: "0 0 8px", fontSize: 12, color: "#b42318" }}>{shopImageMessage}</p>
                       ) : null}
                       {shopImageUrls.length > 0 ? (
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+                        <div className="shop-image-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
                           {shopImageUrls.map((image, index) => (
                             <div key={`${index}-${image.slice(0, 24)}`} style={{ display: "grid", gap: 4 }}>
                               <img src={image} alt={`Shop ${index + 1}`} style={{ width: "100%", height: 82, objectFit: "cover", borderRadius: 8, border: "1px solid #EDEBE4" }} />
