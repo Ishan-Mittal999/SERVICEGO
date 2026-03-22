@@ -5,7 +5,7 @@ import type { ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/env";
-import { reverseGeocode } from "@/lib/location";
+import { detectUserLocation } from "@/lib/location";
 
 type Service = {
   id: string;
@@ -111,6 +111,13 @@ const parseServiceSubservices = (value: unknown): string[] => {
   return [];
 };
 
+const getEffectiveServiceSubServices = (serviceName: string, serviceSubServices: string[]) => {
+  const preset = SUBSERVICE_PRESETS[getServiceKey(serviceName)] || [];
+  return Array.from(
+    new Set([...serviceSubServices, ...preset].map((item) => String(item || "").trim()).filter(Boolean))
+  );
+};
+
 const buildDefaultServiceman = (): ServicemanForm => ({
   name: "",
   phone: "",
@@ -136,37 +143,33 @@ export default function VendorOnboardingPage() {
   const [openTime, setOpenTime] = useState("09:00");
   const [closeTime, setCloseTime] = useState("20:00");
   const [serviceRadiusKm, setServiceRadiusKm] = useState("10");
-  const [minimumOrderValue, setMinimumOrderValue] = useState("0");
   const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([]);
   const [selectedServiceKeys, setSelectedServiceKeys] = useState<string[]>([]);
-  const [selectedSubServices, setSelectedSubServices] = useState<string[]>([]);
+  const [selectedSubServicesByService, setSelectedSubServicesByService] = useState<Record<string, string[]>>({});
   const [serviceBasePrice, setServiceBasePrice] = useState("0");
   const [subServicePriceMap, setSubServicePriceMap] = useState<Record<string, string>>({});
-  const [customSubServiceName, setCustomSubServiceName] = useState("");
-  const [customSubServicePrice, setCustomSubServicePrice] = useState("");
+  const [customSubServiceDrafts, setCustomSubServiceDrafts] = useState<Record<string, { name: string; price: string }>>({});
   const [shopImageUrls, setShopImageUrls] = useState<string[]>([]);
   const [servicemanCount, setServicemanCount] = useState("1");
   const [servicemen, setServicemen] = useState<ServicemanForm[]>([buildDefaultServiceman()]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
 
   const selectedServices = useMemo(
     () => serviceOptions.filter((service) => selectedServiceKeys.includes(service.key)),
     [serviceOptions, selectedServiceKeys]
   );
 
-  const subServiceMcqOptions = useMemo(() => {
-    const all = new Set<string>();
-
-    selectedServices.forEach((service) => {
-      service.subServices.forEach((item) => all.add(item));
-      const preset = SUBSERVICE_PRESETS[getServiceKey(service.name)] || [];
-      preset.forEach((item) => all.add(item));
-    });
-
-    return Array.from(all);
+  const subServiceOptionsByService = useMemo(() => {
+    return selectedServices.reduce<Record<string, string[]>>((acc, service) => {
+      acc[service.key] = getEffectiveServiceSubServices(service.name, service.subServices);
+      return acc;
+    }, {});
   }, [selectedServices]);
+
+  const getSubServicePriceKey = (serviceKey: string, name: string) => `${serviceKey}::${normalizeServiceName(name)}`;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -255,93 +258,135 @@ export default function VendorOnboardingPage() {
     });
   };
 
-  const toggleSubServiceSelection = (name: string) => {
-    setSelectedSubServices((current) => {
-      if (current.includes(name)) {
-        setSubServicePriceMap((existing) => {
-          const next = { ...existing };
-          delete next[name];
-          return next;
-        });
-        return current.filter((value) => value !== name);
-      }
-
-      return [...current, name];
-    });
-  };
-
-  const setSubServicePrice = (name: string, price: string) => {
-    setSubServicePriceMap((current) => ({
-      ...current,
-      [name]: price,
-    }));
-  };
-
-  const addCustomSubService = () => {
-    const normalizedName = customSubServiceName.trim();
+  const toggleSubServiceSelection = (serviceKey: string, name: string) => {
+    const normalizedName = name.trim();
     if (!normalizedName) {
       return;
     }
 
-    setSelectedSubServices((current) => {
-      if (current.includes(normalizedName)) {
-        return current;
+    setSelectedSubServicesByService((current) => {
+      const existing = current[serviceKey] || [];
+      const exists = existing.some((value) => normalizeServiceName(value) === normalizeServiceName(normalizedName));
+
+      if (exists) {
+        const nextList = existing.filter((value) => normalizeServiceName(value) !== normalizeServiceName(normalizedName));
+        setSubServicePriceMap((priceState) => {
+          const nextPriceState = { ...priceState };
+          delete nextPriceState[getSubServicePriceKey(serviceKey, normalizedName)];
+          return nextPriceState;
+        });
+
+        return {
+          ...current,
+          [serviceKey]: nextList,
+        };
       }
-      return [...current, normalizedName];
+
+      return {
+        ...current,
+        [serviceKey]: [...existing, normalizedName],
+      };
     });
-
-    if (customSubServicePrice.trim()) {
-      setSubServicePrice(normalizedName, customSubServicePrice.trim());
-    }
-
-    setCustomSubServiceName("");
-    setCustomSubServicePrice("");
   };
 
-  const removeSelectedSubService = (name: string) => {
-    setSelectedSubServices((current) => current.filter((value) => value !== name));
+  const setSubServicePrice = (serviceKey: string, name: string, price: string) => {
+    const normalizedName = name.trim();
+    if (!normalizedName) {
+      return;
+    }
+
+    setSubServicePriceMap((current) => ({
+      ...current,
+      [getSubServicePriceKey(serviceKey, normalizedName)]: price,
+    }));
+  };
+
+  const updateCustomSubServiceDraft = (serviceKey: string, field: "name" | "price", value: string) => {
+    setCustomSubServiceDrafts((current) => {
+      const existing = current[serviceKey] || { name: "", price: "" };
+      return {
+        ...current,
+        [serviceKey]: {
+          ...existing,
+          [field]: value,
+        },
+      };
+    });
+  };
+
+  const addCustomSubService = (serviceKey: string) => {
+    const existingDraft = customSubServiceDrafts[serviceKey] || { name: "", price: "" };
+    const normalizedName = existingDraft.name.trim();
+    if (!normalizedName) {
+      return;
+    }
+
+    setSelectedSubServicesByService((current) => {
+      const existing = current[serviceKey] || [];
+      if (existing.some((value) => normalizeServiceName(value) === normalizeServiceName(normalizedName))) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [serviceKey]: [...existing, normalizedName],
+      };
+    });
+
+    if (existingDraft.price.trim()) {
+      setSubServicePrice(serviceKey, normalizedName, existingDraft.price.trim());
+    }
+
+    setCustomSubServiceDrafts((current) => ({
+      ...current,
+      [serviceKey]: { name: "", price: "" },
+    }));
+  };
+
+  const removeSelectedSubService = (serviceKey: string, name: string) => {
+    const normalizedName = name.trim();
+
+    setSelectedSubServicesByService((current) => {
+      const existing = current[serviceKey] || [];
+      return {
+        ...current,
+        [serviceKey]: existing.filter((value) => normalizeServiceName(value) !== normalizeServiceName(normalizedName)),
+      };
+    });
+
     setSubServicePriceMap((current) => {
       const next = { ...current };
-      delete next[name];
+      delete next[getSubServicePriceKey(serviceKey, normalizedName)];
       return next;
     });
   };
 
   const useCurrentLocation = () => {
     setErrorMessage(null);
-    if (!navigator.geolocation) {
-      setErrorMessage("Location is not supported by your browser.");
-      return;
-    }
-
+    setLocationMessage(null);
     setIsGettingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
 
-        try {
-          const reverse = await reverseGeocode(latitude, longitude);
-          const address = reverse.address || {};
-          const fullAddress = reverse.display_name || "";
-          const withCoordinates = `${fullAddress || "Detected location"} (Lat ${latitude.toFixed(6)}, Lng ${longitude.toFixed(6)})`;
+    detectUserLocation()
+      .then((detected) => {
+        const withCoordinates = `${detected.fullAddress || "Detected location"} (Lat ${detected.lat.toFixed(6)}, Lng ${detected.lng.toFixed(6)})`;
+        setArea(withCoordinates);
+        setCity(detected.city || "");
+        setPincode(detected.postcode || "");
 
-          setArea(withCoordinates);
-          setCity(address.city || address.town || address.village || "");
-          setPincode(address.postcode || "");
-          if (!businessAddress.trim() && fullAddress) {
-            setBusinessAddress(fullAddress);
-          }
-        } catch {
-          setArea(`Lat ${latitude.toFixed(6)}, Lng ${longitude.toFixed(6)}`);
+        if (!businessAddress.trim() && detected.fullAddress) {
+          setBusinessAddress(detected.fullAddress);
         }
-
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.message.trim()) {
+          setLocationMessage(error.message);
+        } else {
+          setLocationMessage("Unable to detect location. You can enter area manually.");
+        }
+      })
+      .finally(() => {
         setIsGettingLocation(false);
-      },
-      () => {
-        setErrorMessage("Location permission denied. You can enter area manually.");
-        setIsGettingLocation(false);
-      }
-    );
+      });
   };
 
   const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -420,19 +465,34 @@ export default function VendorOnboardingPage() {
 
     const primaryServiceId = selectedApiServiceIds[0] || null;
 
-    const parsedSubServices = Array.from(new Set(selectedSubServices.map((item) => item.trim()).filter(Boolean)));
-    const pricedSubServices = parsedSubServices.map((name) => {
-      const price = Number(subServicePriceMap[name]);
+    const flattenedSubServices = selectedServices.flatMap((service) => {
+      const selectedForService = selectedSubServicesByService[service.key] || [];
+      return selectedForService
+        .map((name) => ({ serviceKey: service.key, name: name.trim() }))
+        .filter((entry) => Boolean(entry.name));
+    });
+
+    const uniqueSubServicesByName = new Map<string, { serviceKey: string; name: string }>();
+    flattenedSubServices.forEach((entry) => {
+      const key = normalizeServiceName(entry.name);
+      if (!uniqueSubServicesByName.has(key)) {
+        uniqueSubServicesByName.set(key, entry);
+      }
+    });
+
+    const parsedSubServices = Array.from(uniqueSubServicesByName.values()).map((entry) => entry.name);
+    const pricedSubServices = Array.from(uniqueSubServicesByName.values()).map((entry) => {
+      const price = Number(subServicePriceMap[getSubServicePriceKey(entry.serviceKey, entry.name)]);
       if (Number.isFinite(price) && price > 0) {
-        return `${name}::${Math.round(price)}`;
+        return `${entry.name}::${Math.round(price)}`;
       }
 
-      return name;
+      return entry.name;
     });
-    const subServicePricePayload = parsedSubServices.reduce<Record<string, number>>((acc, name) => {
-      const price = Number(subServicePriceMap[name]);
+    const subServicePricePayload = Array.from(uniqueSubServicesByName.values()).reduce<Record<string, number>>((acc, entry) => {
+      const price = Number(subServicePriceMap[getSubServicePriceKey(entry.serviceKey, entry.name)]);
       if (Number.isFinite(price) && price > 0) {
-        acc[name] = Math.round(price);
+        acc[entry.name] = Math.round(price);
       }
       return acc;
     }, {});
@@ -479,7 +539,6 @@ export default function VendorOnboardingPage() {
       open_time: openTime || null,
       close_time: closeTime || null,
       service_radius_km: Number(serviceRadiusKm) || null,
-      minimum_order_value: Number(minimumOrderValue) || 0,
       service_base_price: Number(serviceBasePrice) || 0,
       sub_service_prices: subServicePricePayload,
       sub_services: pricedSubServices,
@@ -548,6 +607,7 @@ export default function VendorOnboardingPage() {
           <input
             value={shopName}
             onChange={(e) => setShopName(e.target.value)}
+            placeholder="Ex: Krishna Home Services"
             required
             className="auth-input auth-input--spaced"
           />
@@ -558,6 +618,7 @@ export default function VendorOnboardingPage() {
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+            placeholder="Ex: 9876543210"
             required
             className="auth-input auth-input--spaced"
           />
@@ -568,6 +629,7 @@ export default function VendorOnboardingPage() {
           <input
             value={ownerName}
             onChange={(e) => setOwnerName(e.target.value)}
+            placeholder="Ex: Krishna Singhal"
             required
             className="auth-input auth-input--spaced"
           />
@@ -605,12 +667,122 @@ export default function VendorOnboardingPage() {
                     </button>
                   </div>
                   <p style={{ margin: "0.35rem 0 0", fontSize: "0.76rem", color: "#64748b", lineHeight: 1.4 }}>
-                    {service.subServices.length > 0 ? service.subServices.join(" • ") : "No sub-services configured"}
+                    {getEffectiveServiceSubServices(service.name, service.subServices).length > 0
+                      ? getEffectiveServiceSubServices(service.name, service.subServices).join(" • ")
+                      : "No sub-services configured"}
                   </p>
                 </div>
               );
             })}
           </div>
+
+          <label className="auth-label">Sub-services by selected service</label>
+          {selectedServices.length > 0 ? (
+            <div style={{ display: "grid", gap: "0.8rem", marginBottom: "0.85rem" }}>
+              {selectedServices.map((service) => {
+                const serviceSubOptions = subServiceOptionsByService[service.key] || [];
+                const selectedForService = selectedSubServicesByService[service.key] || [];
+                const draft = customSubServiceDrafts[service.key] || { name: "", price: "" };
+
+                return (
+                  <div key={`subservice-${service.key}`} style={{ border: "1px solid #e4e7ec", borderRadius: 12, padding: "0.7rem", background: "#fff" }}>
+                    <p style={{ margin: "0 0 0.45rem", fontWeight: 800, fontSize: "0.86rem", color: "#1f2937" }}>
+                      {service.name}
+                    </p>
+
+                    {serviceSubOptions.length > 0 ? (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.5rem", marginBottom: "0.6rem" }}>
+                        {serviceSubOptions.map((option) => {
+                          const selected = selectedForService.some((value) => normalizeServiceName(value) === normalizeServiceName(option));
+                          return (
+                            <button
+                              key={`${service.key}-${option}`}
+                              type="button"
+                              onClick={() => toggleSubServiceSelection(service.key, option)}
+                              style={{
+                                border: selected ? "1px solid #1d4ed8" : "1px solid #d5dbe4",
+                                background: selected ? "rgba(29,78,216,0.08)" : "#fff",
+                                borderRadius: 12,
+                                padding: "0.5rem 0.58rem",
+                                fontSize: "0.8rem",
+                                fontWeight: 700,
+                                textAlign: "left",
+                              }}
+                            >
+                              {option}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p style={{ margin: "0 0 0.55rem", fontSize: "0.82rem", color: "#667085" }}>
+                        No predefined sub-services found. Add custom sub-services below.
+                      </p>
+                    )}
+
+                    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: "0.45rem", marginBottom: "0.6rem" }}>
+                      <input
+                        value={draft.name}
+                        onChange={(e) => updateCustomSubServiceDraft(service.key, "name", e.target.value)}
+                        placeholder="Ex: AC gas refill"
+                        className="auth-input"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        value={draft.price}
+                        onChange={(e) => updateCustomSubServiceDraft(service.key, "price", e.target.value)}
+                        placeholder="Ex: 499"
+                        className="auth-input"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addCustomSubService(service.key)}
+                        className="auth-secondary-btn"
+                        style={{ width: "auto", padding: "0.54rem 0.78rem" }}
+                      >
+                        Add
+                      </button>
+                    </div>
+
+                    {selectedForService.length > 0 ? (
+                      <div style={{ display: "grid", gap: "0.45rem" }}>
+                        {selectedForService.map((name) => (
+                          <div key={`${service.key}-selected-${name}`} style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr auto", gap: "0.5rem", alignItems: "center" }}>
+                            <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#1f2937" }}>{name}</div>
+                            <input
+                              type="number"
+                              min={0}
+                              value={subServicePriceMap[getSubServicePriceKey(service.key, name)] || ""}
+                              onChange={(e) => setSubServicePrice(service.key, name, e.target.value)}
+                              placeholder="Ex: 399"
+                              className="auth-input"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeSelectedSubService(service.key, name)}
+                              className="auth-secondary-btn"
+                              style={{ width: "auto", padding: "0.45rem 0.72rem" }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ margin: "0", fontSize: "0.8rem", color: "#667085" }}>
+                        No sub-service selected for {service.name}.
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.82rem", color: "#667085" }}>
+              Select at least one service category to configure sub-services.
+            </p>
+          )}
 
           <label className="auth-label">
             Experience (years)
@@ -621,6 +793,7 @@ export default function VendorOnboardingPage() {
             max={60}
             value={experience}
             onChange={(e) => setExperience(e.target.value)}
+            placeholder="Ex: 5"
             required
             className="auth-input auth-input--spaced"
           />
@@ -649,6 +822,12 @@ export default function VendorOnboardingPage() {
             {isGettingLocation ? "Fetching location..." : "Use Current Location"}
           </button>
 
+          {locationMessage ? (
+            <p style={{ color: "#475467", marginTop: "0.55rem", fontSize: "0.84rem" }}>
+              {locationMessage}
+            </p>
+          ) : null}
+
           <label className="auth-label" style={{ marginTop: "0.85rem" }}>
             Business Address
           </label>
@@ -666,6 +845,7 @@ export default function VendorOnboardingPage() {
               <input
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
+                placeholder="Ex: Lucknow"
                 required
                 className="auth-input auth-input--spaced"
               />
@@ -676,6 +856,7 @@ export default function VendorOnboardingPage() {
                 value={pincode}
                 onChange={(e) => setPincode(e.target.value)}
                 pattern="[0-9]{6}"
+                placeholder="Ex: 226001"
                 required
                 className="auth-input auth-input--spaced"
               />
@@ -700,6 +881,7 @@ export default function VendorOnboardingPage() {
                 min={0}
                 value={serviceBasePrice}
                 onChange={(e) => setServiceBasePrice(e.target.value)}
+                placeholder="Ex: 299"
                 className="auth-input auth-input--spaced"
               />
             </div>
@@ -734,104 +916,12 @@ export default function VendorOnboardingPage() {
                 max={100}
                 value={serviceRadiusKm}
                 onChange={(e) => setServiceRadiusKm(e.target.value)}
+                placeholder="Ex: 10"
                 required
                 className="auth-input auth-input--spaced"
               />
             </div>
-            <div>
-              <label className="auth-label">Minimum Order Value</label>
-              <input
-                type="number"
-                min={0}
-                value={minimumOrderValue}
-                onChange={(e) => setMinimumOrderValue(e.target.value)}
-                className="auth-input auth-input--spaced"
-              />
-            </div>
           </div>
-
-          <label className="auth-label">Sub-services offered (MCQ)</label>
-          {subServiceMcqOptions.length > 0 ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.55rem", marginBottom: "0.65rem" }}>
-              {subServiceMcqOptions.map((option) => {
-                const selected = selectedSubServices.includes(option);
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => toggleSubServiceSelection(option)}
-                    style={{
-                      border: selected ? "1px solid #1d4ed8" : "1px solid #d5dbe4",
-                      background: selected ? "rgba(29,78,216,0.08)" : "#fff",
-                      borderRadius: 12,
-                      padding: "0.5rem 0.58rem",
-                      fontSize: "0.8rem",
-                      fontWeight: 700,
-                      textAlign: "left",
-                    }}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <p style={{ margin: "0 0 0.55rem", fontSize: "0.82rem", color: "#667085" }}>
-              No predefined sub-services required for selected categories.
-            </p>
-          )}
-
-          <label className="auth-label">Add custom sub-service with price</label>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: "0.55rem", marginBottom: "0.8rem" }}>
-            <input
-              value={customSubServiceName}
-              onChange={(e) => setCustomSubServiceName(e.target.value)}
-              placeholder="Sub-service name"
-              className="auth-input"
-            />
-            <input
-              type="number"
-              min={0}
-              value={customSubServicePrice}
-              onChange={(e) => setCustomSubServicePrice(e.target.value)}
-              placeholder="Price"
-              className="auth-input"
-            />
-            <button
-              type="button"
-              onClick={addCustomSubService}
-              className="auth-secondary-btn"
-              style={{ width: "auto", padding: "0.58rem 0.82rem" }}
-            >
-              Add
-            </button>
-          </div>
-
-          {selectedSubServices.length > 0 ? (
-            <div style={{ display: "grid", gap: "0.55rem", marginBottom: "0.8rem" }}>
-              {selectedSubServices.map((name) => (
-                <div key={name} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr auto", gap: "0.5rem", alignItems: "center" }}>
-                  <div style={{ fontSize: "0.84rem", fontWeight: 700, color: "#1f2937" }}>{name}</div>
-                  <input
-                    type="number"
-                    min={0}
-                    value={subServicePriceMap[name] || ""}
-                    onChange={(e) => setSubServicePrice(name, e.target.value)}
-                    placeholder="Price"
-                    className="auth-input"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeSelectedSubService(name)}
-                    className="auth-secondary-btn"
-                    style={{ width: "auto", padding: "0.48rem 0.75rem" }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : null}
 
           <label className="auth-label">No. of servicemen</label>
           <input
@@ -840,6 +930,7 @@ export default function VendorOnboardingPage() {
             max={25}
             value={servicemanCount}
             onChange={(e) => setServicemanCount(e.target.value)}
+            placeholder="Ex: 3"
             className="auth-input auth-input--spaced"
           />
 
@@ -852,19 +943,19 @@ export default function VendorOnboardingPage() {
                 <input
                   value={person.name}
                   onChange={(e) => updateServicemanField(index, "name", e.target.value)}
-                  placeholder="Name"
+                  placeholder="Ex: Ramesh Kumar"
                   className="auth-input"
                 />
                 <input
                   value={person.phone}
                   onChange={(e) => updateServicemanField(index, "phone", e.target.value)}
-                  placeholder="Phone number"
+                  placeholder="Ex: 9123456780"
                   className="auth-input"
                 />
                 <input
                   value={person.aadharNumber}
                   onChange={(e) => updateServicemanField(index, "aadharNumber", e.target.value)}
-                  placeholder="Aadhar number"
+                  placeholder="Ex: 1234 5678 9012"
                   className="auth-input"
                 />
                 <select
@@ -872,7 +963,7 @@ export default function VendorOnboardingPage() {
                   onChange={(e) => updateServicemanField(index, "serviceCategory", e.target.value)}
                   className="auth-select"
                 >
-                  <option value="">Select service category</option>
+                  <option value="">Select service category (Ex: AC Repair)</option>
                   {selectedServices.map((service) => (
                     <option key={`person-${index}-${service.key}`} value={service.name}>{service.name}</option>
                   ))}
@@ -926,9 +1017,7 @@ export default function VendorOnboardingPage() {
           />
 
           {errorMessage ? (
-            <p style={{ color: "#b42318", marginTop: "0.8rem", fontSize: "0.88rem" }}>
-              {errorMessage}
-            </p>
+            <p className="auth-feedback auth-feedback--error">{errorMessage}</p>
           ) : null}
 
           <button

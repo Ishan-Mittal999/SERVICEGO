@@ -184,17 +184,52 @@ export async function detectUserLocation() {
     throw new Error("Geolocation is not supported by this browser.");
   }
 
-  const coords = await new Promise<GeolocationCoordinates>((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => resolve(position.coords),
-      (error) => reject(error),
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+  if (
+    typeof window !== "undefined" &&
+    !window.isSecureContext &&
+    window.location.hostname !== "localhost" &&
+    window.location.hostname !== "127.0.0.1"
+  ) {
+    throw new Error("Location requires a secure HTTPS connection. Please reopen the app on HTTPS and try again.");
+  }
+
+  const permissionState = await getGeolocationPermissionState();
+  if (permissionState === "denied") {
+    throw new Error("Location access is blocked. Enable location permission for this site in browser settings and try again.");
+  }
+
+  const attemptOptions: PositionOptions[] = [
+    {
+      enableHighAccuracy: true,
+      timeout: 12000,
+      maximumAge: 0,
+    },
+    {
+      enableHighAccuracy: false,
+      timeout: 20000,
+      maximumAge: 300000,
+    },
+  ];
+
+  let coords: GeolocationCoordinates | null = null;
+  let lastError: unknown = null;
+
+  for (const options of attemptOptions) {
+    try {
+      coords = await getCurrentPositionWithOptions(options);
+      break;
+    } catch (error) {
+      lastError = error;
+
+      if (isGeolocationError(error) && error.code === 1) {
+        break;
       }
-    );
-  });
+    }
+  }
+
+  if (!coords) {
+    throw normalizeGeolocationError(lastError);
+  }
 
   const reverse = await reverseGeocode(coords.latitude, coords.longitude);
   const address = reverse.address || {};
@@ -213,6 +248,60 @@ export async function detectUserLocation() {
     fullAddress: reverse.display_name || "",
     savedAt: new Date().toISOString(),
   } as UserLocation;
+}
+
+function getCurrentPositionWithOptions(options: PositionOptions) {
+  return new Promise<GeolocationCoordinates>((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve(position.coords),
+      (error) => reject(error),
+      options
+    );
+  });
+}
+
+async function getGeolocationPermissionState(): Promise<"granted" | "prompt" | "denied" | "unknown"> {
+  if (typeof navigator === "undefined" || !navigator.permissions || !navigator.permissions.query) {
+    return "unknown";
+  }
+
+  try {
+    const status = await navigator.permissions.query({ name: "geolocation" });
+    return status.state;
+  } catch {
+    return "unknown";
+  }
+}
+
+function isGeolocationError(value: unknown): value is GeolocationPositionError {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      "code" in value &&
+      typeof (value as { code?: unknown }).code === "number"
+  );
+}
+
+function normalizeGeolocationError(error: unknown) {
+  if (isGeolocationError(error)) {
+    if (error.code === 1) {
+      return new Error("Location permission was denied. Enable location access in browser settings and try again.");
+    }
+
+    if (error.code === 2) {
+      return new Error("Location is temporarily unavailable. Move to an open area or stronger network and try again.");
+    }
+
+    if (error.code === 3) {
+      return new Error("Location request timed out. Please try again.");
+    }
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error;
+  }
+
+  return new Error("Unable to detect location right now.");
 }
 
 export function distanceInKm(
