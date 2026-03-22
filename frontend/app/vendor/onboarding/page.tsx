@@ -568,7 +568,13 @@ export default function VendorOnboardingPage() {
         photo: person.photo,
         aadharPhoto: person.aadharPhoto,
       }))
-      .filter((person) => person.name || person.phone || person.aadharNumber || person.serviceCategory || person.photo || person.aadharPhoto);
+      .filter((person) => person.name || person.phone || person.aadharNumber || person.serviceCategory || person.photo || person.aadharPhoto)
+      .map((person, index) => ({
+        ...person,
+        name: person.name || `Serviceman ${index + 1}`,
+      }));
+
+    const normalizedServicemanCount = Math.max(Number(servicemanCount) || 0, normalizedServicemen.length);
 
     setIsSubmitting(true);
 
@@ -605,8 +611,10 @@ export default function VendorOnboardingPage() {
       sub_service_prices: subServicePricePayload,
       sub_services: pricedSubServices,
       shop_image_urls: shopImageUrls,
-      servicemen_count: Number(servicemanCount) || 0,
+      servicemen_count: normalizedServicemanCount,
+      serviceman_count: normalizedServicemanCount,
       servicemen_details: normalizedServicemen,
+      serviceman_details: normalizedServicemen,
     };
 
     const error = await upsertVendorWithSchemaCompatibility(payload as Record<string, unknown>);

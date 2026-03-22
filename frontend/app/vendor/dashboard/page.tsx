@@ -1511,13 +1511,15 @@ function parseVendorServicemen(value: unknown, fallbackCount = 0): VendorService
       const phone = String(person.phone || "").trim();
       const id = String(person.id || `serviceman-${index + 1}`).trim();
 
-      if (!id || !name) {
+      if (!id) {
         return null;
       }
 
+      const resolvedName = name || `Serviceman ${index + 1}`;
+
       return {
         id,
-        name,
+        name: resolvedName,
         phone,
         aadharNumber: String(person.aadharNumber || person.aadhar_number || "").trim(),
         serviceCategory: String(person.serviceCategory || person.service_category || "").trim(),
@@ -1968,7 +1970,12 @@ function ProfilePage({
     const [newSubServicePrice, setNewSubServicePrice] = useState("");
     const [shopImageUrls, setShopImageUrls] = useState<string[]>(parseVendorListField(vendor?.shop_image_urls));
     const [shopImageMessage, setShopImageMessage] = useState<string | null>(null);
-    const [servicemen, setServicemen] = useState<VendorServiceman[]>(parseVendorServicemen(vendor?.servicemen_details, Number(vendor?.servicemen_count || 0)));
+    const [servicemen, setServicemen] = useState<VendorServiceman[]>(
+      parseVendorServicemen(
+        vendor?.servicemen_details ?? vendor?.serviceman_details,
+        Number(vendor?.servicemen_count ?? vendor?.serviceman_count ?? 0)
+      )
+    );
 
     const resolveServiceNames = (vendorPayload: any) => {
       const namesFromVendor = parseVendorListField(vendorPayload?.selected_service_names);
@@ -2010,7 +2017,12 @@ function ProfilePage({
       setNewSubServicePrice("");
       setShopImageUrls(parseVendorListField(vendor?.shop_image_urls));
       setShopImageMessage(null);
-      setServicemen(parseVendorServicemen(vendor?.servicemen_details, Number(vendor?.servicemen_count || 0)));
+      setServicemen(
+        parseVendorServicemen(
+          vendor?.servicemen_details ?? vendor?.serviceman_details,
+          Number(vendor?.servicemen_count ?? vendor?.serviceman_count ?? 0)
+        )
+      );
     }, [vendor, serviceCatalog]);
 
     const addServiceman = () => {
@@ -2905,6 +2917,22 @@ export default function VendorDashboard() {
           return;
         }
 
+        const normalizedServicemen = payload.servicemen
+          .map((person, index) => ({
+            id: String(person.id || `serviceman-${index + 1}`),
+            name: String(person.name || "").trim(),
+            phone: String(person.phone || "").trim(),
+            aadharNumber: String(person.aadharNumber || "").trim(),
+            serviceCategory: String(person.serviceCategory || "").trim(),
+            photo: String(person.photo || "").trim(),
+            aadharPhoto: String(person.aadharPhoto || "").trim(),
+          }))
+          .filter((person) => person.name || person.phone || person.aadharNumber || person.serviceCategory || person.photo || person.aadharPhoto)
+          .map((person, index) => ({
+            ...person,
+            name: person.name || `Serviceman ${index + 1}`,
+          }));
+
         const extendedPayload = {
           name: payload.name,
           phone: payload.phone,
@@ -2915,8 +2943,10 @@ export default function VendorDashboard() {
           service_base_price: payload.serviceBasePrice,
           sub_services: payload.subServices,
           shop_image_urls: payload.shopImageUrls,
-          servicemen_details: payload.servicemen,
-          servicemen_count: payload.servicemen.length,
+          servicemen_details: normalizedServicemen,
+          servicemen_count: normalizedServicemen.length,
+          serviceman_details: normalizedServicemen,
+          serviceman_count: normalizedServicemen.length,
         };
 
         const error = await updateVendorWithSchemaCompatibility(user.id, extendedPayload as Record<string, unknown>);
@@ -2936,8 +2966,10 @@ export default function VendorDashboard() {
           service_base_price: payload.serviceBasePrice,
           sub_services: payload.subServices,
           shop_image_urls: payload.shopImageUrls,
-          servicemen_details: payload.servicemen,
-          servicemen_count: payload.servicemen.length,
+          servicemen_details: normalizedServicemen,
+          servicemen_count: normalizedServicemen.length,
+          serviceman_details: normalizedServicemen,
+          serviceman_count: normalizedServicemen.length,
         }));
 
         setDashboardMessage("Profile updated successfully.");
@@ -2949,7 +2981,10 @@ export default function VendorDashboard() {
     };
 
     const renderPage = () => {
-      const parsedServicemen = parseVendorServicemen(vendor?.servicemen_details, Number(vendor?.servicemen_count || 0));
+        const parsedServicemen = parseVendorServicemen(
+          vendor?.servicemen_details ?? vendor?.serviceman_details,
+          Number(vendor?.servicemen_count ?? vendor?.serviceman_count ?? 0)
+        );
         switch (activePage) {
             case "home": return <DashboardHome bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} vendor={vendor} pendingCount={bookings.filter((b: any) => b.status === "pending").length} openProfile={() => setActivePage("profile")} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;
             case "bookings": return <BookingsPage bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;
