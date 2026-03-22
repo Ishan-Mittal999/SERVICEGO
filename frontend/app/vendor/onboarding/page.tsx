@@ -98,6 +98,16 @@ const isSchemaColumnCompatibilityError = (error: { message?: string } | null | u
   );
 };
 
+const REQUIRED_VENDOR_PROFILE_COLUMNS = new Set<string>([
+  "about_shop",
+  "shop_image_urls",
+  "service_ids",
+  "selected_service_names",
+  "sub_services",
+  "servicemen_count",
+  "servicemen_details",
+]);
+
 const extractMissingColumnFromSchemaError = (error: { message?: string } | null | undefined) => {
   const message = String(error?.message || "");
   if (!message) {
@@ -139,6 +149,12 @@ const upsertVendorWithSchemaCompatibility = async (payload: Record<string, unkno
     const missingColumn = extractMissingColumnFromSchemaError(error);
     if (!missingColumn || missingColumn === "auth_user_id" || !(missingColumn in nextPayload)) {
       return error;
+    }
+
+    if (REQUIRED_VENDOR_PROFILE_COLUMNS.has(missingColumn)) {
+      return {
+        message: `Database is missing required column '${missingColumn}'. Run backend/sql/add_vendor_profile_fields.sql in Supabase SQL editor, then save again.`,
+      };
     }
 
     delete nextPayload[missingColumn];
