@@ -83,6 +83,19 @@ async function sendPushToServiceVendors(serviceId, payload) {
   );
 }
 
+function isVendorApproved(vendor) {
+  if (!vendor || typeof vendor !== "object") {
+    return false;
+  }
+
+  const status = String(vendor.approval_status || "").trim().toLowerCase();
+  if (!status) {
+    return true;
+  }
+
+  return status === "approved";
+}
+
 // Root route
 app.get("/", (req, res) => {
   res.send("ServiceGo API Running 🚀");
@@ -248,6 +261,10 @@ app.put("/booking/:id/assign", async (req, res) => {
       return res.status(400).json({ error: "Vendor is not active" });
     }
 
+    if (!isVendorApproved(vendor)) {
+      return res.status(400).json({ error: "Vendor is awaiting admin approval" });
+    }
+
     // 3️⃣ Check vendor service match
     if (vendor.service_id !== booking.service_id) {
       return res.status(400).json({ error: "Vendor does not match service type" });
@@ -295,7 +312,7 @@ app.put("/booking/:id/accept", async (req, res) => {
 
     const { data: vendor, error: vendorError } = await supabase
       .from("vendors")
-      .select("id, auth_user_id, service_id, is_active")
+      .select("id, auth_user_id, service_id, is_active, approval_status")
       .eq("auth_user_id", vendor_auth_id)
       .single();
 
@@ -305,6 +322,10 @@ app.put("/booking/:id/accept", async (req, res) => {
 
     if (!vendor.is_active) {
       return res.status(400).json({ error: "Vendor is offline or inactive" });
+    }
+
+    if (!isVendorApproved(vendor)) {
+      return res.status(403).json({ error: "Your account is pending admin approval" });
     }
 
     const { data: booking, error: bookingError } = await supabase
@@ -531,12 +552,36 @@ app.delete("/booking/:id", async (req, res) => {
 
 app.get("/vendors", async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const includeAll = String(req.query.includeAll || "").toLowerCase() === "true";
+
+    let query = supabase
       .from("vendors")
       .select("*");
 
+    if (!includeAll) {
+      query = query.eq("is_active", true);
+    }
+
+    let { data, error } = await query;
+
+    if (!includeAll && error && String(error.message || "").toLowerCase().includes("approval_status")) {
+      // Backward-compatible fallback in case approval_status column is not added yet.
+      const fallback = await supabase
+        .from("vendors")
+        .select("*")
+        .eq("is_active", true);
+
+      data = fallback.data;
+      error = fallback.error;
+    }
+
     if (error) {
       return res.status(500).json({ error: error.message });
+    }
+
+    if (!includeAll) {
+      const filtered = (data || []).filter((vendor) => isVendorApproved(vendor));
+      return res.status(200).json(filtered);
     }
 
     return res.status(200).json(data);
@@ -734,12 +779,16 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
 
   const { data: vendor, error: vendorError } = await supabase
     .from("vendors")
-    .select("id, service_id, is_active")
+    .select("id, service_id, is_active, approval_status")
     .eq("auth_user_id", auth_id)
     .single();
 
   if (vendorError || !vendor) {
     return res.status(404).json({ error: "Vendor not found" });
+  }
+
+  if (!isVendorApproved(vendor)) {
+    return res.json([]);
   }
 
   const { data: assignedBookings, error: assignedError } = await supabase
@@ -790,12 +839,16 @@ app.post("/push/subscribe", async (req, res) => {
 
     const { data: vendor, error: vendorError } = await supabase
       .from("vendors")
-      .select("auth_user_id, service_id")
+      .select("auth_user_id, service_id, approval_status")
       .eq("auth_user_id", vendor_auth_id)
       .single();
 
     if (vendorError || !vendor) {
       return res.status(404).json({ error: "Vendor not found" });
+    }
+
+    if (!isVendorApproved(vendor)) {
+      return res.status(403).json({ error: "Vendor is pending admin approval" });
     }
 
     const { error: upsertError } = await supabase

@@ -29,6 +29,7 @@ type AdminVendor = {
   minimum_order_value?: number;
   experience?: number;
   is_active?: boolean;
+  approval_status?: "pending" | "approved" | "declined" | string;
   [key: string]: unknown;
 };
 
@@ -98,10 +99,16 @@ export default function AdminVendorsPage() {
   const [formMinimumOrderValue, setFormMinimumOrderValue] = useState("");
   const [formExperience, setFormExperience] = useState("");
   const [formIsActive, setFormIsActive] = useState(true);
+  const [formApprovalStatus, setFormApprovalStatus] = useState("approved");
 
   const selectedVendor = useMemo(
     () => vendors.find((vendor) => String(vendor.id) === String(selectedVendorId)) || null,
     [vendors, selectedVendorId]
+  );
+
+  const pendingCount = useMemo(
+    () => vendors.filter((vendor) => String(vendor.approval_status || "pending").toLowerCase() === "pending").length,
+    [vendors]
   );
 
   const loadData = async () => {
@@ -110,7 +117,7 @@ export default function AdminVendorsPage() {
 
     try {
       const [vendorsResponse, servicesResponse] = await Promise.all([
-        fetch(apiUrl("/vendors"), { cache: "no-store" }),
+        fetch(apiUrl("/vendors?includeAll=true"), { cache: "no-store" }),
         fetch(apiUrl("/services"), { cache: "no-store" }),
       ]);
 
@@ -175,6 +182,7 @@ export default function AdminVendorsPage() {
     setFormMinimumOrderValue(String(selectedVendor.minimum_order_value || ""));
     setFormExperience(String(selectedVendor.experience || ""));
     setFormIsActive(Boolean(selectedVendor.is_active));
+    setFormApprovalStatus(String(selectedVendor.approval_status || "approved").toLowerCase());
     setSuccessMessage(null);
     setErrorMessage(null);
   }, [selectedVendor]);
@@ -220,6 +228,7 @@ export default function AdminVendorsPage() {
       minimum_order_value: Number(formMinimumOrderValue) || 0,
       experience: Number(formExperience) || 0,
       is_active: formIsActive,
+      approval_status: formApprovalStatus,
     };
 
     try {
@@ -347,6 +356,41 @@ export default function AdminVendorsPage() {
     }
   };
 
+  const updateApprovalStatus = async (status: "approved" | "declined") => {
+    if (!selectedVendor) {
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const payload = {
+      approval_status: status,
+      is_active: status === "approved",
+    };
+
+    try {
+      const response = await fetch(apiUrl(`/vendors/${encodeURIComponent(String(selectedVendor.id))}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not update approval status");
+      }
+
+      setSuccessMessage(status === "approved" ? "Vendor approved and listed." : "Vendor request declined.");
+      await loadData();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not update approval status");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <main
       className="min-h-screen p-6 md:p-8"
@@ -359,6 +403,9 @@ export default function AdminVendorsPage() {
         <h1 className="text-3xl font-bold" style={{ color: "var(--gray-900)", fontFamily: "var(--font-display)" }}>
           Admin Vendor Profile Manager
         </h1>
+        <div className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+          Pending approvals: {pendingCount}
+        </div>
         <div className="flex gap-2">
           <Link href="/admin/services" className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-amber-50">
             Manage Services
@@ -394,6 +441,13 @@ export default function AdminVendorsPage() {
                   >
                     <p className="font-semibold text-gray-800">{vendor.name || "Unnamed vendor"}</p>
                     <p className="text-xs text-gray-500">{vendor.phone || "No phone"}</p>
+                    <p className="text-xs font-semibold" style={{ color: String(vendor.approval_status || "approved").toLowerCase() === "approved" ? "#166534" : String(vendor.approval_status || "pending").toLowerCase() === "declined" ? "#b91c1c" : "#92400e" }}>
+                      {String(vendor.approval_status || "approved").toLowerCase() === "approved"
+                        ? "Approved"
+                        : String(vendor.approval_status || "pending").toLowerCase() === "declined"
+                          ? "Declined"
+                          : "Pending approval"}
+                    </p>
                   </button>
                 );
               })}
@@ -406,6 +460,19 @@ export default function AdminVendorsPage() {
             ) : (
               <div className="grid gap-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <label className="grid gap-1 text-sm text-gray-700">
+                    <span className="font-semibold">Approval status</span>
+                    <select
+                      value={formApprovalStatus}
+                      onChange={(event) => setFormApprovalStatus(event.target.value)}
+                      className="rounded-lg border border-gray-300 px-3 py-2"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="declined">Declined</option>
+                    </select>
+                  </label>
+
                   <Field label="Shop name" value={formName} onChange={setFormName} />
                   <Field label="Phone" value={formPhone} onChange={setFormPhone} />
                   <Field label="Owner name" value={formOwnerName} onChange={setFormOwnerName} />
@@ -484,6 +551,24 @@ export default function AdminVendorsPage() {
                 <TextAreaField label="Servicemen details JSON" value={formServicemenDetails} onChange={setFormServicemenDetails} rows={6} />
 
                 <div className="flex gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => void updateApprovalStatus("approved")}
+                    disabled={saving}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold"
+                    style={{ background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0", opacity: saving ? 0.8 : 1 }}
+                  >
+                    {saving ? "Working..." : "Approve Vendor"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void updateApprovalStatus("declined")}
+                    disabled={saving}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold"
+                    style={{ background: "#fee2e2", color: "#b91c1c", border: "1px solid #fecaca", opacity: saving ? 0.8 : 1 }}
+                  >
+                    {saving ? "Working..." : "Decline Vendor"}
+                  </button>
                   <button
                     type="button"
                     onClick={saveStructured}

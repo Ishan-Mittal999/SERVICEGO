@@ -1942,6 +1942,7 @@ type VendorProfile = {
   service_id?: string | number | null;
   area?: string | null;
   is_active?: boolean;
+  approval_status?: string | null;
   auth_user_id?: string | null;
   [key: string]: unknown;
 };
@@ -2090,7 +2091,17 @@ export default function VendorDashboard() {
         }
 
         setVendor(vendorData);
-        setOnline(vendorData.is_active !== false);
+        const approvalStatus = String(vendorData.approval_status || "approved").toLowerCase();
+        const isApproved = !approvalStatus || approvalStatus === "approved";
+        setOnline(isApproved && vendorData.is_active !== false);
+
+        if (!isApproved) {
+          setDashboardMessage(
+            approvalStatus === "declined"
+              ? "Your vendor profile request was declined by admin. Please update details and contact support."
+              : "Your vendor profile is submitted and pending admin approval. You will go live after approval."
+          );
+        }
         setProfileChecked(true);
         return true;
     };
@@ -2203,6 +2214,16 @@ export default function VendorDashboard() {
 
     const toggleAvailability = async () => {
       if (!vendor) {
+        return;
+      }
+
+      const approvalStatus = String(vendor.approval_status || "approved").toLowerCase();
+      if (approvalStatus && approvalStatus !== "approved") {
+        setDashboardMessage(
+          approvalStatus === "declined"
+            ? "Your vendor request is declined. Availability cannot be enabled."
+            : "Your profile is pending admin approval. Availability can be enabled after approval."
+        );
         return;
       }
 

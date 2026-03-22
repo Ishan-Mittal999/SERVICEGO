@@ -528,7 +528,8 @@ export default function VendorOnboardingPage() {
       selected_service_names: selectedServices.map((service) => service.name),
       area,
       experience: Number(experience),
-      is_active: true,
+      is_active: false,
+      approval_status: "pending",
       owner_name: ownerName || null,
       business_address: businessAddress || null,
       city: city || null,
@@ -554,6 +555,7 @@ export default function VendorOnboardingPage() {
         ...payload,
       } as Record<string, unknown>;
 
+      delete payloadWithoutNewPricingColumns.approval_status;
       delete payloadWithoutNewPricingColumns.service_base_price;
       delete payloadWithoutNewPricingColumns.sub_service_prices;
 
@@ -572,7 +574,7 @@ export default function VendorOnboardingPage() {
         service_id: primaryServiceId,
         area,
         experience: Number(experience),
-        is_active: true,
+        is_active: false,
       };
 
       const fallbackResult = await supabase
@@ -587,7 +589,7 @@ export default function VendorOnboardingPage() {
       return;
     }
 
-    router.push("/vendor/dashboard");
+    router.push("/vendor/dashboard?pendingApproval=true");
   };
 
   return (
