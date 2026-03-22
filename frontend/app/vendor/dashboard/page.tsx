@@ -362,6 +362,23 @@ const styles = `
       0 16px 34px rgba(16, 24, 40, 0.1);
   }
 
+  .stat-card.clickable {
+    cursor: pointer;
+  }
+
+  .stat-card.clickable:focus-visible {
+    outline: 2px solid ${theme.blue};
+    outline-offset: 2px;
+  }
+
+  .stat-card.active-filter {
+    border-color: #9CC4F5;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 0 0 2px rgba(22, 112, 204, 0.12),
+      0 12px 24px rgba(16, 24, 40, 0.08);
+  }
+
   .stat-card::after {
     content: '';
     position: absolute;
@@ -492,6 +509,55 @@ const styles = `
 
   /* BOOKINGS TABLE */
   .booking-table { width: 100%; border-collapse: collapse; min-width: 680px; }
+  .desktop-booking-table { display: table; }
+
+  .mobile-booking-list {
+    display: none;
+  }
+
+  .mobile-booking-card {
+    background: #fff;
+    border: 1px solid #EDEBE4;
+    border-radius: 12px;
+    padding: 10px;
+    display: grid;
+    gap: 8px;
+  }
+
+  .mobile-booking-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .mobile-booking-meta {
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    gap: 8px;
+    align-items: start;
+    font-size: 12px;
+  }
+
+  .mobile-booking-meta span {
+    color: ${theme.muted};
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+  }
+
+  .mobile-booking-meta strong {
+    color: ${theme.dark};
+    font-size: 12px;
+    line-height: 1.35;
+    word-break: break-word;
+  }
+
+  .mobile-booking-action {
+    border-top: 1px dashed #EDEBE4;
+    padding-top: 8px;
+  }
   .booking-table th {
     text-align: left;
     font-size: 11px;
@@ -998,6 +1064,30 @@ const styles = `
 
     .grid-2 { grid-template-columns: 1fr; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .tabs {
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tabs::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .tabs::-webkit-scrollbar-thumb {
+      background: #D9D2C0;
+      border-radius: 999px;
+    }
+
+    .desktop-booking-table {
+      display: none;
+    }
+
+    .mobile-booking-list {
+      display: grid;
+      gap: 10px;
+    }
+
     .page-content { padding: 14px 10px; }
     .topbar {
       padding: 8px 10px;
@@ -1662,6 +1752,7 @@ function DashboardHome({
   onSelectServiceman: (bookingId: string, servicemanId: string) => void;
 }) {
     const [bookingTab, setBookingTab] = useState<string>("all");
+  const bookingsSectionRef = useRef<HTMLDivElement | null>(null);
     const completedCount = bookings.filter((b: any) => b.status === "completed").length;
     const inProgressCount = bookings.filter((b: any) => b.status === "assigned").length;
     const busyServicemanIds = new Set(
@@ -1675,6 +1766,16 @@ function DashboardHome({
 
     const filtered = bookingTab === "all" ? bookings : bookings.filter((b: any) => b.status === bookingTab);
 
+    const handleStatCardSelect = (target: "all" | "pending" | "assigned" | "completed" | "profile") => {
+      if (target === "profile") {
+        openProfile();
+        return;
+      }
+
+      setBookingTab(target);
+      bookingsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+
     return (
         <>
             {pendingCount > 0 && (
@@ -1685,15 +1786,27 @@ function DashboardHome({
             )}
 
             <div className="stats-grid">
-                {[
-                    { color: "green", icon: "📋", value: String(bookings.length), label: "Total Bookings", change: "All time", dir: "up" },
-                    { color: "blue", icon: "🛠", value: String(inProgressCount), label: "In Progress", change: "Assigned jobs", dir: "up" },
-                    { color: "gold", icon: "✅", value: String(completedCount), label: "Completed Jobs", change: "Finished work", dir: "up" },
-                    { color: "orange", icon: "🔔", value: String(pendingCount), label: "Pending Requests", change: pendingCount > 0 ? "Needs action" : "All clear", dir: pendingCount > 0 ? "down" : "up" },
-              { color: "green", icon: "👷", value: String(freeServicemenCount), label: "Servicemen Free", change: `${servicemen.length} total`, dir: "up" },
-              { color: "blue", icon: "🧰", value: String(assignedServicemenCount), label: "Servicemen Assigned", change: "On active jobs", dir: "up" },
+              {[
+                    { color: "green", icon: "📋", value: String(bookings.length), label: "Total Bookings", change: "All time", dir: "up", target: "all" },
+                    { color: "blue", icon: "🛠", value: String(inProgressCount), label: "In Progress", change: "Assigned jobs", dir: "up", target: "assigned" },
+                    { color: "gold", icon: "✅", value: String(completedCount), label: "Completed Jobs", change: "Finished work", dir: "up", target: "completed" },
+                    { color: "orange", icon: "🔔", value: String(pendingCount), label: "Pending Requests", change: pendingCount > 0 ? "Needs action" : "All clear", dir: pendingCount > 0 ? "down" : "up", target: "pending" },
+              { color: "green", icon: "👷", value: String(freeServicemenCount), label: "Servicemen Free", change: `${servicemen.length} total`, dir: "up", target: "profile" },
+              { color: "blue", icon: "🧰", value: String(assignedServicemenCount), label: "Servicemen Assigned", change: "On active jobs", dir: "up", target: "profile" },
                 ].map((s, i) => (
-                  <div key={i} className={`stat-card ${s.color} ${i >= 4 ? "stat-card--secondary" : "stat-card--primary"}`}>
+                  <div
+                    key={i}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleStatCardSelect(s.target as "all" | "pending" | "assigned" | "completed" | "profile")}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        handleStatCardSelect(s.target as "all" | "pending" | "assigned" | "completed" | "profile");
+                      }
+                    }}
+                    className={`stat-card clickable ${s.color} ${i >= 4 ? "stat-card--secondary" : "stat-card--primary"} ${bookingTab === s.target ? "active-filter" : ""}`}
+                  >
                         <div className="stat-icon">{s.icon}</div>
                         <div className="stat-value">{s.value}</div>
                         <div className="stat-label">{s.label}</div>
@@ -1706,7 +1819,7 @@ function DashboardHome({
 
             <div className="grid-3-1">
                 {/* BOOKINGS TABLE */}
-                <div className="card">
+                <div className="card" ref={bookingsSectionRef}>
                     <div className="card-header">
                         <span className="card-title">Recent Bookings</span>
                         <button className="view-all" onClick={() => setBookingTab("all")}>Show All</button>
@@ -1847,6 +1960,51 @@ function DashboardHome({
                       .map((b: any) => String(b.assigned_serviceman_id || "").trim())
                       .filter(Boolean)
                   );
+
+    const renderBookingAction = (booking: any, keyPrefix: string) => {
+      if (booking.status === "pending") {
+        return (
+          <div style={{ display: "grid", gap: 6 }}>
+            <select
+              value={bookingServicemanSelection[String(booking.id)] || ""}
+              onChange={(event) => onSelectServiceman(String(booking.id), event.target.value)}
+              style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 12, background: "#fff", color: theme.dark }}
+            >
+              <option value="">Assign serviceman</option>
+              {servicemen
+                .filter((person) => !busyServicemanIds.has(person.id))
+                .map((person) => (
+                  <option key={`${keyPrefix}-${booking.id}-${person.id}`} value={person.id}>
+                    {person.name}{person.phone ? ` (${person.phone})` : ""}
+                  </option>
+                ))}
+            </select>
+            <button
+              className="action-btn accept"
+              onClick={() => acceptBooking(String(booking.id), bookingServicemanSelection[String(booking.id)] || "")}
+              disabled={!bookingServicemanSelection[String(booking.id)]}
+              style={{ opacity: bookingServicemanSelection[String(booking.id)] ? 1 : 0.7 }}
+            >
+              Accept Job
+            </button>
+          </div>
+        );
+      }
+
+      if (booking.status === "assigned") {
+        return (
+          <div style={{ display: "grid", gap: 6 }}>
+            <div style={{ fontSize: 11, color: theme.muted }}>
+              {booking.assigned_serviceman_name ? `Serviceman: ${booking.assigned_serviceman_name}` : "Serviceman not assigned"}
+            </div>
+            <button className="action-btn accept" onClick={() => completeBooking(booking.id)}>Complete Job</button>
+          </div>
+        );
+      }
+
+      return <button className="action-btn view">View</button>;
+    };
+
     return (
         <div className="card">
             <div className="card-header">
@@ -1861,7 +2019,35 @@ function DashboardHome({
                 ))}
             </div>
             <div className="card-body">
-                <table className="booking-table">
+                <div className="mobile-booking-list">
+                  {filtered.length === 0 ? (
+                    <div className="empty-state"><span className="empty-icon">📭</span>No bookings in this section</div>
+                  ) : filtered.map((b: any, i: number) => (
+                    <article key={`mobile-${i}-${b.id}`} className="mobile-booking-card">
+                      <div className="mobile-booking-head">
+                        <span className="booking-id">#{(b.id || "").slice(0, 8)}</span>
+                        <StatusPill status={b.status} />
+                      </div>
+                      <div className="mobile-booking-meta">
+                        <span>Customer</span>
+                        <strong>{b.customer_name || "-"}</strong>
+                      </div>
+                      <div className="mobile-booking-meta">
+                        <span>Service</span>
+                        <strong>{b.services?.name || "Service"}</strong>
+                      </div>
+                      <div className="mobile-booking-meta">
+                        <span>Date</span>
+                        <strong>{b.preferred_time || new Date(b.created_at).toLocaleDateString()}</strong>
+                      </div>
+                      <div className="mobile-booking-action">
+                        {renderBookingAction(b, "mobile")}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                <table className="booking-table desktop-booking-table">
                     <thead>
                         <tr>
                             <th>Booking ID</th><th>Customer</th><th>Service</th><th>Date</th><th>Amount</th><th>Status</th><th>Action</th>
@@ -1879,39 +2065,7 @@ function DashboardHome({
                                 <td style={{ fontWeight: 700 }}>—</td>
                                 <td><StatusPill status={b.status} /></td>
                             <td>
-                              {b.status === "pending" ? (
-                                <div style={{ display: "grid", gap: 6 }}>
-                                  <select
-                                    value={bookingServicemanSelection[String(b.id)] || ""}
-                                    onChange={(event) => onSelectServiceman(String(b.id), event.target.value)}
-                                    style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 12, background: "#fff", color: theme.dark }}
-                                  >
-                                    <option value="">Assign serviceman</option>
-                                    {servicemen
-                                      .filter((person) => !busyServicemanIds.has(person.id))
-                                      .map((person) => (
-                                        <option key={`${b.id}-table-${person.id}`} value={person.id}>
-                                          {person.name}{person.phone ? ` (${person.phone})` : ""}
-                                        </option>
-                                      ))}
-                                  </select>
-                                  <button
-                                    className="action-btn accept"
-                                    onClick={() => acceptBooking(String(b.id), bookingServicemanSelection[String(b.id)] || "")}
-                                    disabled={!bookingServicemanSelection[String(b.id)]}
-                                    style={{ opacity: bookingServicemanSelection[String(b.id)] ? 1 : 0.7 }}
-                                  >
-                                    Accept Job
-                                  </button>
-                                </div>
-                              ) : b.status === "assigned" ? (
-                                <div style={{ display: "grid", gap: 6 }}>
-                                  <div style={{ fontSize: 11, color: theme.muted }}>
-                                    {b.assigned_serviceman_name ? `Serviceman: ${b.assigned_serviceman_name}` : "Serviceman not assigned"}
-                                  </div>
-                                  <button className="action-btn accept" onClick={() => completeBooking(b.id)}>Complete Job</button>
-                                </div>
-                              ) : <button className="action-btn view">View</button>}
+                              {renderBookingAction(b, "table")}
                             </td>
                             </tr>
                         ))}
