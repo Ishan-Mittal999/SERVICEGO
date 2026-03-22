@@ -597,6 +597,16 @@ app.delete("/vendors/:id", async (req, res) => {
       return res.status(404).json({ error: "Vendor not found" });
     }
 
+    // Remove FK references from historical/current bookings before vendor deletion.
+    const { error: unassignBookingsError } = await supabase
+      .from("bookings")
+      .update({ vendor_id: null })
+      .eq("vendor_id", vendorId);
+
+    if (unassignBookingsError) {
+      return res.status(500).json({ error: unassignBookingsError.message });
+    }
+
     const { error } = await supabase
       .from("vendors")
       .delete()
