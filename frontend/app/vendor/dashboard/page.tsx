@@ -1188,6 +1188,19 @@ function parseVendorListField(value: unknown): string[] {
   return [];
 }
 
+function isSchemaColumnCompatibilityError(error: { message?: string } | null | undefined) {
+  const message = String(error?.message || "").toLowerCase();
+  if (!message) {
+    return false;
+  }
+
+  return (
+    (message.includes("column") && message.includes("does not exist")) ||
+    message.includes("schema cache") ||
+    message.includes("could not find the")
+  );
+}
+
 function parsePricedSubServiceRows(value: unknown): Array<{ name: string; price: string }> {
   return parseVendorListField(value)
     .map((entry) => {
@@ -1725,6 +1738,7 @@ function ProfilePage({
     const [newSubServiceName, setNewSubServiceName] = useState("");
     const [newSubServicePrice, setNewSubServicePrice] = useState("");
     const [shopImageUrls, setShopImageUrls] = useState<string[]>(parseVendorListField(vendor?.shop_image_urls));
+    const [shopImageMessage, setShopImageMessage] = useState<string | null>(null);
     const [servicemen, setServicemen] = useState<VendorServiceman[]>(parseVendorServicemen(vendor?.servicemen_details, Number(vendor?.servicemen_count || 0)));
 
     const resolveServiceNames = (vendorPayload: any) => {
@@ -1766,6 +1780,7 @@ function ProfilePage({
       setNewSubServiceName("");
       setNewSubServicePrice("");
       setShopImageUrls(parseVendorListField(vendor?.shop_image_urls));
+      setShopImageMessage(null);
       setServicemen(parseVendorServicemen(vendor?.servicemen_details, Number(vendor?.servicemen_count || 0)));
     }, [vendor, serviceCatalog]);
 
@@ -1805,17 +1820,30 @@ function ProfilePage({
         return;
       }
 
-      const oversized = files.find((file) => file.size > 2 * 1024 * 1024);
+      const oversized = files.find((file) => file.size > 5 * 1024 * 1024);
       if (oversized) {
+        setShopImageMessage("Each shop image must be smaller than 5MB.");
+        event.target.value = "";
+        return;
+      }
+
+      const unsupported = files.find((file) => !file.type.startsWith("image/"));
+      if (unsupported) {
+        setShopImageMessage("Only image files are supported.");
+        event.target.value = "";
         return;
       }
 
       const nextImages = await readFilesAsDataUrl(files).catch(() => [] as string[]);
       if (nextImages.length === 0) {
+        setShopImageMessage("Could not process uploaded image.");
+        event.target.value = "";
         return;
       }
 
       setShopImageUrls((current) => Array.from(new Set([...current, ...nextImages.filter(Boolean)])));
+      setShopImageMessage(null);
+      event.target.value = "";
     };
 
     const removeShopImage = (index: number) => {
@@ -2137,6 +2165,9 @@ function ProfilePage({
                         onChange={handleShopImageUpload}
                         style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark, marginBottom: 8 }}
                       />
+                      {shopImageMessage ? (
+                        <p style={{ margin: "0 0 8px", fontSize: 12, color: "#b42318" }}>{shopImageMessage}</p>
+                      ) : null}
                       {shopImageUrls.length > 0 ? (
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
                           {shopImageUrls.map((image, index) => (
@@ -2664,7 +2695,7 @@ export default function VendorDashboard() {
           .update(extendedPayload as never)
           .eq("auth_user_id", user.id);
 
-        if (error) {
+        if (error && isSchemaColumnCompatibilityError(error)) {
           const payloadWithoutNewPricingColumns = {
             ...extendedPayload,
           } as Record<string, unknown>;
@@ -2678,7 +2709,11 @@ export default function VendorDashboard() {
           error = fallbackWithLegacyFields.error;
         }
 
-        if (error) {
+        if (error && !isSchemaColumnCompatibilityError(error)) {
+          throw new Error(error.message);
+        }
+
+        if (error && isSchemaColumnCompatibilityError(error)) {
           const basicPayload = {
             name: payload.name,
             phone: payload.phone,
