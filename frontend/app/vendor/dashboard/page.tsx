@@ -1235,7 +1235,7 @@ type VendorServiceman = {
   aadharPhoto?: string;
 };
 
-function parseVendorServicemen(value: unknown): VendorServiceman[] {
+function parseVendorServicemen(value: unknown, fallbackCount = 0): VendorServiceman[] {
   const asArray = (() => {
     if (Array.isArray(value)) {
       return value;
@@ -1258,7 +1258,7 @@ function parseVendorServicemen(value: unknown): VendorServiceman[] {
     return [] as unknown[];
   })();
 
-  return asArray
+  const parsed = asArray
     .map((entry, index) => {
       if (!entry || typeof entry !== "object") {
         return null;
@@ -1284,6 +1284,20 @@ function parseVendorServicemen(value: unknown): VendorServiceman[] {
       } as VendorServiceman;
     })
     .filter((entry): entry is VendorServiceman => Boolean(entry));
+
+  if (parsed.length === 0 && fallbackCount > 0) {
+    return Array.from({ length: fallbackCount }).map((_, index) => ({
+      id: `serviceman-${index + 1}`,
+      name: `Serviceman ${index + 1}`,
+      phone: "",
+      aadharNumber: "",
+      serviceCategory: "",
+      photo: "",
+      aadharPhoto: "",
+    }));
+  }
+
+  return parsed;
 }
 
 function readFilesAsDataUrl(files: File[]) {
@@ -1711,7 +1725,33 @@ function ProfilePage({
     const [newSubServiceName, setNewSubServiceName] = useState("");
     const [newSubServicePrice, setNewSubServicePrice] = useState("");
     const [shopImageUrls, setShopImageUrls] = useState<string[]>(parseVendorListField(vendor?.shop_image_urls));
-    const [servicemen, setServicemen] = useState<VendorServiceman[]>(parseVendorServicemen(vendor?.servicemen_details));
+    const [servicemen, setServicemen] = useState<VendorServiceman[]>(parseVendorServicemen(vendor?.servicemen_details, Number(vendor?.servicemen_count || 0)));
+
+    const resolveServiceNames = (vendorPayload: any) => {
+      const namesFromVendor = parseVendorListField(vendorPayload?.selected_service_names);
+      if (namesFromVendor.length > 0) {
+        return namesFromVendor;
+      }
+
+      const serviceIds = parseVendorListField(vendorPayload?.service_ids);
+      if (serviceIds.length > 0) {
+        const mapped = serviceIds
+          .map((id) => serviceCatalog.find((serviceItem) => String(serviceItem.id) === String(id))?.name || "")
+          .filter(Boolean);
+        if (mapped.length > 0) {
+          return mapped;
+        }
+      }
+
+      if (vendorPayload?.service_id) {
+        const single = serviceCatalog.find((serviceItem) => String(serviceItem.id) === String(vendorPayload.service_id))?.name;
+        if (single) {
+          return [single];
+        }
+      }
+
+      return [] as string[];
+    };
 
     useEffect(() => {
       setName(vendor?.name || "");
@@ -1720,14 +1760,14 @@ function ProfilePage({
       setExperience(String(vendor?.experience || 0));
       setAboutShop(String(vendor?.about_shop || ""));
       setServiceBasePrice(String(vendor?.service_base_price || vendor?.minimum_order_value || 0));
-      setServiceNames(parseVendorListField(vendor?.selected_service_names));
+      setServiceNames(resolveServiceNames(vendor));
       setNewServiceName("");
       setSubServiceRows(parsePricedSubServiceRows(vendor?.sub_services));
       setNewSubServiceName("");
       setNewSubServicePrice("");
       setShopImageUrls(parseVendorListField(vendor?.shop_image_urls));
-      setServicemen(parseVendorServicemen(vendor?.servicemen_details));
-    }, [vendor]);
+      setServicemen(parseVendorServicemen(vendor?.servicemen_details, Number(vendor?.servicemen_count || 0)));
+    }, [vendor, serviceCatalog]);
 
     const addServiceman = () => {
       setServicemen((current) => [
@@ -2216,6 +2256,7 @@ export default function VendorDashboard() {
   const [bookingServicemanSelection, setBookingServicemanSelection] = useState<Record<string, string>>({});
   const alertedRequestIdsRef = useRef<string[]>([]);
   const initializedAlertStateRef = useRef(false);
+  const approvalStatusRef = useRef<string>("approved");
 
     useEffect(() => {
     let poller: number | undefined;
@@ -2346,6 +2387,7 @@ export default function VendorDashboard() {
 
         setVendor(vendorData);
         const approvalStatus = String(vendorData.approval_status || "approved").toLowerCase();
+        approvalStatusRef.current = approvalStatus;
         const isApproved = !approvalStatus || approvalStatus === "approved";
         setOnline(isApproved && vendorData.is_active !== false);
 
@@ -2359,6 +2401,53 @@ export default function VendorDashboard() {
         setProfileChecked(true);
         return true;
     };
+
+  useEffect(() => {
+    if (!vendor?.auth_user_id) {
+      return;
+    }
+
+    const channel = supabase
+      .channel(`vendor-approval-${vendor.auth_user_id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "vendors",
+          filter: `auth_user_id=eq.${vendor.auth_user_id}`,
+        },
+        (payload) => {
+          const nextVendor = payload.new as VendorProfile;
+          const nextStatus = String(nextVendor.approval_status || "approved").toLowerCase();
+          const prevStatus = approvalStatusRef.current;
+          approvalStatusRef.current = nextStatus;
+
+          setVendor((current: VendorProfile | null) => ({
+            ...(current || {}),
+            ...nextVendor,
+          }));
+
+          const isApproved = !nextStatus || nextStatus === "approved";
+          setOnline(isApproved && nextVendor.is_active !== false);
+
+          if (prevStatus !== nextStatus) {
+            if (nextStatus === "approved") {
+              setDashboardMessage("Your vendor profile is approved. You are now listed and can take bookings.");
+            } else if (nextStatus === "declined") {
+              setDashboardMessage("Your vendor profile request was declined by admin. Please update details and contact support.");
+            } else {
+              setDashboardMessage("Your vendor profile is pending admin approval.");
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [vendor?.auth_user_id]);
 
     const loadBookings = async () => {
         const { data: { user } } = await supabase.auth.getUser();

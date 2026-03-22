@@ -28,6 +28,8 @@ type Vendor = {
   name?: string;
   phone?: string;
   service_id?: string | number;
+  service_ids?: Array<string | number> | unknown;
+  selected_service_names?: string[] | unknown;
   area?: string;
   latitude?: number;
   longitude?: number;
@@ -188,6 +190,31 @@ const parseVendorSubservicePricing = (vendor: Vendor): PricedSubService[] => {
 
 const normalizeShopText = (value: string) => value.trim().toLowerCase();
 
+const vendorHasService = (vendor: Vendor, service: Service | null) => {
+  if (!service) {
+    return true;
+  }
+
+  const targetServiceId = String(service.id);
+  const targetServiceName = normalizeShopText(service.name || "");
+
+  if (String(vendor.service_id || "") === targetServiceId) {
+    return true;
+  }
+
+  const vendorServiceIds = parseVendorListField((vendor as Record<string, unknown>).service_ids);
+  if (vendorServiceIds.some((id) => String(id) === targetServiceId)) {
+    return true;
+  }
+
+  const vendorServiceNames = parseVendorListField((vendor as Record<string, unknown>).selected_service_names);
+  if (vendorServiceNames.some((name) => normalizeShopText(name) === targetServiceName)) {
+    return true;
+  }
+
+  return false;
+};
+
 const getShopServiceScore = (service: Service, query: string) => {
   if (!query) {
     return 0;
@@ -305,9 +332,8 @@ function ShopsPageContent() {
   }, [userLocation, vendorLocations]);
 
   const filteredVendors = useMemo(() => {
-    const targetServiceId = selectedService ? String(selectedService.id) : "";
-    const serviceFiltered = targetServiceId
-      ? vendors.filter((vendor) => String(vendor.service_id) === targetServiceId)
+    const serviceFiltered = selectedService
+      ? vendors.filter((vendor) => vendorHasService(vendor, selectedService))
       : vendors;
 
     const subServiceFiltered = selectedSubService

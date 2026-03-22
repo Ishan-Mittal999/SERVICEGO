@@ -556,13 +556,27 @@ export default function VendorOnboardingPage() {
         ...payload,
       } as Record<string, unknown>;
 
-      delete payloadWithoutNewPricingColumns.approval_status;
       delete payloadWithoutNewPricingColumns.service_base_price;
       delete payloadWithoutNewPricingColumns.sub_service_prices;
 
-      const fallbackWithLegacyFields = await supabase
+      let fallbackWithLegacyFields = await supabase
         .from("vendors")
         .upsert(payloadWithoutNewPricingColumns as never, { onConflict: "auth_user_id" });
+
+      if (
+        fallbackWithLegacyFields.error &&
+        String(fallbackWithLegacyFields.error.message || "").toLowerCase().includes("approval_status")
+      ) {
+        const fallbackWithoutApprovalStatus = {
+          ...payloadWithoutNewPricingColumns,
+        } as Record<string, unknown>;
+
+        delete fallbackWithoutApprovalStatus.approval_status;
+
+        fallbackWithLegacyFields = await supabase
+          .from("vendors")
+          .upsert(fallbackWithoutApprovalStatus as never, { onConflict: "auth_user_id" });
+      }
 
       error = fallbackWithLegacyFields.error;
     }
@@ -576,11 +590,27 @@ export default function VendorOnboardingPage() {
         area,
         experience: Number(experience),
         is_active: false,
+        approval_status: "pending",
       };
 
-      const fallbackResult = await supabase
+      let fallbackResult = await supabase
         .from("vendors")
         .upsert(basePayload as never, { onConflict: "auth_user_id" });
+
+      if (
+        fallbackResult.error &&
+        String(fallbackResult.error.message || "").toLowerCase().includes("approval_status")
+      ) {
+        const basePayloadWithoutApproval = {
+          ...basePayload,
+        } as Record<string, unknown>;
+        delete basePayloadWithoutApproval.approval_status;
+
+        fallbackResult = await supabase
+          .from("vendors")
+          .upsert(basePayloadWithoutApproval as never, { onConflict: "auth_user_id" });
+      }
+
       error = fallbackResult.error;
     }
 
