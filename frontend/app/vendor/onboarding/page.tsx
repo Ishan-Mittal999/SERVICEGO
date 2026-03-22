@@ -146,7 +146,6 @@ export default function VendorOnboardingPage() {
   const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([]);
   const [selectedServiceKeys, setSelectedServiceKeys] = useState<string[]>([]);
   const [selectedSubServicesByService, setSelectedSubServicesByService] = useState<Record<string, string[]>>({});
-  const [serviceBasePrice, setServiceBasePrice] = useState("0");
   const [subServicePriceMap, setSubServicePriceMap] = useState<Record<string, string>>({});
   const [customSubServiceDrafts, setCustomSubServiceDrafts] = useState<Record<string, { name: string; price: string }>>({});
   const [shopImageUrls, setShopImageUrls] = useState<string[]>([]);
@@ -539,7 +538,6 @@ export default function VendorOnboardingPage() {
       open_time: openTime || null,
       close_time: closeTime || null,
       service_radius_km: Number(serviceRadiusKm) || null,
-      service_base_price: Number(serviceBasePrice) || 0,
       sub_service_prices: subServicePricePayload,
       sub_services: pricedSubServices,
       shop_image_urls: shopImageUrls,
@@ -618,7 +616,7 @@ export default function VendorOnboardingPage() {
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="Ex: 9876543210"
+            placeholder="Phone number (XXXXXXXXXX)"
             required
             className="auth-input auth-input--spaced"
           />
@@ -875,17 +873,6 @@ export default function VendorOnboardingPage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
             <div>
-              <label className="auth-label">Base Service Price</label>
-              <input
-                type="number"
-                min={0}
-                value={serviceBasePrice}
-                onChange={(e) => setServiceBasePrice(e.target.value)}
-                placeholder="Ex: 299"
-                className="auth-input auth-input--spaced"
-              />
-            </div>
-            <div>
               <label className="auth-label">Opening Time</label>
               <input
                 type="time"
@@ -943,19 +930,19 @@ export default function VendorOnboardingPage() {
                 <input
                   value={person.name}
                   onChange={(e) => updateServicemanField(index, "name", e.target.value)}
-                  placeholder="Ex: Ramesh Kumar"
+                  placeholder="Serviceman full name"
                   className="auth-input"
                 />
                 <input
                   value={person.phone}
                   onChange={(e) => updateServicemanField(index, "phone", e.target.value)}
-                  placeholder="Ex: 9123456780"
+                  placeholder="Serviceman phone (XXXXXXXXXX)"
                   className="auth-input"
                 />
                 <input
                   value={person.aadharNumber}
                   onChange={(e) => updateServicemanField(index, "aadharNumber", e.target.value)}
-                  placeholder="Ex: 1234 5678 9012"
+                  placeholder="Aadhaar number (XXXX XXXX XXXX)"
                   className="auth-input"
                 />
                 <select
@@ -963,7 +950,7 @@ export default function VendorOnboardingPage() {
                   onChange={(e) => updateServicemanField(index, "serviceCategory", e.target.value)}
                   className="auth-select"
                 >
-                  <option value="">Select service category (Ex: AC Repair)</option>
+                  <option value="">Select service category handled by this serviceman</option>
                   {selectedServices.map((service) => (
                     <option key={`person-${index}-${service.key}`} value={service.name}>{service.name}</option>
                   ))}
