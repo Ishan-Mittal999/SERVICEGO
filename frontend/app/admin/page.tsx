@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiUrl } from "@/lib/env";
+import { useRouter } from "next/navigation";
+import { requireAdminOrRedirect } from "@/lib/admin-access";
 
 type AdminBooking = {
   id: string;
@@ -29,6 +31,7 @@ type AdminVendor = {
 };
 
 export default function AdminPage() {
+  const router = useRouter();
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
   const [vendors, setVendors] = useState<AdminVendor[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -58,6 +61,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     let isActive = true;
+    let poller: number | undefined;
 
     const loadDashboard = async (showLoader = false) => {
       try {
@@ -102,14 +106,28 @@ export default function AdminPage() {
       }
     };
 
-    loadDashboard(true);
-    const poller = window.setInterval(() => loadDashboard(false), 8000);
+    const bootstrap = async () => {
+      const isAdmin = await requireAdminOrRedirect(router, "/admin");
+      if (!isAdmin) {
+        if (isActive) {
+          setLoading(false);
+        }
+        return;
+      }
+
+      await loadDashboard(true);
+      poller = window.setInterval(() => loadDashboard(false), 8000);
+    };
+
+    bootstrap();
 
     return () => {
       isActive = false;
-      window.clearInterval(poller);
+      if (poller) {
+        window.clearInterval(poller);
+      }
     };
-  }, []);
+  }, [router]);
 
   const total = bookings.length;
   const pending = bookings.filter((booking) => booking.status === "pending").length;

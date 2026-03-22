@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import Link from "next/link";
 import { apiUrl } from "@/lib/env";
+import { useRouter } from "next/navigation";
+import { requireAdminOrRedirect } from "@/lib/admin-access";
 
 type AdminVendor = {
   id: string;
@@ -68,6 +70,7 @@ const readFilesAsDataUrl = async (files: File[]) => {
 };
 
 export default function AdminVendorsPage() {
+  const router = useRouter();
   const [vendors, setVendors] = useState<AdminVendor[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedVendorId, setSelectedVendorId] = useState("");
@@ -151,8 +154,18 @@ export default function AdminVendorsPage() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const bootstrap = async () => {
+      const isAdmin = await requireAdminOrRedirect(router, "/admin/vendors");
+      if (!isAdmin) {
+        setLoading(false);
+        return;
+      }
+
+      await loadData();
+    };
+
+    bootstrap();
+  }, [router]);
 
   useEffect(() => {
     if (!selectedVendor) {

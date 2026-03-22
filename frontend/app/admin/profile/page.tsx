@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { isAllowedAdminEmail } from "@/lib/admin-access";
 
 export default function AdminProfilePage() {
   const router = useRouter();
@@ -60,6 +61,12 @@ export default function AdminProfilePage() {
           return;
         }
 
+        if (!isAllowedAdminEmail(user.email)) {
+          await supabase.auth.signOut();
+          redirectToLogin();
+          return;
+        }
+
         if (!isActive) {
           return;
         }
@@ -102,6 +109,12 @@ export default function AdminProfilePage() {
 
       const session = await ensureActiveSession();
       if (!session?.user) {
+        redirectToLogin();
+        return;
+      }
+
+      if (!isAllowedAdminEmail(session.user.email)) {
+        await supabase.auth.signOut();
         redirectToLogin();
         return;
       }

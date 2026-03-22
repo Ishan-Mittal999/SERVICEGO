@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import Link from "next/link";
 import { apiUrl } from "@/lib/env";
+import { useRouter } from "next/navigation";
+import { requireAdminOrRedirect } from "@/lib/admin-access";
 
 type Service = {
   id: string | number;
@@ -122,6 +124,7 @@ const readFileAsDataUrl = (file: File) => {
 };
 
 export default function AdminServicesPage() {
+  const router = useRouter();
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -192,8 +195,18 @@ export default function AdminServicesPage() {
   };
 
   useEffect(() => {
-    loadServices();
-  }, []);
+    const bootstrap = async () => {
+      const isAdmin = await requireAdminOrRedirect(router, "/admin/services");
+      if (!isAdmin) {
+        setLoading(false);
+        return;
+      }
+
+      await loadServices();
+    };
+
+    bootstrap();
+  }, [router]);
 
   useEffect(() => {
     if (!selectedService) {
