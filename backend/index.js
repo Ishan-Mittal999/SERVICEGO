@@ -1,12 +1,34 @@
 const express = require("express");
 const cors = require("cors");
+const compression = require("compression");
 require("dotenv").config();
 const { createClient } = require("@supabase/supabase-js");
 const webpush = require("web-push");
 
 const app = express();
 app.use(cors());
+app.use(compression()); // Enable gzip compression for all responses
 app.use(express.json());
+
+// Cache middleware for GET requests (cached for 5 minutes by default)
+const setCacheHeaders = (req, res, next) => {
+  if (req.method === "GET") {
+    // Cache static data endpoints for longer (1 hour)
+    if (req.path === "/services" || req.path.startsWith("/services/")) {
+      res.set("Cache-Control", "public, max-age=3600"); // 1 hour
+    }
+    // Cache vendor endpoints for 30 minutes
+    else if (req.path === "/vendors" || req.path.startsWith("/vendors/")) {
+      res.set("Cache-Control", "public, max-age=1800"); // 30 minutes
+    }
+    // Dynamic endpoints (bookings, push) - no caching
+    else {
+      res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    }
+  }
+  next();
+};
+app.use(setCacheHeaders);
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -271,17 +293,45 @@ app.get("/bookings/user/:userId", async (req, res) => {
 // 👇 ADD GET /bookings HERE
 app.get("/bookings", async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+    const status = req.query.status ? String(req.query.status).trim() : null;
+    const userId = req.query.userId ? String(req.query.userId).trim() : null;
+    const serviceId = req.query.serviceId ? String(req.query.serviceId).trim() : null;
+
+    // Build filtered query
+    let query = supabase
       .from("bookings")
-      .select(BOOKING_SELECT)
-      .order("created_at", { ascending: false });
+      .select(BOOKING_SELECT, { count: "exact" });
+
+    if (status) {
+      query = query.eq("status", status);
+    }
+    if (userId) {
+      query = query.eq("user_id", userId);
+    }
+    if (serviceId) {
+      query = query.eq("service_id", serviceId);
+    }
+
+    const { data, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error("Supabase Fetch Error:", error);
       return res.status(500).json({ error: error.message });
     }
 
-    return res.status(200).json(data);
+    return res.status(200).json({
+      data,
+      pagination: {
+        limit,
+        offset,
+        total: count,
+        hasMore: offset + limit < count
+      }
+    });
 
   } catch (err) {
     console.error("Server Crash:", err);
@@ -727,26 +777,35 @@ app.delete("/booking/:id", async (req, res) => {
 app.get("/vendors", async (req, res) => {
   try {
     const includeAll = String(req.query.includeAll || "").toLowerCase() === "true";
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+    const serviceId = req.query.serviceId ? String(req.query.serviceId).trim() : null;
 
     let query = supabase
       .from("vendors")
-      .select("*");
+      .select("*", { count: "exact" });
 
     if (!includeAll) {
       query = query.eq("is_active", true);
     }
+    if (serviceId) {
+      query = query.eq("service_id", serviceId);
+    }
 
-    let { data, error } = await query;
+    let queryResult = await query.range(offset, offset + limit - 1);
+    let { data, error, count } = queryResult;
 
     if (!includeAll && error && String(error.message || "").toLowerCase().includes("approval_status")) {
       // Backward-compatible fallback in case approval_status column is not added yet.
       const fallback = await supabase
         .from("vendors")
-        .select("*")
-        .eq("is_active", true);
+        .select("*", { count: "exact" })
+        .eq("is_active", true)
+        .range(offset, offset + limit - 1);
 
       data = fallback.data;
       error = fallback.error;
+      count = fallback.count;
     }
 
     if (error) {
@@ -755,10 +814,55 @@ app.get("/vendors", async (req, res) => {
 
     if (!includeAll) {
       const filtered = (data || []).filter((vendor) => isVendorApproved(vendor));
-      return res.status(200).json(filtered);
+      return res.status(200).json({
+        data: filtered,
+        pagination: {
+          limit,
+          offset,
+          total: count,
+          hasMore: offset + limit < count
+        }
+      });
     }
 
-    return res.status(200).json(data);
+    return res.status(200).json({
+      data,
+      pagination: {
+        limit,
+        offset,
+        total: count,
+        hasMore: offset + limit < count
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/vendors/:id", async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+
+    if (!vendorId) {
+      return res.status(400).json({ error: "Vendor ID is required" });
+    }
+
+    const { data, error } = await supabase
+      .from("vendors")
+      .select("*")
+      .eq("id", vendorId)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ error: "Vendor not found" });
+    }
+
+    // Check if vendor is approved - if not, only include certain fields
+    if (!isVendorApproved(data)) {
+      return res.status(403).json({ error: "Vendor is not approved" });
+    }
+
+    return res.status(200).json({ data });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -843,17 +947,56 @@ app.delete("/vendors/:id", async (req, res) => {
 // GET Services route
 app.get("/services", async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+
+    const { data, error, count } = await supabase
       .from("services")
-      .select("*")
-      // .eq("is_active", true); // optional but recommended
+      .select("*", { count: "exact" })
+      .eq("is_active", true)
+      .order("name", { ascending: true })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error("Supabase Fetch Error:", error);
       return res.status(500).json({ error: error.message });
     }
 
-    return res.status(200).json(data);
+    return res.status(200).json({
+      data,
+      pagination: {
+        limit,
+        offset,
+        total: count,
+        hasMore: offset + limit < count
+      }
+    });
+  } catch (err) {
+    console.error("Server Crash:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/services/:id", async (req, res) => {
+  try {
+    const serviceId = req.params.id;
+
+    if (!serviceId) {
+      return res.status(400).json({ error: "Service ID is required" });
+    }
+
+    const { data, error } = await supabase
+      .from("services")
+      .select("*")
+      .eq("id", serviceId)
+      .eq("is_active", true)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ error: "Service not found" });
+    }
+
+    return res.status(200).json({ data });
   } catch (err) {
     console.error("Server Crash:", err);
     return res.status(500).json({ error: err.message });
@@ -950,6 +1093,7 @@ app.delete("/services/:id", async (req, res) => {
 app.get("/vendors/:auth_id/bookings", async (req, res) => {
 
   const { auth_id } = req.params;
+  const limit = Math.min(parseInt(req.query.limit) || 100, 200);
 
   const { data: vendor, error: vendorError } = await supabase
     .from("vendors")
@@ -962,45 +1106,39 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
   }
 
   if (!isVendorApproved(vendor)) {
-    return res.json([]);
+    return res.json({ data: [], pagination: { total: 0, hasMore: false } });
   }
 
-  const { data: assignedBookings, error: assignedError } = await supabase
+  // Optimized single query: Get both assigned and open bookings with limit
+  // This replaces the old N+1 pattern of two separate queries + client-side deduplication
+  const { data: bookings, error: bookingsError } = await supabase
     .from("bookings")
-    .select("*, services(*), vendors(*)")
-    .or(`vendor_auth_id.eq.${auth_id},vendor_id.eq.${vendor.id}`)
-    .order("created_at", { ascending: false });
+    .select("*, services(id, name, category), vendors(id, name, phone)")
+    .or(`and(vendor_auth_id.eq.${auth_id}),and(service_id.eq.${vendor.service_id},status.eq.pending,vendor_id.is.null)`)
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
-  if (assignedError) {
-    return res.status(500).json(assignedError);
+  if (bookingsError) {
+    return res.status(500).json(bookingsError);
   }
 
-  const { data: openBookings, error: openError } = await supabase
-    .from("bookings")
-    .select("*, services(*), vendors(*)")
-    .eq("service_id", vendor.service_id)
-    .eq("status", "pending")
-    .is("vendor_id", null)
-    .order("created_at", { ascending: false });
-
-  if (openError) {
-    return res.status(500).json(openError);
-  }
-
-  const dedupedBookings = [...(assignedBookings || []), ...(openBookings || [])].reduce((accumulator, booking) => {
-    if (!accumulator.some((item) => item.id === booking.id)) {
-      accumulator.push(booking);
+  // Deduplicate in case of any overlaps
+  const seenIds = new Set();
+  const dedupedBookings = (bookings || []).filter(booking => {
+    if (seenIds.has(booking.id)) {
+      return false;
     }
-    return accumulator;
-  }, []);
-
-  dedupedBookings.sort((left, right) => {
-    const leftTime = new Date(left.created_at || 0).getTime();
-    const rightTime = new Date(right.created_at || 0).getTime();
-    return rightTime - leftTime;
+    seenIds.add(booking.id);
+    return true;
   });
 
-  res.json(dedupedBookings);
+  res.json({
+    data: dedupedBookings,
+    pagination: {
+      total: dedupedBookings.length,
+      hasMore: dedupedBookings.length >= limit
+    }
+  });
 });
 
 app.post("/push/subscribe", async (req, res) => {

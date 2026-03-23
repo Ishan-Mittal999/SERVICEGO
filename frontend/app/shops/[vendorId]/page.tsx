@@ -76,22 +76,24 @@ export default function ShopDetailPage() {
       try {
         setLoading(true);
 
-        const [servicesResponse, vendorsResponse] = await Promise.all([
-          fetch(apiUrl("/services"), { cache: "no-store" }),
-          fetch(apiUrl("/vendors"), { cache: "no-store" }),
+        // Fetch specific service and vendor by ID instead of all records
+        const [serviceResponse, vendorResponse] = await Promise.all([
+          fetch(apiUrl(`/services/${serviceId}`), { cache: "no-store" }),
+          fetch(apiUrl(`/vendors/${vendorId}`), { cache: "no-store" }),
         ]);
 
-        const [servicesData, vendorsData] = await Promise.all([
-          servicesResponse.json(),
-          vendorsResponse.json(),
-        ]);
+        let matchedService = null;
+        let matchedVendor = null;
 
-        const matchedService = Array.isArray(servicesData)
-          ? servicesData.find((item: Service) => String(item.id) === String(serviceId))
-          : null;
-        const matchedVendor = Array.isArray(vendorsData)
-          ? vendorsData.find((item: Vendor) => String(item.id) === String(vendorId))
-          : null;
+        if (serviceResponse.ok) {
+          const serviceData = await serviceResponse.json();
+          matchedService = serviceData.data || serviceData;
+        }
+
+        if (vendorResponse.ok) {
+          const vendorData = await vendorResponse.json();
+          matchedVendor = vendorData.data || vendorData;
+        }
 
         setService(matchedService ?? null);
         setVendor(matchedVendor ?? null);
