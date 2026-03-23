@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import Image from "next/image";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/env";
@@ -570,7 +571,14 @@ export default function HomePage() {
       <header className="navbar">
         <div className="container">
           <Link href="/" className="navbar-logo" aria-label="Go to homepage" onClick={closeMobileNav}>
-            <img src="/newwlogo.png" alt="ServiceGo" className="logo-icon" />
+            <Image
+              src="/newwlogo.png"
+              alt="ServiceGo"
+              className="logo-icon"
+              width={40}
+              height={40}
+              priority
+            />
             <span>ServiceGo</span>
           </Link>
 
@@ -801,7 +809,14 @@ export default function HomePage() {
                       onClick={() => openCardInShops(card)}
                       aria-label={card.label}
                     >
-                      <img src={card.image} alt="" className="hero-service-pill-image" loading="lazy" />
+              <Image
+                src={card.image}
+                alt={card.label}
+                className="hero-service-pill-image"
+                width={80}
+                height={80}
+                loading="lazy"
+              />
                       <span>{card.label}</span>
                     </button>
                   ))}
@@ -814,10 +829,13 @@ export default function HomePage() {
               </div>
 
               <aside className="hero-ad-card" aria-label="ServiceGo promo video">
-                <img
+                <Image
                   src="/hero-bg.png"
                   alt="ServiceGo preview"
                   className={heroVideoReady ? "hero-ad-poster is-hidden" : "hero-ad-poster"}
+                  width={500}
+                  height={300}
+                  priority
                 />
 
                 {enableHeroVideo && !heroVideoFailed && (
@@ -886,12 +904,14 @@ export default function HomePage() {
                   title={card.label}
                 >
                   <div className="service-icon" aria-hidden="true">
-                    <img
-                      src={card.image}
-                      alt=""
-                      className="service-icon-image"
-                      loading="lazy"
-                    />
+                  <Image
+                    src={card.image}
+                    alt={card.label}
+                    className="service-icon-image"
+                    width={80}
+                    height={80}
+                    loading="lazy"
+                  />
                   </div>
                   <h3>{card.label}</h3>
                 </button>

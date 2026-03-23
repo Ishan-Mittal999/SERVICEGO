@@ -236,6 +236,8 @@ export default function CheckoutPage() {
     let isCancelled = false;
 
     const setupMap = async () => {
+      // Lazy load Leaflet only when map is needed (PERFORMANCE OPTIMIZATION)
+      // This prevents loading the entire Leaflet library (~100KB+) on pages that don't use maps
       const L = await import("leaflet");
       if (isCancelled || !mapContainerRef.current) {
         return;

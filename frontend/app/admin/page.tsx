@@ -70,9 +70,11 @@ export default function AdminPage() {
         }
 
         setErrorMessage(null);
+        // Fetch pending bookings only (not all bookings) to reduce load
+        // Add pagination: limit 50 items per request
         const [bookingsResponse, vendorsResponse] = await Promise.all([
-          fetch(apiUrl("/bookings"), { cache: "no-store" }),
-          fetch(apiUrl("/vendors"), { cache: "no-store" }),
+          fetch(apiUrl("/bookings?status=pending&limit=50&offset=0"), { cache: "no-store" }),
+          fetch(apiUrl("/vendors?limit=50&offset=0&includeAll=true"), { cache: "no-store" }),
         ]);
 
         if (!bookingsResponse.ok) {
@@ -92,8 +94,12 @@ export default function AdminPage() {
           return;
         }
 
-        setBookings(Array.isArray(bookingsData) ? bookingsData : []);
-        setVendors(Array.isArray(vendorsData) ? vendorsData : []);
+        // Handle both old format (array) and new format (object with data/pagination)
+        const bookingsArray = bookingsData.data || (Array.isArray(bookingsData) ? bookingsData : []);
+        const vendorsArray = vendorsData.data || (Array.isArray(vendorsData) ? vendorsData : []);
+
+        setBookings(bookingsArray);
+        setVendors(vendorsArray);
       } catch (error) {
         console.error("Failed to load admin dashboard", error);
         if (isActive) {
@@ -116,7 +122,8 @@ export default function AdminPage() {
       }
 
       await loadDashboard(true);
-      poller = window.setInterval(() => loadDashboard(false), 8000);
+      // Increased polling interval from 8 seconds to 30 seconds to reduce API calls
+      poller = window.setInterval(() => loadDashboard(false), 30000);
     };
 
     bootstrap();

@@ -120,8 +120,8 @@ export default function AdminVendorsPage() {
 
     try {
       const [vendorsResponse, servicesResponse] = await Promise.all([
-        fetch(apiUrl("/vendors?includeAll=true"), { cache: "no-store" }),
-        fetch(apiUrl("/services"), { cache: "no-store" }),
+        fetch(apiUrl("/vendors?includeAll=true&limit=100&offset=0"), { cache: "no-store" }),
+        fetch(apiUrl("/services?limit=100&offset=0"), { cache: "no-store" }),
       ]);
 
       if (!vendorsResponse.ok) {
@@ -137,8 +137,9 @@ export default function AdminVendorsPage() {
         servicesResponse.json(),
       ]);
 
-      const nextVendors = Array.isArray(vendorsData) ? vendorsData : [];
-      const nextServices = Array.isArray(servicesData) ? servicesData : [];
+      // Handle both old format (array) and new format (object with data/pagination)
+      const nextVendors = vendorsData.data || (Array.isArray(vendorsData) ? vendorsData : []);
+      const nextServices = servicesData.data || (Array.isArray(servicesData) ? servicesData : []);
 
       setVendors(nextVendors);
       setServices(nextServices);
