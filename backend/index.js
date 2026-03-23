@@ -5,25 +5,7 @@ const { createClient } = require("@supabase/supabase-js");
 const webpush = require("web-push");
 
 const app = express();
-const allowedOrigins = String(process.env.CORS_ORIGIN || "")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow same-origin/non-browser requests and tools like curl/Postman.
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(new Error("Not allowed by CORS"));
-  },
-}));
+app.use(cors());
 app.use(express.json());
 
 const supabase = createClient(
@@ -1090,13 +1072,11 @@ app.post("/push/unsubscribe", async (req, res) => {
   }
 });
 
-// Start a local HTTP server only outside of Vercel serverless runtime.
-if (process.env.VERCEL !== "1") {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-}
+// Render provides PORT at runtime; fallback keeps local dev unchanged.
+const PORT = process.env.PORT || 5000;
 
-module.exports = app;
+// 🚀 Server should ALWAYS be last
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
