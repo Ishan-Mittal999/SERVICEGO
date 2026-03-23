@@ -238,11 +238,9 @@ export default function HomePage() {
           throw new Error(`Services API failed with ${servicesRes.status}`);
         }
 
-        const servicesData = await servicesRes.json();
-
-        if (!Array.isArray(servicesData)) {
-          throw new Error("Services API returned invalid response");
-        }
+        const servicesDataRaw = await servicesRes.json();
+        // Support both array and paginated object formats
+        const servicesData = servicesDataRaw.data || (Array.isArray(servicesDataRaw) ? servicesDataRaw : []);
 
         setServices(servicesData);
         setServicesError(null);

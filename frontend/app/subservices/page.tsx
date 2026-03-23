@@ -217,13 +217,16 @@ function SubservicesPageContent() {
           throw new Error(`Vendors API failed with ${vendorsResponse.status}`);
         }
 
-        const [servicesData, vendorsData] = await Promise.all([
+        const [servicesDataRaw, vendorsDataRaw] = await Promise.all([
           servicesResponse.json(),
           vendorsResponse.json(),
         ]);
+        // Support both array and paginated object formats
+        const servicesData = servicesDataRaw.data || (Array.isArray(servicesDataRaw) ? servicesDataRaw : []);
+        const vendorsData = vendorsDataRaw.data || (Array.isArray(vendorsDataRaw) ? vendorsDataRaw : []);
 
-        setServices(Array.isArray(servicesData) ? servicesData : []);
-        setVendors(Array.isArray(vendorsData) ? vendorsData : []);
+        setServices(servicesData);
+        setVendors(vendorsData);
         setErrorMessage(null);
       } catch (error) {
         console.error("Failed to load sub-services", error);

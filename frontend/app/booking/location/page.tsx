@@ -95,10 +95,10 @@ function BookingLocationPageContent() {
           throw new Error(`Services API failed with ${response.status}`);
         }
 
-        const data = await response.json();
-        const matchedService = Array.isArray(data)
-          ? data.find((item: ServiceItem) => String(item.id) === String(serviceId))
-          : null;
+        const dataRaw = await response.json();
+        // Support both array and paginated object formats
+        const data = dataRaw.data || (Array.isArray(dataRaw) ? dataRaw : []);
+        const matchedService = data.find((item: ServiceItem) => String(item.id) === String(serviceId)) || null;
 
         if (!matchedService) {
           throw new Error("Service not found");
