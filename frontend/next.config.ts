@@ -10,13 +10,8 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 31536000, // 1 year for versioned images
   },
 
-  // Enable SWC minification (faster builds and smaller bundle)
-  swcMinify: true,
-
-  // Optimize package imports - code-split heavy libraries
-  experimental: {
-    optimizePackageImports: ["@supabase/supabase-js"],
-  },
+  // Next.js v16 manages minification automatically. Remove swcMinify in strict typed config.
+  // Using custom package optimization as needed via bundler tools (no experimental config required).
 
   // HTTP response headers for caching
   headers: async () => {
