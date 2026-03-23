@@ -552,7 +552,13 @@ function ShopsPageContent() {
       return;
     }
 
-    const resolvedServiceId = selectedService ? String(selectedService.id) : serviceId || "service-custom";
+    const resolvedServiceId = selectedService ? String(selectedService.id) : serviceId;
+    
+    // Don't proceed without a valid service ID
+    if (!resolvedServiceId) {
+      return;
+    }
+
     const resolvedServiceName = selectedService?.name || searchParams.get("serviceQuery") || "Service";
     const resolvedServiceDescription = selectedService?.description || undefined;
     const selectedPrice = getVendorFinalPrice(vendor);
