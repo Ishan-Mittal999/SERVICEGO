@@ -154,7 +154,7 @@ export function getServiceBlueprint(serviceName: string): ServiceBlueprint {
             name: "Repair Plus",
             price: 499,
             eta: "45-60 mins",
-            description: "For mixer, flush tank, wash basin, and pipe replacement jobs.",
+            description: "For flush tank, wash basin, and pipe replacement jobs.",
             includes: ["Diagnosis", "Minor fitting work", "Priority vendor assignment"],
             badge: "Most booked",
           },

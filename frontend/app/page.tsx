@@ -37,18 +37,15 @@ type ServiceCard = {
 };
 
 const SERVICE_IMAGE_LIBRARY: Array<{ image: string; label: string; terms: string[] }> = [
-  { image: "/service_ac.png", label: "AC Service", terms: ["ac", "air conditioner", "air conditioning", "split ac", "window ac", "hvac"] },
-  { image: "/service_electrical.png", label: "Electrical", terms: ["electrical", "electrician", "wiring", "electric", "switch", "socket", "mcb", "fan"] },
-  { image: "/service_carpenter.png", label: "Carpenter", terms: ["carpenter", "carpentry", "wood", "furniture", "wardrobe", "door"] },
-  { image: "/service_chimney.png", label: "Chimney", terms: ["chimney", "kitchen chimney", "exhaust"] },
-  { image: "/service_cooler.png", label: "Cooler", terms: ["cooler", "air cooler", "desert cooler"] },
-  { image: "/service_fridge.png", label: "Fridge", terms: ["fridge", "refrigerator", "refrigeration"] },
-  { image: "/service_geyser.png", label: "Geyser", terms: ["geyser", "water heater", "heater"] },
-  { image: "/service_microwave.png", label: "Microwave", terms: ["microwave", "oven", "otg"] },
-  { image: "/service_mixer.png", label: "Mixer", terms: ["mixer", "blender", "grinder", "mixi", "juicer"] },
-  { image: "/service_press.png", label: "Press/Iron", terms: ["press", "iron", "ironing", "istree"] },
-  { image: "/service_ro.png", label: "RO Service", terms: ["ro", "water purifier", "purifier", "aquaguard", "water filter"] },
-  { image: "/kettle_service.png", label: "Kettle", terms: ["kettle", "electric kettle"] },
+  { image: "/resized_to_small/service_ac.webp", label: "AC Service", terms: ["ac", "air conditioner", "air conditioning", "split ac", "window ac", "hvac"] },
+  { image: "/resized_to_small/service_electrical.webp", label: "Electrical", terms: ["electrical", "electrician", "wiring", "electric", "switch", "socket", "mcb", "fan"] },
+  { image: "/resized_to_small/service_carpenter.webp", label: "Carpenter", terms: ["carpenter", "carpentry", "wood", "furniture", "wardrobe", "door"] },
+  { image: "/resized_to_small/service_chimney.webp", label: "Chimney", terms: ["chimney", "kitchen chimney", "exhaust"] },
+  { image: "/resized_to_small/service_cooler.webp", label: "Cooler", terms: ["cooler", "air cooler", "desert cooler"] },
+  { image: "/resized_to_small/service_fridge.webp", label: "Fridge", terms: ["fridge", "refrigerator", "refrigeration"] },
+  { image: "/resized_to_small/service_geyser.webp", label: "Geyser", terms: ["geyser", "water heater", "heater"] },
+  { image: "/resized_to_small/service_microwave.webp", label: "Microwave", terms: ["microwave", "oven", "otg"] },
+  { image: "/resized_to_small/service_ro.webp", label: "RO Service", terms: ["ro", "water purifier", "purifier", "aquaguard", "water filter"] },
 ];
 
 const REQUIRES_SUBSERVICE_SERVICE_KEYS = new Set([
@@ -66,13 +63,11 @@ const getServiceFlowKey = (serviceName: string) => {
   if (normalized.includes("washing")) return "washing_machine";
   if (normalized.includes("geyser")) return "geyser";
   if (normalized.includes("chimney")) return "chimney";
-  if (normalized.includes("iron") || normalized.includes("press")) return "press";
   if (normalized.includes("refrigerator") || normalized.includes("fridge")) return "refrigerator";
   if (normalized.includes("ro") || normalized.includes("purifier")) return "ro";
   if (normalized.includes("microwave")) return "microwave";
-  if (normalized.includes("mixer")) return "mixer";
   if (normalized.includes("heater")) return "heater";
-  if (normalized.includes("kettle")) return "kettle";
+  if (normalized.includes("cooler")) return "cooler";
   if (normalized.includes("cooler")) return "cooler";
 
   return normalized.replace(/\s+/g, "_");
@@ -570,7 +565,7 @@ export default function HomePage() {
         <div className="container">
           <Link href="/" className="navbar-logo" aria-label="Go to homepage" onClick={closeMobileNav}>
             <Image
-              src="/newwlogo.png"
+              src="/resized_to_small/newwlogo.webp"
               alt="ServiceGo"
               className="logo-icon"
               width={40}
@@ -703,7 +698,7 @@ export default function HomePage() {
       {/* HERO */}
       <section className="hero">
         <div className="hero-bg">
-          <img src="/hero-bg.png" alt="Hero Background" />
+          <img src="/resized_to_small/hero-bg.webp" alt="Hero Background" />
         </div>
 
         <div className="container">
@@ -828,7 +823,7 @@ export default function HomePage() {
 
               <aside className="hero-ad-card" aria-label="ServiceGo promo video">
                 <Image
-                  src="/hero-bg.png"
+                  src="/resized_to_small/hero-bg.webp"
                   alt="ServiceGo preview"
                   className={heroVideoReady ? "hero-ad-poster is-hidden" : "hero-ad-poster"}
                   width={500}
@@ -844,11 +839,11 @@ export default function HomePage() {
                     muted
                     playsInline
                     preload="auto"
-                    poster="/hero-bg.png"
+                    poster="/resized_to_small/hero-bg.webp"
                     onLoadedData={() => setHeroVideoReady(true)}
                     onError={() => setHeroVideoFailed(true)}
                   >
-                    <source src="/homepage-ad.mp4" type="video/mp4" />
+                    <source src="/resized_to_small/homepage-ad.webm" type="video/webm" />
                   </video>
                 )}
 

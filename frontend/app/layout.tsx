@@ -18,10 +18,10 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/favicon.ico?v=2", type: "image/x-icon" },
-      { url: "/newwlogo.png?v=2", type: "image/png" },
+      { url: "/resized_to_small/newwlogo.webp?v=2", type: "image/webp" },
     ],
     shortcut: [{ url: "/favicon.ico?v=2", type: "image/x-icon" }],
-    apple: [{ url: "/apple-icon.png?v=2", type: "image/png" }],
+    apple: [{ url: "/resized_to_small/newwlogo.webp?v=2", type: "image/webp" }],
   },
 };
 

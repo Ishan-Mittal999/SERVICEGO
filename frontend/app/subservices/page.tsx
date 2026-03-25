@@ -26,13 +26,10 @@ const PREDEFINED_SUBSERVICE_MAP: Record<string, string[]> = {
   washing_machine: ["Semi automatic machine repair", "Automatic top load repair", "Automatic front load repair"],
   geyser: ["Install", "Uninstall", "Repair"],
   chimney: [],
-  press: [],
   refrigerator: [],
   ro: [],
   microwave: [],
-  mixer: [],
   heater: [],
-  kettle: [],
   cooler: [],
 };
 
@@ -43,13 +40,11 @@ const getServiceKey = (serviceName: string) => {
   if (normalized.includes("washing")) return "washing_machine";
   if (normalized.includes("geyser")) return "geyser";
   if (normalized.includes("chimney")) return "chimney";
-  if (normalized.includes("iron") || normalized.includes("press")) return "press";
   if (normalized.includes("refrigerator") || normalized.includes("fridge")) return "refrigerator";
   if (normalized.includes("ro") || normalized.includes("purifier")) return "ro";
   if (normalized.includes("microwave")) return "microwave";
-  if (normalized.includes("mixer")) return "mixer";
   if (normalized.includes("heater")) return "heater";
-  if (normalized.includes("kettle")) return "kettle";
+  if (normalized.includes("cooler")) return "cooler";
   if (normalized.includes("cooler")) return "cooler";
 
   return normalized.replace(/\s+/g, "_");
@@ -374,7 +369,7 @@ function SubservicesPageContent() {
         <section className="shop-preorder-hero">
           <div className="shop-preorder-topbar">
             <Link href="/" className="shop-preorder-brand" aria-label="Go to homepage">
-              <img src="/newwlogo.png" alt="ServiceGo" className="shop-preorder-logo" />
+              <img src="/resized_to_small/newwlogo.webp" alt="ServiceGo" className="shop-preorder-logo" />
               <div>
                 <strong>Service<span>Go</span></strong>
                 <p>Choose sub-service first</p>

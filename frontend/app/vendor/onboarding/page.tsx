@@ -33,14 +33,11 @@ const REQUIRED_SERVICE_NAMES = [
   "AC Repair",
   "Washing Machine Repair",
   "Chimney Repair",
-  "Iron/Press Repair",
   "Refrigerator Repair",
   "Geyser Service",
   "RO Service",
   "Microwave Repair",
-  "Mixer Repair",
   "Heater Repair",
-  "Kettle Repair",
   "Cooler Repair",
 ];
 
@@ -59,13 +56,11 @@ const getServiceKey = (serviceName: string) => {
   if (normalized.includes("washing")) return "washing_machine";
   if (normalized.includes("geyser")) return "geyser";
   if (normalized.includes("chimney")) return "chimney";
-  if (normalized.includes("iron") || normalized.includes("press")) return "press";
   if (normalized.includes("refrigerator") || normalized.includes("fridge")) return "refrigerator";
   if (normalized.includes("ro") || normalized.includes("purifier")) return "ro";
   if (normalized.includes("microwave")) return "microwave";
-  if (normalized.includes("mixer")) return "mixer";
   if (normalized.includes("heater")) return "heater";
-  if (normalized.includes("kettle")) return "kettle";
+  if (normalized.includes("cooler")) return "cooler";
   if (normalized.includes("cooler")) return "cooler";
 
   return normalized.replace(/\s+/g, "_");
