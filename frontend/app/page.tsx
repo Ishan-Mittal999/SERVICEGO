@@ -37,15 +37,15 @@ type ServiceCard = {
 };
 
 const SERVICE_IMAGE_LIBRARY: Array<{ image: string; label: string; terms: string[] }> = [
-  { image: "/resized_to_small/service_ac.webp", label: "AC Service", terms: ["ac", "air conditioner", "air conditioning", "split ac", "window ac", "hvac"] },
-  { image: "/resized_to_small/service_electrical.webp", label: "Electrical", terms: ["electrical", "electrician", "wiring", "electric", "switch", "socket", "mcb", "fan"] },
-  { image: "/resized_to_small/service_carpenter.webp", label: "Carpenter", terms: ["carpenter", "carpentry", "wood", "furniture", "wardrobe", "door"] },
-  { image: "/resized_to_small/service_chimney.webp", label: "Chimney", terms: ["chimney", "kitchen chimney", "exhaust"] },
-  { image: "/resized_to_small/service_cooler.webp", label: "Cooler", terms: ["cooler", "air cooler", "desert cooler"] },
-  { image: "/resized_to_small/service_fridge.webp", label: "Fridge", terms: ["fridge", "refrigerator", "refrigeration"] },
-  { image: "/resized_to_small/service_geyser.webp", label: "Geyser", terms: ["geyser", "water heater", "heater"] },
-  { image: "/resized_to_small/service_microwave.webp", label: "Microwave", terms: ["microwave", "oven", "otg"] },
-  { image: "/resized_to_small/service_ro.webp", label: "RO Service", terms: ["ro", "water purifier", "purifier", "aquaguard", "water filter"] },
+  { image: "/service_ac.webp", label: "AC Service", terms: ["ac", "air conditioner", "air conditioning", "split ac", "window ac", "hvac"] },
+  { image: "/service_electrical.webp", label: "Electrical", terms: ["electrical", "electrician", "wiring", "electric", "switch", "socket", "mcb", "fan"] },
+  { image: "/service_carpenter.webp", label: "Carpenter", terms: ["carpenter", "carpentry", "wood", "furniture", "wardrobe", "door"] },
+  { image: "/service_chimney.webp", label: "Chimney", terms: ["chimney", "kitchen chimney", "exhaust"] },
+  { image: "/service_cooler.webp", label: "Cooler", terms: ["cooler", "air cooler", "desert cooler"] },
+  { image: "/service_fridge.webp", label: "Fridge", terms: ["fridge", "refrigerator", "refrigeration"] },
+  { image: "/service_geyser.webp", label: "Geyser", terms: ["geyser", "water heater", "heater"] },
+  { image: "/service_microwave.webp", label: "Microwave", terms: ["microwave", "oven", "otg"] },
+  { image: "/service_ro.webp", label: "RO Service", terms: ["ro", "water purifier", "purifier", "aquaguard", "water filter"] },
 ];
 
 const REQUIRES_SUBSERVICE_SERVICE_KEYS = new Set([
@@ -698,7 +698,7 @@ export default function HomePage() {
       {/* HERO */}
       <section className="hero">
         <div className="hero-bg">
-          <img src="/resized_to_small/hero-bg.webp" alt="Hero Background" />
+          <img src="/hero-bg.webp" alt="Hero Background" />
         </div>
 
         <div className="container">
@@ -839,11 +839,11 @@ export default function HomePage() {
                     muted
                     playsInline
                     preload="none"
-                    poster="/resized_to_small/hero-bg.webp"
+                    poster="/hero-bg.webp"
                     onLoadedData={() => setHeroVideoReady(true)}
                     onError={() => setHeroVideoFailed(true)}
                   >
-                    <source src="/resized_to_small/homepage-ad.webm" type="video/webm" />
+                    <source src="/homepage-ad.webm" type="video/webm" />
                   </video>
                 )}
 

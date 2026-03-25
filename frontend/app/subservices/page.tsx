@@ -387,7 +387,7 @@ function SubservicesPageContent() {
           </div>
         </section>
 
-        {errorMessage ? (
+                <img src="/hero-bg.webp" alt="Hero Background" />
           <p style={{ color: "#b42318", marginTop: "0.9rem" }}>{errorMessage}</p>
         ) : null}
 
