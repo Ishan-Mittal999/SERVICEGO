@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { detectUserLocation } from "@/lib/location";
 
-const LOGO_SRC = "/resized_to_small/newwlogo.webp";
+const LOGO_SRC = "/icon.webp";
 
 
 
@@ -1319,8 +1319,8 @@ function showBrowserRequestAlert(count: number) {
 
         return registration.showNotification("ServiceGo vendor request", {
           body: message,
-          icon: "/resized_to_small/newwlogo.webp",
-          badge: "/resized_to_small/newwlogo.webp",
+          icon: "/icon.webp",
+          badge: "/icon.webp",
           data: { url: "/vendor/dashboard" },
         });
       })

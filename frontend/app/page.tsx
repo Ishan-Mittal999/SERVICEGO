@@ -227,7 +227,7 @@ export default function HomePage() {
     
     const fetchServices = async () => {
       try {
-        const servicesRes = await fetch(apiUrl("/services"), { cache: "no-store" });
+        const servicesRes = await fetch(apiUrl("/services"));
 
         if (!servicesRes.ok) {
           throw new Error(`Services API failed with ${servicesRes.status}`);
@@ -565,7 +565,7 @@ export default function HomePage() {
         <div className="container">
           <Link href="/" className="navbar-logo" aria-label="Go to homepage" onClick={closeMobileNav}>
             <Image
-              src="/resized_to_small/newwlogo.webp"
+              src="/icon.webp"
               alt="ServiceGo"
               className="logo-icon"
               width={40}
@@ -838,7 +838,7 @@ export default function HomePage() {
                     loop
                     muted
                     playsInline
-                    preload="auto"
+                    preload="none"
                     poster="/resized_to_small/hero-bg.webp"
                     onLoadedData={() => setHeroVideoReady(true)}
                     onError={() => setHeroVideoFailed(true)}

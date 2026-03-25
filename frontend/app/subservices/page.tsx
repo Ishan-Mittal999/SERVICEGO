@@ -369,7 +369,7 @@ function SubservicesPageContent() {
         <section className="shop-preorder-hero">
           <div className="shop-preorder-topbar">
             <Link href="/" className="shop-preorder-brand" aria-label="Go to homepage">
-              <img src="/resized_to_small/newwlogo.webp" alt="ServiceGo" className="shop-preorder-logo" />
+              <img src="/icon.webp" alt="ServiceGo" className="shop-preorder-logo" />
               <div>
                 <strong>Service<span>Go</span></strong>
                 <p>Choose sub-service first</p>

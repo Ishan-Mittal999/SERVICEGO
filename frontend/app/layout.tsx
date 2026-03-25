@@ -17,11 +17,11 @@ export const metadata: Metadata = {
   description: "Trusted local services at your doorstep.",
   icons: {
     icon: [
-      { url: "/favicon.ico?v=2", type: "image/x-icon" },
-      { url: "/resized_to_small/newwlogo.webp?v=2", type: "image/webp" },
+      { url: "/faviconn.ico?v=2", type: "image/x-icon" },
+      { url: "/apple-icon.webp?v=2", type: "image/webp" },
     ],
-    shortcut: [{ url: "/favicon.ico?v=2", type: "image/x-icon" }],
-    apple: [{ url: "/resized_to_small/newwlogo.webp?v=2", type: "image/webp" }],
+    shortcut: [{ url: "/faviconn.ico?v=2", type: "image/x-icon" }],
+    apple: [{ url: "/apple-icon.webp?v=2", type: "image/webp" }],
   },
 };
 
@@ -33,10 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
+        {/* Fonts are now loaded via next/font/google for optimal performance */}
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased servicego-app-root`}

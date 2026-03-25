@@ -22,8 +22,8 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "ServiceGo";
   const options = {
     body: payload.body || "You have a new update.",
-    icon: "/logo.png",
-    badge: "/logo.png",
+    icon: "/faviconn.ico",
+    badge: "/faviconn.ico",
     data: {
       url: payload.url || "/vendor/dashboard",
       bookingId: payload.bookingId || null,
