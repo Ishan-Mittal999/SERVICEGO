@@ -385,10 +385,13 @@ function SubservicesPageContent() {
           <div className="shop-preorder-category">
             <span>🧰 {selectedService ? `Sub-services for ${selectedService.name}` : "Choose a sub-service"}</span>
           </div>
-        </section>
 
-                <img src="/hero-bg.webp" alt="Hero Background" />
-          <p style={{ color: "#b42318", marginTop: "0.9rem" }}>{errorMessage}</p>
+        </section>
+        {errorMessage ? (
+          <>
+            <img src="/hero-bg.webp" alt="Hero Background" />
+            <p style={{ color: "#b42318", marginTop: "0.9rem" }}>{errorMessage}</p>
+          </>
         ) : null}
 
         {loading ? (
