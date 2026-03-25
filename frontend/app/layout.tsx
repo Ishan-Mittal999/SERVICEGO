@@ -19,6 +19,7 @@ export const metadata: Metadata = {
     icon: [
       { url: "/favicon.ico?v=2", type: "image/x-icon" },
       { url: "/apple-icon.webp?v=2", type: "image/webp" },
+      { url: "/icon.webp?v=2", type: "image/webp" },
     ],
     shortcut: [{ url: "/favicon.ico?v=2", type: "image/x-icon" }],
     apple: [{ url: "/apple-icon.webp?v=2", type: "image/webp" }],
