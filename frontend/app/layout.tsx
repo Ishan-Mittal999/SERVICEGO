@@ -17,11 +17,11 @@ export const metadata: Metadata = {
   description: "Trusted local services at your doorstep.",
   icons: {
     icon: [
-      { url: "/faviconn.ico?v=2", type: "image/x-icon" },
-      { url: "/apple-icon.webp?v=2", type: "image/webp" },
+      { url: "/app/faviconn.ico?v=2", type: "image/x-icon" },
+      { url: "/app/apple-icon.webp?v=2", type: "image/webp" },
     ],
-    shortcut: [{ url: "/faviconn.ico?v=2", type: "image/x-icon" }],
-    apple: [{ url: "/apple-icon.webp?v=2", type: "image/webp" }],
+    shortcut: [{ url: "/app/faviconn.ico?v=2", type: "image/x-icon" }],
+    apple: [{ url: "/app/apple-icon.webp?v=2", type: "image/webp" }],
   },
 };
 
