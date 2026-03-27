@@ -698,7 +698,7 @@ export default function HomePage() {
       {/* HERO */}
       <section className="hero">
         <div className="hero-bg">
-          <img src="/hero-bg.webp" alt="Hero Background" />
+          <Image src="/hero-bg.webp" alt="Hero Background" fill style={{ objectFit: "cover" }} priority />
         </div>
 
         <div className="container">

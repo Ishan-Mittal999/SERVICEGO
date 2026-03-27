@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
@@ -608,7 +609,7 @@ function ShopsPageContent() {
         <section className="shop-preorder-hero">
           <div className="shop-preorder-topbar">
             <Link href="/" className="shop-preorder-brand" aria-label="Go to homepage">
-              <img src="/icon.webp" alt="ServiceGo" className="shop-preorder-logo" />
+              <Image src="/icon.webp" alt="ServiceGo" width={34} height={34} className="shop-preorder-logo" />
               <div>
                 <strong>Service<span>Go</span></strong>
                 <p>Trusted Local Services</p>

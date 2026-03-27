@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
@@ -369,7 +370,7 @@ function SubservicesPageContent() {
         <section className="shop-preorder-hero">
           <div className="shop-preorder-topbar">
             <Link href="/" className="shop-preorder-brand" aria-label="Go to homepage">
-              <img src="/icon.webp" alt="ServiceGo" className="shop-preorder-logo" />
+              <Image src="/icon.webp" alt="ServiceGo" width={34} height={34} className="shop-preorder-logo" />
               <div>
                 <strong>Service<span>Go</span></strong>
                 <p>Choose sub-service first</p>
@@ -389,7 +390,7 @@ function SubservicesPageContent() {
         </section>
         {errorMessage ? (
           <>
-            <img src="/hero-bg.webp" alt="Hero Background" />
+            <Image src="/hero-bg.webp" alt="Hero Background" width={800} height={400} style={{ width: "100%", height: "auto" }} />
             <p style={{ color: "#b42318", marginTop: "0.9rem" }}>{errorMessage}</p>
           </>
         ) : null}
