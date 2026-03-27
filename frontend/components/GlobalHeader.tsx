@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -43,7 +44,14 @@ export default function GlobalHeader() {
     <header className="global-app-header">
       <div className="global-app-header-inner">
         <Link href="/" className="global-brand" aria-label="ServiceGo home">
-          <span className="global-brand-icon">S</span>
+          <Image
+            src="/icon.webp"
+            alt="ServiceGo"
+            className="global-brand-logo"
+            width={40}
+            height={40}
+            priority
+          />
           <strong>ServiceGo</strong>
         </Link>
 

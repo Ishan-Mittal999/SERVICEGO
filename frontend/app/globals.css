@@ -47,17 +47,11 @@
   color: #6b5e00;
 }
 
-.global-brand-icon {
+.global-brand-logo {
   width: 46px;
   height: 46px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, #7a6a00, #8c7600);
-  color: #fff;
-  font-size: 1.9rem;
-  font-weight: 800;
-  line-height: 1;
+  border-radius: 10px;
+  object-fit: cover;
 }
 
 .global-brand strong {
@@ -131,11 +125,9 @@
     padding: 0.5rem 0.75rem;
   }
 
-  .global-brand-icon {
+  .global-brand-logo {
     width: 34px;
     height: 34px;
-    border-radius: 10px;
-    font-size: 1.2rem;
   }
 
   .global-brand strong {
