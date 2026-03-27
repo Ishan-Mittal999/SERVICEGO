@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { apiUrl } from "@/lib/env";
 import { useRouter } from "next/navigation";
@@ -550,7 +551,7 @@ export default function AdminVendorsPage() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {formShopImageUrls.map((image, index) => (
                         <div key={`${index}-${image.slice(0, 24)}`} className="grid gap-1">
-                          <img src={image} alt={`Shop ${index + 1}`} className="h-20 w-full rounded-lg border border-gray-200 object-cover" />
+                          <Image unoptimized src={image} alt={`Shop ${index + 1}`} width={200} height={80} className="h-20 w-full rounded-lg border border-gray-200 object-cover" />
                           <button
                             type="button"
                             onClick={() => removeShopImage(index)}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/env";
@@ -1002,11 +1003,11 @@ export default function VendorOnboardingPage() {
 
                 <label className="auth-label" style={{ marginBottom: 0 }}>Serviceman photo</label>
                 <input type="file" accept="image/*" onChange={(e) => void uploadServicemanImage(index, e, "photo")} className="auth-input" />
-                {person.photo ? <img src={person.photo} alt={`Serviceman ${index + 1}`} style={{ width: 84, height: 84, borderRadius: 10, objectFit: "cover", border: "1px solid #dfe3ea" }} /> : null}
+                {person.photo ? <Image unoptimized src={person.photo} alt={`Serviceman ${index + 1}`} width={84} height={84} style={{ borderRadius: 10, objectFit: "cover", border: "1px solid #dfe3ea" }} /> : null}
 
                 <label className="auth-label" style={{ marginBottom: 0 }}>Aadhar card photo</label>
                 <input type="file" accept="image/*" onChange={(e) => void uploadServicemanImage(index, e, "aadharPhoto")} className="auth-input" />
-                {person.aadharPhoto ? <img src={person.aadharPhoto} alt={`Aadhar ${index + 1}`} style={{ width: 120, height: 84, borderRadius: 10, objectFit: "cover", border: "1px solid #dfe3ea" }} /> : null}
+                {person.aadharPhoto ? <Image unoptimized src={person.aadharPhoto} alt={`Aadhar ${index + 1}`} width={120} height={84} style={{ borderRadius: 10, objectFit: "cover", border: "1px solid #dfe3ea" }} /> : null}
               </div>
             </div>
           ))}
@@ -1023,10 +1024,13 @@ export default function VendorOnboardingPage() {
           {shopImageUrls.length > 0 ? (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem", marginBottom: "0.4rem" }}>
               {shopImageUrls.map((image, index) => (
-                <img
+                <Image
+                  unoptimized
                   key={`${index}-${image.slice(0, 24)}`}
                   src={image}
                   alt={`Shop preview ${index + 1}`}
+                  width={200}
+                  height={72}
                   style={{ width: "100%", height: 72, objectFit: "cover", borderRadius: 8, border: "1px solid #dfe3ea" }}
                 />
               ))}

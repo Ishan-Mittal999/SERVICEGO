@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { apiUrl, WEB_PUSH_PUBLIC_KEY } from "@/lib/env";
 import Link from "next/link";
@@ -2583,7 +2584,7 @@ function ProfilePage({
                         <div className="shop-image-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
                           {shopImageUrls.map((image, index) => (
                             <div key={`${index}-${image.slice(0, 24)}`} style={{ display: "grid", gap: 4 }}>
-                              <img src={image} alt={`Shop ${index + 1}`} style={{ width: "100%", height: 82, objectFit: "cover", borderRadius: 8, border: "1px solid #EDEBE4" }} />
+                              <Image unoptimized src={image} alt={`Shop ${index + 1}`} width={200} height={82} style={{ width: "100%", height: 82, objectFit: "cover", borderRadius: 8, border: "1px solid #EDEBE4" }} />
                               <button
                                 type="button"
                                 onClick={() => removeShopImage(index)}
@@ -3187,7 +3188,7 @@ export default function VendorDashboard() {
                 <aside className="sidebar">
                     <div className="sidebar-logo">
                       <Link href="/" className="logo-mark" aria-label="Go to homepage">
-                        <img src={LOGO_SRC} alt="ServiceGo" style={{ width: 38, height: 38, objectFit: "contain", borderRadius: 8 }} />
+                        <Image src={LOGO_SRC} alt="ServiceGo" width={38} height={38} style={{ objectFit: "contain", borderRadius: 8 }} />
                         <span className="logo-text">Service<span>Go</span></span>
                       </Link>
                     </div>
