@@ -11,6 +11,7 @@ export default function GlobalHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
+  const [logoSrc, setLogoSrc] = useState("/icon.webp");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -45,12 +46,18 @@ export default function GlobalHeader() {
       <div className="global-app-header-inner">
         <Link href="/" className="global-brand" aria-label="ServiceGo home">
           <Image
-            src="/icon.webp"
+            src={logoSrc}
             alt="ServiceGo"
             className="global-brand-logo"
             width={40}
             height={40}
             priority
+            unoptimized
+            onError={() => {
+              if (logoSrc !== "/newwlogo.webp") {
+                setLogoSrc("/newwlogo.webp");
+              }
+            }}
           />
           <strong>ServiceGo</strong>
         </Link>

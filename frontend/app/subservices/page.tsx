@@ -279,7 +279,6 @@ function SubservicesPageContent() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [menuQuery, setMenuQuery] = useState("");
 
   const serviceId = searchParams.get("serviceId") || "";
   const serviceQuery = normalizeSubserviceText(searchParams.get("serviceQuery") || "");
@@ -466,16 +465,6 @@ function SubservicesPageContent() {
     [subserviceOptions]
   );
 
-  const visibleSubservices = useMemo(() => {
-    const normalizedQuery = normalizeSubserviceText(menuQuery);
-
-    return subserviceCards.filter((item) => {
-      const matchesQuery = !normalizedQuery
-        || `${item.name} ${item.description}`.toLowerCase().includes(normalizedQuery);
-      return matchesQuery;
-    });
-  }, [menuQuery, subserviceCards]);
-
   const openShopsForSubservice = (subService: string) => {
     if (!selectedService) {
       router.push(`/shops?serviceQuery=${encodeURIComponent(subService)}`);
@@ -499,19 +488,12 @@ function SubservicesPageContent() {
     <main className="landing mobile-page-shell shops-mobile-shell">
       <div className="container service-menu-wrap" style={{ maxWidth: "980px" }}>
         <section className="shop-preorder-hero" style={{ paddingTop: "0.85rem" }}>
-          <div className="service-menu-search-wrap">
-            <input
-              value={menuQuery}
-              onChange={(event) => setMenuQuery(event.target.value)}
-              placeholder={`Search in ${(selectedService?.name || "service").toLowerCase()} plans`}
-              aria-label="Search subservices"
-            />
+          <div className="shop-preorder-category">
+            <span>
+              🏬 Verified Service Plans
+              {selectedService ? ` for ${selectedService.name}` : ""}
+            </span>
           </div>
-        </section>
-
-        <section className="service-menu-meta">
-          <h1>{selectedService ? `${selectedService.name} service plans` : "Service plans"}</h1>
-          <p>Select one sub-service to continue to shops.</p>
         </section>
 
         {errorMessage ? <p className="checkout-error-text">{errorMessage}</p> : null}
@@ -519,10 +501,10 @@ function SubservicesPageContent() {
         <section className="service-menu-section">
           {loading ? <p style={{ color: "var(--gray-500)" }}>Loading service options...</p> : null}
 
-          {!loading && visibleSubservices.length > 0 ? (
+          {!loading && subserviceCards.length > 0 ? (
             <>
               <h2 className="service-menu-section-title">Best Service Plans</h2>
-              {visibleSubservices.map((item) => (
+              {subserviceCards.map((item) => (
                 <article
                   className="service-item-card"
                   key={item.id}
@@ -564,7 +546,7 @@ function SubservicesPageContent() {
             </>
           ) : null}
 
-          {!loading && visibleSubservices.length === 0 ? (
+          {!loading && subserviceCards.length === 0 ? (
             <div className="service-menu-empty">
               No sub-services found for this service right now.
             </div>

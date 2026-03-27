@@ -313,7 +313,6 @@ function ShopsPageContent() {
   const [cartCount, setCartCount] = useState(0);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [vendorLocations, setVendorLocations] = useState<Record<string, { lat: number; lng: number }>>({});
-  const [browseQuery, setBrowseQuery] = useState("");
 
   const serviceId = searchParams.get("serviceId") || "";
   const serviceName = (searchParams.get("serviceName") || "").trim();
@@ -523,20 +522,7 @@ function ShopsPageContent() {
     });
   }, [vendors, selectedService, selectedSubService, vendorDistances]);
 
-  const visibleVendors = useMemo(() => {
-    const normalizedQuery = browseQuery.trim().toLowerCase();
-
-    const next = filteredVendors.filter((vendor) => {
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      const searchable = `${vendor.name || ""} ${vendor.area || ""}`.toLowerCase();
-      return searchable.includes(normalizedQuery);
-    });
-
-    return next;
-  }, [filteredVendors, browseQuery]);
+  const visibleVendors = filteredVendors;
 
   const vendorSubserviceMap = useMemo(() => {
     const map: Record<string, PricedSubService[]> = {};
@@ -704,16 +690,6 @@ function ShopsPageContent() {
     >
       <div className="container" style={{ maxWidth: "100%", padding: "0 clamp(0.35rem, 2vw, 0.75rem)" }}>
         <section className="shop-preorder-hero">
-          <div className="shop-preorder-search-row">
-            <input
-              value={browseQuery}
-              onChange={(event) => setBrowseQuery(event.target.value)}
-              placeholder={`Search ${selectedService?.name || "services"}`}
-              aria-label="Search shops"
-            />
-            <button type="button" onClick={() => setBrowseQuery((value) => value.trim())}>search</button>
-          </div>
-
           <div className="shop-preorder-category">
             <span>
               🏬 Verified Service Partners

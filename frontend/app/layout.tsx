@@ -14,8 +14,34 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://servicego.works"),
   title: "ServiceGo",
   description: "Trusted local services at your doorstep.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "ServiceGo",
+    description: "Trusted local services at your doorstep.",
+    url: "https://servicego.works",
+    siteName: "ServiceGo",
+    locale: "en_IN",
+    type: "website",
+    images: [
+      {
+        url: "/icon.webp",
+        width: 512,
+        height: 512,
+        alt: "ServiceGo logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ServiceGo",
+    description: "Trusted local services at your doorstep.",
+    images: ["/icon.webp"],
+  },
   icons: {
     icon: [
       { url: "/favicon.ico?v=2", type: "image/x-icon" },
