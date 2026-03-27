@@ -15,17 +15,41 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://servicego.works"),
-  title: "ServiceGo",
-  description: "Trusted local services at your doorstep.",
+  title: {
+    default: "ServiceGo Works | Home Services Platform",
+    template: "%s | ServiceGo Works",
+  },
+  description: "ServiceGo Works is the official ServiceGo home-services platform for trusted AC, electrical, carpentry, appliance, and doorstep repair services.",
+  applicationName: "ServiceGo Works",
+  keywords: [
+    "servicego",
+    "servicego works",
+    "home services",
+    "ac repair",
+    "electrician",
+    "doorstep services",
+    "india",
+  ],
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   manifest: "/manifest.webmanifest",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "ServiceGo",
-    description: "Trusted local services at your doorstep.",
+    title: "ServiceGo Works | Home Services Platform",
+    description: "Official ServiceGo Works website for trusted doorstep home services.",
     url: "https://servicego.works",
-    siteName: "ServiceGo",
+    siteName: "ServiceGo Works",
     locale: "en_IN",
     type: "website",
     images: [
@@ -39,8 +63,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ServiceGo",
-    description: "Trusted local services at your doorstep.",
+    title: "ServiceGo Works | Home Services Platform",
+    description: "Official ServiceGo Works website for trusted doorstep home services.",
     images: ["/icon.webp"],
   },
   icons: {
@@ -59,10 +83,35 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "ServiceGo Works",
+    alternateName: ["ServiceGo", "servicego.works"],
+    url: "https://servicego.works",
+    logo: "https://servicego.works/icon.webp",
+  };
+
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "ServiceGo Works",
+    url: "https://servicego.works",
+    inLanguage: "en-IN",
+  };
+
   return (
     <html lang="en">
       <head>
         {/* Fonts are now loaded via next/font/google for optimal performance */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased servicego-app-root`}

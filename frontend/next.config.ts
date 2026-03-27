@@ -36,6 +36,23 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  // Keep a single canonical host for stronger SEO signals.
+  redirects: async () => {
+    return [
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "www.servicego.works",
+          },
+        ],
+        destination: "https://servicego.works/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
