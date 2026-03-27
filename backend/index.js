@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const compression = require("compression");
+const crypto = require("crypto");
 require("dotenv").config();
 const { createClient } = require("@supabase/supabase-js");
 const webpush = require("web-push");
@@ -48,6 +49,23 @@ const BOOKING_SELECT = `
   services (*),
   vendors (*)
 `;
+
+const SUPPORTED_PAYMENT_METHODS = new Set(["cod", "upi", "card", "netbanking"]);
+const STUB_GATEWAY_PROVIDER = "stubpay";
+const PAYMENT_SIGNATURE_SECRET = process.env.PAYMENT_STUB_SECRET || "servicego-stub-payment-secret";
+const paymentOrderStore = new Map();
+
+function createStubPaymentSignature({ providerOrderId, providerPaymentId, method, amount }) {
+  const payload = [providerOrderId, providerPaymentId, method, String(amount)].join("|");
+  return crypto
+    .createHmac("sha256", PAYMENT_SIGNATURE_SECRET)
+    .update(payload)
+    .digest("hex");
+}
+
+function normalizePaymentMethod(method) {
+  return String(method || "").trim().toLowerCase();
+}
 
 async function getBookingWithRelations(bookingId) {
   const { data, error } = await supabase
@@ -162,6 +180,86 @@ function parseVendorServicemen(value) {
       };
     })
     .filter(Boolean);
+}
+
+function normalizeVendorServiceText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function parseVendorListField(value) {
+  const normalizeEntry = (entry) => {
+    const trimmed = String(entry || "").trim();
+    if (!trimmed) {
+      return "";
+    }
+
+    if (trimmed.includes("::")) {
+      return String(trimmed.split("::")[0] || "").trim();
+    }
+
+    return trimmed;
+  };
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => normalizeEntry(item))
+      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (!normalized) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(normalized);
+      if (parsed == null) {
+        return [];
+      }
+
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => normalizeEntry(item))
+          .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
+      }
+    } catch {
+      // Fallback to comma-separated values.
+    }
+
+    return normalized
+      .split(",")
+      .map((item) => normalizeEntry(item))
+      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
+  }
+
+  return [];
+}
+
+function vendorOffersService(vendor, targetServiceId, targetServiceName) {
+  const normalizedServiceId = targetServiceId ? String(targetServiceId).trim() : "";
+  const normalizedServiceName = normalizeVendorServiceText(targetServiceName);
+
+  if (!normalizedServiceId && !normalizedServiceName) {
+    return true;
+  }
+
+  if (normalizedServiceId && String(vendor.service_id || "").trim() === normalizedServiceId) {
+    return true;
+  }
+
+  const vendorServiceIds = parseVendorListField(vendor.service_ids);
+  if (normalizedServiceId && vendorServiceIds.some((id) => String(id).trim() === normalizedServiceId)) {
+    return true;
+  }
+
+  const vendorServiceNames = parseVendorListField(vendor.selected_service_names)
+    .map((name) => normalizeVendorServiceText(name));
+  if (normalizedServiceName && vendorServiceNames.some((name) => name === normalizedServiceName)) {
+    return true;
+  }
+
+  return false;
 }
 
 async function isServicemanBusy(vendorAuthId, servicemanId, excludeBookingId = null) {
@@ -780,6 +878,7 @@ app.get("/vendors", async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const offset = Math.max(parseInt(req.query.offset) || 0, 0);
     const serviceId = req.query.serviceId ? String(req.query.serviceId).trim() : null;
+    const serviceName = req.query.serviceName ? String(req.query.serviceName).trim() : null;
 
     let query = supabase
       .from("vendors")
@@ -788,8 +887,48 @@ app.get("/vendors", async (req, res) => {
     if (!includeAll) {
       query = query.eq("is_active", true);
     }
-    if (serviceId) {
-      query = query.eq("service_id", serviceId);
+
+    const needsServiceFiltering = Boolean(serviceId || serviceName);
+
+    if (needsServiceFiltering) {
+      let normalizedServiceName = normalizeVendorServiceText(serviceName);
+
+      if (!normalizedServiceName && serviceId) {
+        const { data: serviceRecord } = await supabase
+          .from("services")
+          .select("name")
+          .eq("id", serviceId)
+          .single();
+
+        normalizedServiceName = normalizeVendorServiceText(serviceRecord?.name || "");
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+
+      let filtered = (data || []).filter((vendor) =>
+        vendorOffersService(vendor, serviceId, normalizedServiceName)
+      );
+
+      if (!includeAll) {
+        filtered = filtered.filter((vendor) => isVendorApproved(vendor));
+      }
+
+      const pagedData = filtered.slice(offset, offset + limit);
+      const total = filtered.length;
+
+      return res.status(200).json({
+        data: pagedData,
+        pagination: {
+          limit,
+          offset,
+          total,
+          hasMore: offset + limit < total
+        }
+      });
     }
 
     let queryResult = await query.range(offset, offset + limit - 1);
@@ -1139,6 +1278,160 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
       hasMore: dedupedBookings.length >= limit
     }
   });
+});
+
+app.post("/payments/create-order", async (req, res) => {
+  try {
+    const method = normalizePaymentMethod(req.body?.method);
+    const amount = Number(req.body?.amount || 0);
+    const currency = String(req.body?.currency || "INR").toUpperCase();
+    const customer = req.body?.customer || {};
+    const metadata = req.body?.metadata && typeof req.body.metadata === "object" ? req.body.metadata : {};
+
+    if (!SUPPORTED_PAYMENT_METHODS.has(method)) {
+      return res.status(400).json({
+        ok: false,
+        provider: STUB_GATEWAY_PROVIDER,
+        message: "Unsupported payment method",
+      });
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({
+        ok: false,
+        provider: STUB_GATEWAY_PROVIDER,
+        message: "Amount must be greater than zero",
+      });
+    }
+
+    if (!customer.userId || !customer.name || !customer.phone) {
+      return res.status(400).json({
+        ok: false,
+        provider: STUB_GATEWAY_PROVIDER,
+        message: "Customer userId, name, and phone are required",
+      });
+    }
+
+    const providerOrderId = `stub_order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const providerPaymentId = method === "cod"
+      ? `stub_cod_${Date.now()}`
+      : `stub_pay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const signature = createStubPaymentSignature({
+      providerOrderId,
+      providerPaymentId,
+      method,
+      amount,
+    });
+
+    paymentOrderStore.set(providerOrderId, {
+      method,
+      amount,
+      currency,
+      providerPaymentId,
+      signature,
+      metadata,
+      customer,
+      createdAt: Date.now(),
+      verified: method === "cod",
+    });
+
+    return res.status(200).json({
+      ok: true,
+      provider: STUB_GATEWAY_PROVIDER,
+      providerOrderId,
+      providerPaymentId,
+      signature,
+      metadata,
+      message: method === "cod" ? "COD order initialized" : "Stub online order initialized",
+    });
+  } catch (err) {
+    console.error("Payment create-order crash:", err);
+    return res.status(500).json({
+      ok: false,
+      provider: STUB_GATEWAY_PROVIDER,
+      message: err.message || "Failed to create payment order",
+    });
+  }
+});
+
+app.post("/payments/verify", async (req, res) => {
+  try {
+    const method = normalizePaymentMethod(req.body?.method);
+    const providerOrderId = String(req.body?.providerOrderId || "").trim();
+    const providerPaymentId = String(req.body?.providerPaymentId || "").trim();
+    const signature = String(req.body?.signature || "").trim();
+
+    if (!SUPPORTED_PAYMENT_METHODS.has(method)) {
+      return res.status(400).json({
+        verified: false,
+        provider: STUB_GATEWAY_PROVIDER,
+        message: "Unsupported payment method",
+      });
+    }
+
+    if (method === "cod") {
+      return res.status(200).json({
+        verified: true,
+        provider: STUB_GATEWAY_PROVIDER,
+        message: "COD does not require online verification",
+      });
+    }
+
+    if (!providerOrderId || !providerPaymentId || !signature) {
+      return res.status(400).json({
+        verified: false,
+        provider: STUB_GATEWAY_PROVIDER,
+        message: "providerOrderId, providerPaymentId, and signature are required",
+      });
+    }
+
+    const orderRecord = paymentOrderStore.get(providerOrderId);
+    if (!orderRecord) {
+      return res.status(404).json({
+        verified: false,
+        provider: STUB_GATEWAY_PROVIDER,
+        message: "Payment order not found",
+      });
+    }
+
+    const expectedSignature = createStubPaymentSignature({
+      providerOrderId,
+      providerPaymentId,
+      method,
+      amount: orderRecord.amount,
+    });
+
+    const isPaymentIdMatch = providerPaymentId === orderRecord.providerPaymentId;
+    const isMethodMatch = method === orderRecord.method;
+    const isSignatureMatch = signature === expectedSignature;
+
+    if (!isPaymentIdMatch || !isMethodMatch || !isSignatureMatch) {
+      return res.status(400).json({
+        verified: false,
+        provider: STUB_GATEWAY_PROVIDER,
+        message: "Payment verification failed",
+      });
+    }
+
+    paymentOrderStore.set(providerOrderId, {
+      ...orderRecord,
+      verified: true,
+      verifiedAt: Date.now(),
+    });
+
+    return res.status(200).json({
+      verified: true,
+      provider: STUB_GATEWAY_PROVIDER,
+      message: "Payment verified successfully",
+    });
+  } catch (err) {
+    console.error("Payment verify crash:", err);
+    return res.status(500).json({
+      verified: false,
+      provider: STUB_GATEWAY_PROVIDER,
+      message: err.message || "Payment verification failed",
+    });
+  }
 });
 
 app.post("/push/subscribe", async (req, res) => {

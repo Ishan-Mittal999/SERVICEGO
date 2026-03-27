@@ -182,6 +182,28 @@ const getSubserviceScore = (service: Service, query: string) => {
   return score;
 };
 
+const findBestServiceForQuery = (serviceList: Service[], query: string) => {
+  if (!query) {
+    return null;
+  }
+
+  const queryKey = getServiceKey(query);
+
+  const exactKeyMatch = serviceList.find((service) => getServiceKey(service.name || "") === queryKey);
+  if (exactKeyMatch) {
+    return exactKeyMatch;
+  }
+
+  const best = serviceList
+    .map((service) => ({
+      service,
+      score: getSubserviceScore(service, query),
+    }))
+    .sort((left, right) => right.score - left.score)[0];
+
+  return best && best.score >= 50 ? best.service : null;
+};
+
 function SubservicesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -196,29 +218,81 @@ function SubservicesPageContent() {
   const serviceQuery = normalizeSubserviceText(searchParams.get("serviceQuery") || "");
 
   useEffect(() => {
+    setHasAutoRedirected(false);
+  }, [serviceId, serviceQuery]);
+
+  useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
 
-        const [servicesResponse, vendorsResponse] = await Promise.all([
-          fetch(apiUrl("/services"), { cache: "no-store" }),
-          fetch(apiUrl("/vendors"), { cache: "no-store" }),
-        ]);
+        if (serviceId) {
+          const serviceResponse = await fetch(apiUrl(`/services/${encodeURIComponent(serviceId)}`), {
+            cache: "force-cache",
+          });
+
+          if (!serviceResponse.ok) {
+            throw new Error(`Service API failed with ${serviceResponse.status}`);
+          }
+
+          const serviceDataRaw = await serviceResponse.json();
+          const serviceData = serviceDataRaw.data || null;
+
+          const vendorsResponse = await fetch(
+            apiUrl(
+              `/vendors?serviceId=${encodeURIComponent(serviceId)}&serviceName=${encodeURIComponent(
+                serviceData?.name || ""
+              )}&limit=100`
+            ),
+            {
+              cache: "force-cache",
+            }
+          );
+
+          if (!vendorsResponse.ok) {
+            throw new Error(`Vendors API failed with ${vendorsResponse.status}`);
+          }
+
+          const vendorsDataRaw = await vendorsResponse.json();
+          const vendorsData = vendorsDataRaw.data || (Array.isArray(vendorsDataRaw) ? vendorsDataRaw : []);
+
+          setServices(serviceData ? [serviceData] : []);
+          setVendors(vendorsData);
+          setErrorMessage(null);
+          return;
+        }
+
+        const servicesResponse = await fetch(apiUrl("/services?limit=100"), { cache: "force-cache" });
 
         if (!servicesResponse.ok) {
           throw new Error(`Services API failed with ${servicesResponse.status}`);
         }
 
+        const servicesDataRaw = await servicesResponse.json();
+        const servicesData = servicesDataRaw.data || (Array.isArray(servicesDataRaw) ? servicesDataRaw : []);
+        const resolvedService = findBestServiceForQuery(servicesData, serviceQuery);
+
+        if (!resolvedService) {
+          setServices(servicesData);
+          setVendors([]);
+          setErrorMessage(null);
+          return;
+        }
+
+        const vendorsResponse = await fetch(
+          apiUrl(
+            `/vendors?serviceId=${encodeURIComponent(String(resolvedService.id))}&serviceName=${encodeURIComponent(
+              resolvedService.name || ""
+            )}&limit=100`
+          ),
+          { cache: "force-cache" }
+        );
+
         if (!vendorsResponse.ok) {
           throw new Error(`Vendors API failed with ${vendorsResponse.status}`);
         }
 
-        const [servicesDataRaw, vendorsDataRaw] = await Promise.all([
-          servicesResponse.json(),
-          vendorsResponse.json(),
-        ]);
-        // Support both array and paginated object formats
-        const servicesData = servicesDataRaw.data || (Array.isArray(servicesDataRaw) ? servicesDataRaw : []);
+        const vendorsDataRaw = await vendorsResponse.json();
         const vendorsData = vendorsDataRaw.data || (Array.isArray(vendorsDataRaw) ? vendorsDataRaw : []);
 
         setServices(servicesData);
@@ -233,7 +307,7 @@ function SubservicesPageContent() {
     };
 
     loadData();
-  }, []);
+  }, [serviceId, serviceQuery]);
 
   const selectedService = useMemo(() => {
     if (serviceId) {
@@ -244,14 +318,7 @@ function SubservicesPageContent() {
       return null;
     }
 
-    const best = services
-      .map((service) => ({
-        service,
-        score: getSubserviceScore(service, serviceQuery),
-      }))
-      .sort((left, right) => right.score - left.score)[0];
-
-    return best && best.score > 0 ? best.service : null;
+    return findBestServiceForQuery(services, serviceQuery);
   }, [services, serviceId, serviceQuery]);
 
   const subserviceOptions = useMemo(() => {

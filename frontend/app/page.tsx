@@ -73,6 +73,11 @@ const getServiceFlowKey = (serviceName: string) => {
   return normalized.replace(/\s+/g, "_");
 };
 
+const findServiceByFlowKey = (serviceList: Service[], serviceName: string) => {
+  const targetKey = getServiceFlowKey(serviceName);
+  return serviceList.find((service) => getServiceFlowKey(service.name || "") === targetKey) || null;
+};
+
 const shouldSkipSubservice = (serviceName: string) => {
   return !REQUIRES_SUBSERVICE_SERVICE_KEYS.has(getServiceFlowKey(serviceName));
 };
@@ -431,6 +436,11 @@ export default function HomePage() {
   const resolveServiceForCard = (card: ServiceCard) => {
     if (card.service) {
       return card.service;
+    }
+
+    const keyMatchedService = findServiceByFlowKey(services, card.label);
+    if (keyMatchedService) {
+      return keyMatchedService;
     }
 
     const queries = [card.label, ...card.terms];

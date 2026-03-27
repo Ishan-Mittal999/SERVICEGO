@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { Map as LeafletMap } from "leaflet";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -26,8 +27,51 @@ import {
   readUserLocation,
   reverseGeocode,
 } from "@/lib/location";
+import {
+  createOrder,
+  verifyPayment,
+  type PaymentGatewayMethod,
+} from "../../lib/payment-gateway";
 
 type CheckoutStep = "review" | "payment";
+type PaymentMethod = PaymentGatewayMethod;
+
+const PAYMENT_METHODS: Array<{
+  id: PaymentMethod;
+  label: string;
+  subtitle: string;
+  available: boolean;
+  tag?: string;
+}> = [
+  {
+    id: "upi",
+    label: "UPI / Wallet",
+    subtitle: "Google Pay, PhonePe, Paytm",
+    available: false,
+    tag: "Coming soon",
+  },
+  {
+    id: "card",
+    label: "Credit / Debit Card",
+    subtitle: "Visa, Mastercard, RuPay",
+    available: false,
+    tag: "Coming soon",
+  },
+  {
+    id: "netbanking",
+    label: "Net Banking",
+    subtitle: "All major Indian banks",
+    available: false,
+    tag: "Coming soon",
+  },
+  {
+    id: "cod",
+    label: "Cash on Delivery",
+    subtitle: "Pay after service completion",
+    available: true,
+    tag: "Available",
+  },
+];
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -46,7 +90,7 @@ export default function CheckoutPage() {
   const [receiverName, setReceiverName] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
-  const [dontSendCutlery, setDontSendCutlery] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
   const [placingOrder, setPlacingOrder] = useState(false);
   const [isResolvingPin, setIsResolvingPin] = useState(false);
   const [isMapMoving, setIsMapMoving] = useState(false);
@@ -54,7 +98,7 @@ export default function CheckoutPage() {
   const [mapCoords, setMapCoords] = useState<{ lat: number; lng: number }>({ lat: 28.6139, lng: 77.209 });
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const leafletMapRef = useRef<any>(null);
+  const leafletMapRef = useRef<LeafletMap | null>(null);
   const reverseGeocodeTimerRef = useRef<number | null>(null);
   const reverseGeocodeRequestRef = useRef(0);
   const mapPrimedRef = useRef(false);
@@ -312,7 +356,7 @@ export default function CheckoutPage() {
     setErrorMessage(null);
   };
 
-  const useCurrentLocationForPin = async () => {
+  const applyCurrentLocationToPin = async () => {
     try {
       setIsResolvingPin(true);
       const detected = await detectUserLocation();
@@ -335,7 +379,6 @@ export default function CheckoutPage() {
   );
 
   const totalAmount = getCartTotal(cart);
-  const savedAmount = Math.max(0, Math.round(totalAmount * 0.4));
 
   const resolvedCity = selectedAddress?.city || manualCity.trim();
   const resolvedAddress = selectedAddress?.addressLine || manualAddress.trim();
@@ -343,17 +386,8 @@ export default function CheckoutPage() {
 
   const cartItems = cart?.items || [];
 
-  const recommendedItems = useMemo(() => {
-    if (cartItems.length === 0) {
-      return [] as Array<{ id: string; name: string; price: number }>;
-    }
-
-    return cartItems.slice(0, 4).map((item, index) => ({
-      id: `${item.id}-rec-${index}`,
-      name: `${item.name} Combo`,
-      price: Math.max(39, Math.round(item.price * 0.35)),
-    }));
-  }, [cartItems]);
+  const selectedPayment =
+    PAYMENT_METHODS.find((method) => method.id === paymentMethod) || PAYMENT_METHODS.find((method) => method.id === "cod");
 
   const patchCartAddress = (city: string, addressLine: string) => {
     if (!cart) {
@@ -469,7 +503,42 @@ export default function CheckoutPage() {
       }
 
       const itemSummary = cart.items.map((item) => `${item.name} x${item.quantity}`).join(", ");
-      const bookingAddress = `${finalAddress} | City: ${finalCity} | Shop: ${cart.vendorName} | Items: ${itemSummary}`;
+      const selectedPaymentLabel = selectedPayment?.label || "Cash on Delivery";
+
+      const gatewayOrder = await createOrder({
+        method: paymentMethod,
+        amount: totalAmount,
+        customer: {
+          userId: session.user.id,
+          name: customerName.trim(),
+          phone: finalPhone,
+        },
+        metadata: {
+          serviceId: cart.serviceId,
+          vendorId: cart.vendorId,
+          vendorName: cart.vendorName,
+        },
+      });
+
+      if (!gatewayOrder.ok) {
+        throw new Error(gatewayOrder.message || "Payment initialization failed.");
+      }
+
+      if (paymentMethod !== "cod") {
+        const verification = await verifyPayment({
+          method: paymentMethod,
+          providerOrderId: gatewayOrder.providerOrderId,
+          providerPaymentId: gatewayOrder.providerPaymentId,
+          signature: gatewayOrder.signature,
+          metadata: gatewayOrder.metadata,
+        });
+
+        if (!verification.verified) {
+          throw new Error(verification.message || "Payment verification failed.");
+        }
+      }
+
+      const bookingAddress = `${finalAddress} | City: ${finalCity} | Shop: ${cart.vendorName} | Items: ${itemSummary} | Payment: ${selectedPaymentLabel}`;
 
       const response = await fetch(apiUrl("/booking"), {
         method: "POST",
@@ -524,79 +593,57 @@ export default function CheckoutPage() {
         <header className="checkout-mobile-header">
           <button type="button" onClick={() => router.back()} aria-label="Back">&lt;</button>
           <div>
-            <h1>{cart.vendorName}</h1>
+            <h1>Secure Checkout</h1>
             <p>
-              {step === "review" ? "25-30 mins to home" : "Pay and place booking"}
+              {step === "review" ? "Review service order" : "Select payment and place order"}
             </p>
           </div>
-          <button type="button" onClick={() => router.push("/shops")} aria-label="Share">o</button>
+          <button type="button" onClick={() => router.push("/shops")} aria-label="Back to shops" title="Back to shops">S</button>
         </header>
 
         <section className="checkout-saved-banner">
-          You saved {formatPrice(savedAmount)} on this order
+          {step === "review"
+            ? `Estimated total: ${formatPrice(totalAmount)}`
+            : `Payable amount: ${formatPrice(totalAmount)}`}
         </section>
 
-        {step === "review" ? (
-          <>
+        <div className="checkout-layout-grid">
+          <section className="checkout-main-column">
             <section className="checkout-block checkout-delivery-card">
-              <h3>Delivery is managed by the shop</h3>
-              <p>This order will be delivered by their own fleet.</p>
+              <h3>{cart.vendorName}</h3>
+              <p>Service provider confirmed for your selected items.</p>
               <div className="checkout-delivery-meta">
-                <strong>Delivery in 25-30 mins</strong>
-                <button type="button" onClick={() => setAddressSheetOpen(true)}>Schedule it</button>
+                <strong>Estimated arrival: 25-30 mins</strong>
+                <button type="button" onClick={() => setAddressSheetOpen(true)}>Change address</button>
               </div>
             </section>
 
-            <section className="checkout-block checkout-bill-card">
-              <div className="checkout-bill-row">
-                <span>Total Bill</span>
-                <strong>{formatPrice(totalAmount)}</strong>
+            <section className="checkout-block checkout-address-card">
+              <div className="checkout-section-head">
+                <h3>Service Address</h3>
+                <button type="button" className="checkout-add-more" onClick={() => setAddressSheetOpen(true)}>
+                  Edit
+                </button>
               </div>
-              <p>Incl. taxes and charges</p>
-            </section>
-
-            <section className="checkout-block checkout-gold-card">
-              <div>
-                <strong>Save Rs37 with free delivery</strong>
-                <p>Renew Gold at Rs1 for 3 months</p>
-              </div>
-              <button type="button">Add Gold</button>
-            </section>
-
-            <section className="checkout-block checkout-donation-card">
-              <h3>Let's serve a brighter future</h3>
-              <p>Through nutritious meals, you can empower young minds for greatness.</p>
-              <div className="checkout-donation-action">
-                <span>Donate to Feeding India</span>
-                <button type="button">Add Rs3</button>
-              </div>
-            </section>
-
-            <section className="checkout-policy-text">
-              <h4>CANCELLATION POLICY</h4>
-              <p>
-                Free cancellation is available up to 30 minutes before your scheduled slot. View full details in our{" "}
-                <Link href="/cancellation-refund-policy">Cancellation and Refund Policy</Link>.
+              <p className="checkout-address-line">
+                {resolvedAddress
+                  ? `${resolvedAddress}${resolvedCity ? `, ${resolvedCity}` : ""}`
+                  : "No address selected yet. Select address to continue."}
               </p>
-            </section>
-
-            <section className="checkout-block checkout-money-row">
-              <div>
-                <strong>ServiceGo Money</strong>
-                <p>Single tap payments. Zero failures</p>
-              </div>
-              <span>&gt;</span>
-            </section>
-          </>
-        ) : (
-          <>
-            <section className="checkout-block checkout-offer-card">
-              <h3>Special offer for you</h3>
-              <p>Get 30 plus OTTs at Rs149. Claim voucher after order is placed.</p>
-              <div className="checkout-offer-pill">ADDED x FREE</div>
+              {resolvedPhone ? <span className="checkout-address-meta">Contact: {resolvedPhone}</span> : null}
             </section>
 
             <section className="checkout-block checkout-items-card">
+              <div className="checkout-section-head">
+                <h3>Order items</h3>
+                <button
+                  type="button"
+                  className="checkout-add-more"
+                  onClick={() => router.push(`/shops/${encodeURIComponent(cart.vendorId)}?serviceId=${encodeURIComponent(cart.serviceId)}`)}
+                >
+                  Add more
+                </button>
+              </div>
               {cartItems.map((item) => (
                 <div key={item.id} className="checkout-item-row">
                   <div>
@@ -610,47 +657,65 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               ))}
-
-              <button
-                type="button"
-                className="checkout-add-more"
-                onClick={() => router.push(`/shops/${encodeURIComponent(cart.vendorId)}?serviceId=${encodeURIComponent(cart.serviceId)}`)}
-              >
-                Add more items
-              </button>
-
-              <button
-                type="button"
-                className={dontSendCutlery ? "checkout-cutlery active" : "checkout-cutlery"}
-                onClick={() => setDontSendCutlery((value) => !value)}
-              >
-                Don't send cutlery
-              </button>
             </section>
+          </section>
 
-            <section className="checkout-block checkout-complete-card">
-              <h3>Complete your meal with</h3>
-              <div className="checkout-reco-row">
-                {recommendedItems.map((item) => (
-                  <article key={item.id} className="checkout-reco-item">
-                    <div className="checkout-reco-image" />
-                    <strong>{item.name}</strong>
-                    <span>{formatPrice(item.price)}</span>
-                    <button type="button">+</button>
-                  </article>
-                ))}
+          <aside className="checkout-side-column">
+            <section className="checkout-block checkout-bill-card">
+              <div className="checkout-bill-row">
+                <span>Order value</span>
+                <strong>{formatPrice(totalAmount)}</strong>
               </div>
+              <p>Includes service charges and taxes.</p>
             </section>
 
-            <section className="checkout-block checkout-money-row">
-              <div>
-                <strong>ServiceGo Money</strong>
-                <p>Single tap payments. Zero failures</p>
-              </div>
-              <span>&gt;</span>
+            {step === "payment" ? (
+              <section className="checkout-block checkout-payment-card">
+                <div className="checkout-section-head">
+                  <h3>Payment method</h3>
+                  <span className="checkout-security-pill">Secured checkout</span>
+                </div>
+
+                <div className="checkout-method-list">
+                  {PAYMENT_METHODS.map((method) => (
+                    <button
+                      key={method.id}
+                      type="button"
+                      className={
+                        paymentMethod === method.id
+                          ? "checkout-method-row active"
+                          : "checkout-method-row"
+                      }
+                      onClick={() => {
+                        if (!method.available) {
+                          return;
+                        }
+                        setPaymentMethod(method.id);
+                      }}
+                      disabled={!method.available}
+                    >
+                      <div>
+                        <strong>{method.label}</strong>
+                        <p>{method.subtitle}</p>
+                      </div>
+                      <span className={method.available ? "checkout-method-tag available" : "checkout-method-tag"}>
+                        {method.tag}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <section className="checkout-policy-text">
+              <h4>CANCELLATION POLICY</h4>
+              <p>
+                Free cancellation is available up to 30 minutes before your scheduled slot. View full details in our{" "}
+                <Link href="/cancellation-refund-policy">Cancellation and Refund Policy</Link>.
+              </p>
             </section>
-          </>
-        )}
+          </aside>
+        </div>
 
         {errorMessage ? <p className="checkout-error-text">{errorMessage}</p> : null}
       </div>
@@ -658,13 +723,15 @@ export default function CheckoutPage() {
       <footer className="checkout-sticky-bar">
         {step === "review" ? (
           <button type="button" className="checkout-primary-cta" onClick={() => setAddressSheetOpen(true)}>
-            Select address at next step
+            Select address and continue
           </button>
         ) : (
           <div className="checkout-pay-bar">
             <div>
               <span>PAY USING</span>
-              <strong>Google Pay UPI</strong>
+              <strong>
+                {selectedPayment?.label || "Cash on Delivery"}
+              </strong>
             </div>
             <button type="button" onClick={placeOrder} disabled={placingOrder}>
               {placingOrder ? `Processing ${formatPrice(totalAmount)}` : `Place Order ${formatPrice(totalAmount)}`}
@@ -729,7 +796,7 @@ export default function CheckoutPage() {
                 <div ref={mapContainerRef} className="checkout-map-canvas" />
                 <div className={isMapMoving ? "checkout-map-pin-fixed is-moving" : "checkout-map-pin-fixed"} aria-hidden="true"><span /></div>
               </div>
-              <button type="button" onClick={() => void useCurrentLocationForPin()}>
+              <button type="button" onClick={() => void applyCurrentLocationToPin()}>
                 Use current location
               </button>
             </div>
