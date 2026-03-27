@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
 import { mergeBookingDraft } from "@/lib/booking-flow";
 import { initializeShopCart, readShopCart } from "@/lib/shop-cart";
+import { readClientCache, writeClientCache } from "@/lib/client-cache";
 import {
   distanceInKm,
   geocodeArea,
@@ -45,6 +46,13 @@ type PricedSubService = {
   name: string;
   price: number | null;
 };
+
+type ShopsCachePayload = {
+  services: Service[];
+  vendors: Vendor[];
+};
+
+const SHOPS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const SHOP_CARD_BACKGROUNDS = [
   "linear-gradient(135deg, #f43f5e 0%, #ef4444 42%, #b91c1c 100%)",
@@ -308,6 +316,7 @@ function ShopsPageContent() {
   const [browseQuery, setBrowseQuery] = useState("");
 
   const serviceId = searchParams.get("serviceId") || "";
+  const serviceName = (searchParams.get("serviceName") || "").trim();
   const serviceQuery = normalizeShopText(searchParams.get("serviceQuery") || "");
   const selectedSubServiceLabel = (searchParams.get("subService") || "").trim();
   const selectedSubService = normalizeShopText(selectedSubServiceLabel);
@@ -325,41 +334,129 @@ function ShopsPageContent() {
 
   useEffect(() => {
     const loadData = async () => {
-      try {
+      const cacheKey = `shops:${serviceId}:${serviceName}:${serviceQuery}`;
+      const cachedPayload = readClientCache<ShopsCachePayload>(cacheKey, SHOPS_CACHE_TTL_MS);
+      const hasCachedPayload = Boolean(cachedPayload);
+
+      if (hasCachedPayload && cachedPayload) {
+        setServices(cachedPayload.services);
+        setVendors(cachedPayload.vendors);
+        setLoading(false);
+      } else {
         setLoading(true);
-        const [servicesResponse, vendorsResponse] = await Promise.all([
-          fetch(apiUrl("/services"), { cache: "no-store" }),
-          fetch(apiUrl("/vendors"), { cache: "no-store" }),
-        ]);
+      }
+
+      try {
+        if (serviceId) {
+          const vendorsUrl = apiUrl(
+            `/vendors?serviceId=${encodeURIComponent(serviceId)}&serviceName=${encodeURIComponent(serviceName)}&limit=100`
+          );
+
+          const [vendorsResponse, serviceResponse] = await Promise.all([
+            fetch(vendorsUrl, { cache: "force-cache" }),
+            fetch(apiUrl(`/services/${encodeURIComponent(serviceId)}`), { cache: "force-cache" }),
+          ]);
+
+          if (!vendorsResponse.ok) {
+            throw new Error(`Vendors API failed with ${vendorsResponse.status}`);
+          }
+
+          if (!serviceResponse.ok) {
+            throw new Error(`Service API failed with ${serviceResponse.status}`);
+          }
+
+          const [vendorsDataRaw, serviceDataRaw] = await Promise.all([
+            vendorsResponse.json(),
+            serviceResponse.json(),
+          ]);
+
+          const serviceData = serviceDataRaw.data || null;
+          let vendorsData = vendorsDataRaw.data || (Array.isArray(vendorsDataRaw) ? vendorsDataRaw : []);
+
+          if (!serviceName && vendorsData.length === 0 && serviceData?.name) {
+            const fallbackVendorsResponse = await fetch(
+              apiUrl(
+                `/vendors?serviceId=${encodeURIComponent(serviceId)}&serviceName=${encodeURIComponent(
+                  serviceData.name
+                )}&limit=100`
+              ),
+              { cache: "force-cache" }
+            );
+
+            if (fallbackVendorsResponse.ok) {
+              const fallbackVendorsDataRaw = await fallbackVendorsResponse.json();
+              vendorsData = fallbackVendorsDataRaw.data || (Array.isArray(fallbackVendorsDataRaw) ? fallbackVendorsDataRaw : []);
+            }
+          }
+
+          const serviceList = serviceData ? [serviceData] : [];
+
+          setServices(serviceList);
+          setVendors(vendorsData);
+          setErrorMessage(null);
+          writeClientCache(cacheKey, {
+            services: serviceList,
+            vendors: vendorsData,
+          });
+          return;
+        }
+
+        const servicesResponse = await fetch(apiUrl("/services?limit=100"), { cache: "force-cache" });
 
         if (!servicesResponse.ok) {
           throw new Error(`Services API failed with ${servicesResponse.status}`);
         }
+
+        const servicesDataRaw = await servicesResponse.json();
+        const servicesData = servicesDataRaw.data || (Array.isArray(servicesDataRaw) ? servicesDataRaw : []);
+
+        const resolvedService = serviceQuery
+          ? servicesData
+            .map((service: Service) => ({ service, score: getShopServiceScore(service, serviceQuery) }))
+            .sort((left: { service: Service; score: number }, right: { service: Service; score: number }) => right.score - left.score)[0]
+          : null;
+
+        const matchedService = resolvedService && resolvedService.score > 0 ? resolvedService.service : null;
+
+        const vendorsUrl = matchedService
+          ? apiUrl(
+            `/vendors?serviceId=${encodeURIComponent(String(matchedService.id))}&serviceName=${encodeURIComponent(
+              matchedService.name || ""
+            )}&limit=100`
+          )
+          : apiUrl("/vendors?limit=100");
+
+        const vendorsResponse = await fetch(vendorsUrl, { cache: "force-cache" });
         if (!vendorsResponse.ok) {
           throw new Error(`Vendors API failed with ${vendorsResponse.status}`);
         }
 
-        const [servicesDataRaw, vendorsDataRaw] = await Promise.all([
-          servicesResponse.json(),
-          vendorsResponse.json(),
-        ]);
-        // Support both array and paginated object formats
-        const servicesData = servicesDataRaw.data || (Array.isArray(servicesDataRaw) ? servicesDataRaw : []);
+        const vendorsDataRaw = await vendorsResponse.json();
         const vendorsData = vendorsDataRaw.data || (Array.isArray(vendorsDataRaw) ? vendorsDataRaw : []);
 
-        setServices(servicesData);
+        const servicesForState = matchedService ? [matchedService] : servicesData;
+
+        setServices(servicesForState);
         setVendors(vendorsData);
         setErrorMessage(null);
+        writeClientCache(cacheKey, {
+          services: servicesForState,
+          vendors: vendorsData,
+        });
       } catch (error) {
         console.error("Failed to load shops", error);
-        setErrorMessage("Unable to load shops right now. Please try again.");
+        if (!hasCachedPayload) {
+          setErrorMessage("Unable to load shops right now. Please try again.");
+        }
       } finally {
-        setLoading(false);
+        if (!hasCachedPayload) {
+          setLoading(false);
+        }
       }
     };
 
     loadData();
-  }, []);
+  }, [serviceId, serviceName, serviceQuery]);
 
   const selectedService = useMemo(() => {
     if (serviceId) {

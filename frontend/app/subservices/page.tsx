@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
 import { mergeBookingDraft } from "@/lib/booking-flow";
+import { readClientCache, writeClientCache } from "@/lib/client-cache";
 
 type Service = {
   id: string | number;
@@ -26,6 +27,13 @@ type SubserviceCard = {
   description: string;
 };
 
+type SubservicesCachePayload = {
+  services: Service[];
+  vendors: Vendor[];
+};
+
+const SUBSERVICES_CACHE_TTL_MS = 5 * 60 * 1000;
+
 const PREDEFINED_SUBSERVICE_MAP: Record<string, string[]> = {
   ac: ["Foam jet service", "AC checkup", "AC installation", "AC uninstallation"],
   washing_machine: ["Semi automatic machine repair", "Automatic top load repair", "Automatic front load repair"],
@@ -36,6 +44,18 @@ const PREDEFINED_SUBSERVICE_MAP: Record<string, string[]> = {
   microwave: [],
   heater: [],
   cooler: [],
+};
+
+const SERVICE_SUBSERVICE_KEYWORDS: Record<string, string[]> = {
+  ac: ["ac", "air conditioner", "cooling"],
+  washing_machine: ["washing", "machine", "top load", "front load"],
+  geyser: ["geyser", "water heater", "heater"],
+  chimney: ["chimney"],
+  refrigerator: ["fridge", "refrigerator"],
+  ro: ["ro", "purifier", "water filter"],
+  microwave: ["microwave", "oven"],
+  heater: ["heater"],
+  cooler: ["cooler"],
 };
 
 const normalizeSubserviceText = (value: string) => value.trim().toLowerCase();
@@ -75,14 +95,6 @@ const getSubserviceScore = (service: Service, query: string) => {
   return score;
 };
 
-const getDemandScore = (value: string) => {
-  let score = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    score += value.charCodeAt(index);
-  }
-  return score % 100;
-};
-
 const getSubserviceVisual = (itemId: string) => {
   const palette = [
     "linear-gradient(135deg, #f43f5e 0%, #ef4444 40%, #dc2626 100%)",
@@ -91,7 +103,12 @@ const getSubserviceVisual = (itemId: string) => {
     "linear-gradient(135deg, #f97316 0%, #f59e0b 42%, #d97706 100%)",
   ];
 
-  return palette[getDemandScore(itemId) % palette.length];
+  let score = 0;
+  for (let index = 0; index < itemId.length; index += 1) {
+    score += itemId.charCodeAt(index);
+  }
+
+  return palette[score % palette.length];
 };
 
 const parseVendorListField = (value: unknown): string[] => {
@@ -219,6 +236,33 @@ const findBestServiceForQuery = (serviceList: Service[], query: string) => {
   return best && best.score >= 50 ? best.service : null;
 };
 
+const isSubserviceRelevantToService = (
+  subserviceName: string,
+  service: Service,
+  predefinedForService: string[]
+) => {
+  const normalizedSubservice = normalizeSubserviceText(subserviceName);
+  if (!normalizedSubservice) {
+    return false;
+  }
+
+  const normalizedPredefined = predefinedForService.map((item) => normalizeSubserviceText(item));
+  if (
+    normalizedPredefined.some(
+      (entry) =>
+        entry === normalizedSubservice
+        || normalizedSubservice.includes(entry)
+        || entry.includes(normalizedSubservice)
+    )
+  ) {
+    return true;
+  }
+
+  const serviceKey = getServiceKey(service.name || "");
+  const keywords = SERVICE_SUBSERVICE_KEYWORDS[serviceKey] || [normalizeSubserviceText(service.name || "")];
+  return keywords.some((keyword) => keyword && normalizedSubservice.includes(keyword));
+};
+
 const getSubserviceDescription = (name: string) => {
   const normalized = normalizeSubserviceText(name);
   if (normalized.includes("install")) return "Ideal for safe installation with complete setup checks.";
@@ -236,46 +280,79 @@ function SubservicesPageContent() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [menuQuery, setMenuQuery] = useState("");
-  const [recommendedOnly, setRecommendedOnly] = useState(false);
-  const [highDemandOnly, setHighDemandOnly] = useState(false);
 
   const serviceId = searchParams.get("serviceId") || "";
   const serviceQuery = normalizeSubserviceText(searchParams.get("serviceQuery") || "");
+  const serviceName = (searchParams.get("serviceName") || "").trim();
 
   useEffect(() => {
     const loadData = async () => {
-      try {
-        setLoading(true);
+      const cacheKey = `subservices:${serviceId}:${serviceQuery}`;
+      const cachedPayload = readClientCache<SubservicesCachePayload>(cacheKey, SUBSERVICES_CACHE_TTL_MS);
+      const hasCachedPayload = Boolean(cachedPayload);
 
+      if (hasCachedPayload && cachedPayload) {
+        setServices(cachedPayload.services);
+        setVendors(cachedPayload.vendors);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+
+      try {
         if (serviceId) {
-          const serviceResponse = await fetch(apiUrl(`/services/${encodeURIComponent(serviceId)}`), {
-            cache: "force-cache",
-          });
+          const [serviceResponse, vendorsResponse] = await Promise.all([
+            fetch(apiUrl(`/services/${encodeURIComponent(serviceId)}`), {
+              cache: "force-cache",
+            }),
+            fetch(
+              apiUrl(
+                `/vendors?serviceId=${encodeURIComponent(serviceId)}&serviceName=${encodeURIComponent(
+                  serviceName
+                )}&limit=100`
+              ),
+              { cache: "force-cache" }
+            ),
+          ]);
+
           if (!serviceResponse.ok) {
             throw new Error(`Service API failed with ${serviceResponse.status}`);
           }
-
-          const serviceDataRaw = await serviceResponse.json();
-          const serviceData = serviceDataRaw.data || null;
-          const vendorsResponse = await fetch(
-            apiUrl(
-              `/vendors?serviceId=${encodeURIComponent(serviceId)}&serviceName=${encodeURIComponent(
-                serviceData?.name || ""
-              )}&limit=100`
-            ),
-            { cache: "force-cache" }
-          );
 
           if (!vendorsResponse.ok) {
             throw new Error(`Vendors API failed with ${vendorsResponse.status}`);
           }
 
+          const serviceDataRaw = await serviceResponse.json();
+          const serviceData = serviceDataRaw.data || null;
           const vendorsDataRaw = await vendorsResponse.json();
-          const vendorsData = vendorsDataRaw.data || (Array.isArray(vendorsDataRaw) ? vendorsDataRaw : []);
+          let vendorsData = vendorsDataRaw.data || (Array.isArray(vendorsDataRaw) ? vendorsDataRaw : []);
 
-          setServices(serviceData ? [serviceData] : []);
+          if (!serviceName && vendorsData.length === 0 && serviceData?.name) {
+            const fallbackVendorsResponse = await fetch(
+              apiUrl(
+                `/vendors?serviceId=${encodeURIComponent(serviceId)}&serviceName=${encodeURIComponent(
+                  serviceData.name
+                )}&limit=100`
+              ),
+              { cache: "force-cache" }
+            );
+
+            if (fallbackVendorsResponse.ok) {
+              const fallbackVendorsDataRaw = await fallbackVendorsResponse.json();
+              vendorsData = fallbackVendorsDataRaw.data || (Array.isArray(fallbackVendorsDataRaw) ? fallbackVendorsDataRaw : []);
+            }
+          }
+
+          const nextServices = serviceData ? [serviceData] : [];
+
+          setServices(nextServices);
           setVendors(vendorsData);
           setErrorMessage(null);
+          writeClientCache(cacheKey, {
+            services: nextServices,
+            vendors: vendorsData,
+          });
           return;
         }
 
@@ -314,16 +391,24 @@ function SubservicesPageContent() {
         setServices(servicesData);
         setVendors(vendorsData);
         setErrorMessage(null);
+        writeClientCache(cacheKey, {
+          services: servicesData,
+          vendors: vendorsData,
+        });
       } catch (error) {
         console.error("Failed to load sub-services", error);
-        setErrorMessage("Unable to load sub-services right now. Please try again.");
+        if (!hasCachedPayload) {
+          setErrorMessage("Unable to load sub-services right now. Please try again.");
+        }
       } finally {
-        setLoading(false);
+        if (!hasCachedPayload) {
+          setLoading(false);
+        }
       }
     };
 
     loadData();
-  }, [serviceId, serviceQuery]);
+  }, [serviceId, serviceName, serviceQuery]);
 
   const selectedService = useMemo(() => {
     if (serviceId) {
@@ -360,6 +445,10 @@ function SubservicesPageContent() {
         if (!normalized || seen.has(normalized)) {
           return;
         }
+
+        if (!isSubserviceRelevantToService(item, selectedService, predefined)) {
+          return;
+        }
         seen.add(normalized);
         options.push(item);
       });
@@ -380,14 +469,12 @@ function SubservicesPageContent() {
   const visibleSubservices = useMemo(() => {
     const normalizedQuery = normalizeSubserviceText(menuQuery);
 
-    return subserviceCards.filter((item, index) => {
+    return subserviceCards.filter((item) => {
       const matchesQuery = !normalizedQuery
         || `${item.name} ${item.description}`.toLowerCase().includes(normalizedQuery);
-      const matchesRecommended = !recommendedOnly || index < 3;
-      const matchesHighDemand = !highDemandOnly || getDemandScore(item.id) >= 55;
-      return matchesQuery && matchesRecommended && matchesHighDemand;
+      return matchesQuery;
     });
-  }, [highDemandOnly, menuQuery, recommendedOnly, subserviceCards]);
+  }, [menuQuery, subserviceCards]);
 
   const openShopsForSubservice = (subService: string) => {
     if (!selectedService) {
@@ -402,37 +489,16 @@ function SubservicesPageContent() {
     });
 
     router.push(
-      `/shops?serviceId=${encodeURIComponent(String(selectedService.id))}&subService=${encodeURIComponent(subService)}`
+      `/shops?serviceId=${encodeURIComponent(String(selectedService.id))}&serviceName=${encodeURIComponent(
+        selectedService.name || ""
+      )}&subService=${encodeURIComponent(subService)}`
     );
   };
 
-  const continueWithoutSubservice = () => {
-    if (selectedService) {
-      mergeBookingDraft({
-        serviceId: String(selectedService.id),
-        serviceName: selectedService.name,
-        serviceDescription: selectedService.description,
-      });
-      router.push(`/shops?serviceId=${encodeURIComponent(String(selectedService.id))}`);
-      return;
-    }
-
-    if (serviceQuery) {
-      router.push(`/shops?serviceQuery=${encodeURIComponent(serviceQuery)}`);
-      return;
-    }
-
-    router.push("/shops");
-  };
-
   return (
-    <main className="landing mobile-page-shell service-menu-shell">
+    <main className="landing mobile-page-shell shops-mobile-shell">
       <div className="container service-menu-wrap" style={{ maxWidth: "980px" }}>
-        <header className="service-menu-header">
-          <button type="button" className="service-menu-back" onClick={() => router.back()} aria-label="Back">
-            ←
-          </button>
-
+        <section className="shop-preorder-hero" style={{ paddingTop: "0.85rem" }}>
           <div className="service-menu-search-wrap">
             <input
               value={menuQuery}
@@ -441,54 +507,11 @@ function SubservicesPageContent() {
               aria-label="Search subservices"
             />
           </div>
-
-          <button type="button" className="service-menu-kebab" aria-label="More options">⋮</button>
-        </header>
+        </section>
 
         <section className="service-menu-meta">
           <h1>{selectedService ? `${selectedService.name} service plans` : "Service plans"}</h1>
-          <p>Choose a plan first, then we will show matching service partners near you.</p>
-
-          <div className="service-menu-cart-row">
-            <button type="button" className="service-menu-cart-btn" onClick={continueWithoutSubservice}>Continue</button>
-            <span>{visibleSubservices.length} options</span>
-          </div>
-        </section>
-
-        <section className="service-offer-strip" aria-label="Service offer">
-          <span className="service-offer-chip">Offers</span>
-          <span>Save up to 20% on bundled service plans</span>
-          <button
-            type="button"
-            onClick={() => {
-              setRecommendedOnly(false);
-              setHighDemandOnly(false);
-            }}
-          >
-            Reset
-          </button>
-        </section>
-
-        <section className="service-filter-row" aria-label="Service filters">
-          <button
-            type="button"
-            className={`service-filter-chip ${recommendedOnly ? "active" : ""}`}
-            onClick={() => setRecommendedOnly((current) => !current)}
-          >
-            Recommended plans
-          </button>
-
-          <button
-            type="button"
-            className={`service-filter-chip ${highDemandOnly ? "active" : ""}`}
-            onClick={() => setHighDemandOnly((current) => !current)}
-          >
-            Highly rebooked
-          </button>
-
-          <button type="button" className="service-filter-chip" onClick={continueWithoutSubservice}>
-            Skip and view shops
-          </button>
+          <p>Select one sub-service to continue to shops.</p>
         </section>
 
         {errorMessage ? <p className="checkout-error-text">{errorMessage}</p> : null}
@@ -533,7 +556,7 @@ function SubservicesPageContent() {
                         openShopsForSubservice(item.name);
                       }}
                     >
-                      Choose
+                      Select
                     </button>
                   </div>
                 </article>
@@ -543,7 +566,7 @@ function SubservicesPageContent() {
 
           {!loading && visibleSubservices.length === 0 ? (
             <div className="service-menu-empty">
-              No results found for this search/filter. Try removing a filter.
+              No sub-services found for this service right now.
             </div>
           ) : null}
         </section>

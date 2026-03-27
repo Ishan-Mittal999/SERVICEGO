@@ -396,11 +396,15 @@ export default function HomePage() {
     }
 
     if (shouldSkipSubservice(card.label)) {
-      router.push(`/shops?serviceQuery=${encodeURIComponent(card.label)}`);
+      router.push(
+        `/shops?serviceQuery=${encodeURIComponent(card.label)}&serviceName=${encodeURIComponent(card.label)}`
+      );
       return;
     }
 
-    router.push(`/subservices?serviceQuery=${encodeURIComponent(card.label)}`);
+    router.push(
+      `/subservices?serviceQuery=${encodeURIComponent(card.label)}&serviceName=${encodeURIComponent(card.label)}`
+    );
   };
 
   const filteredServices = useMemo(() => {
@@ -449,11 +453,15 @@ export default function HomePage() {
     });
 
     if (!serviceNeedsSubserviceSelection(service)) {
-      router.push(`/shops?serviceId=${encodeURIComponent(String(service.id))}`);
+      router.push(
+        `/shops?serviceId=${encodeURIComponent(String(service.id))}&serviceName=${encodeURIComponent(service.name || "")}`
+      );
       return;
     }
 
-    router.push(`/subservices?serviceId=${encodeURIComponent(String(service.id))}`);
+    router.push(
+      `/subservices?serviceId=${encodeURIComponent(String(service.id))}&serviceName=${encodeURIComponent(service.name || "")}`
+    );
   };
 
   const handleSearch = (query?: string) => {

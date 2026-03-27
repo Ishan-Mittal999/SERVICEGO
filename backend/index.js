@@ -54,6 +54,30 @@ const SUPPORTED_PAYMENT_METHODS = new Set(["cod", "upi", "card", "netbanking"]);
 const STUB_GATEWAY_PROVIDER = "stubpay";
 const PAYMENT_SIGNATURE_SECRET = process.env.PAYMENT_STUB_SECRET || "servicego-stub-payment-secret";
 const paymentOrderStore = new Map();
+const responseCacheStore = new Map();
+const VENDORS_CACHE_TTL_MS = 2 * 60 * 1000;
+const SERVICES_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function readResponseCache(key, ttlMs) {
+  const cached = responseCacheStore.get(key);
+  if (!cached) {
+    return null;
+  }
+
+  if (Date.now() - cached.cachedAt > ttlMs) {
+    responseCacheStore.delete(key);
+    return null;
+  }
+
+  return cached.payload;
+}
+
+function writeResponseCache(key, payload) {
+  responseCacheStore.set(key, {
+    cachedAt: Date.now(),
+    payload,
+  });
+}
 
 function createStubPaymentSignature({ providerOrderId, providerPaymentId, method, amount }) {
   const payload = [providerOrderId, providerPaymentId, method, String(amount)].join("|");
@@ -879,10 +903,16 @@ app.get("/vendors", async (req, res) => {
     const offset = Math.max(parseInt(req.query.offset) || 0, 0);
     const serviceId = req.query.serviceId ? String(req.query.serviceId).trim() : null;
     const serviceName = req.query.serviceName ? String(req.query.serviceName).trim() : null;
+    const cacheKey = ["vendors", includeAll, limit, offset, serviceId || "", serviceName || ""].join("|");
+    const cachedPayload = readResponseCache(cacheKey, VENDORS_CACHE_TTL_MS);
+
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload);
+    }
 
     let query = supabase
       .from("vendors")
-      .select("*", { count: "exact" });
+      .select("*");
 
     if (!includeAll) {
       query = query.eq("is_active", true);
@@ -919,8 +949,7 @@ app.get("/vendors", async (req, res) => {
 
       const pagedData = filtered.slice(offset, offset + limit);
       const total = filtered.length;
-
-      return res.status(200).json({
+      const payload = {
         data: pagedData,
         pagination: {
           limit,
@@ -928,9 +957,14 @@ app.get("/vendors", async (req, res) => {
           total,
           hasMore: offset + limit < total
         }
-      });
+      };
+
+      writeResponseCache(cacheKey, payload);
+
+      return res.status(200).json(payload);
     }
 
+    query = query.select("*", { count: "planned" });
     let queryResult = await query.range(offset, offset + limit - 1);
     let { data, error, count } = queryResult;
 
@@ -938,7 +972,7 @@ app.get("/vendors", async (req, res) => {
       // Backward-compatible fallback in case approval_status column is not added yet.
       const fallback = await supabase
         .from("vendors")
-        .select("*", { count: "exact" })
+        .select("*", { count: "planned" })
         .eq("is_active", true)
         .range(offset, offset + limit - 1);
 
@@ -953,7 +987,7 @@ app.get("/vendors", async (req, res) => {
 
     if (!includeAll) {
       const filtered = (data || []).filter((vendor) => isVendorApproved(vendor));
-      return res.status(200).json({
+      const payload = {
         data: filtered,
         pagination: {
           limit,
@@ -961,10 +995,13 @@ app.get("/vendors", async (req, res) => {
           total: count,
           hasMore: offset + limit < count
         }
-      });
+      };
+
+      writeResponseCache(cacheKey, payload);
+      return res.status(200).json(payload);
     }
 
-    return res.status(200).json({
+    const payload = {
       data,
       pagination: {
         limit,
@@ -972,7 +1009,10 @@ app.get("/vendors", async (req, res) => {
         total: count,
         hasMore: offset + limit < count
       }
-    });
+    };
+
+    writeResponseCache(cacheKey, payload);
+    return res.status(200).json(payload);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -1088,10 +1128,16 @@ app.get("/services", async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+    const cacheKey = ["services", limit, offset].join("|");
+    const cachedPayload = readResponseCache(cacheKey, SERVICES_CACHE_TTL_MS);
+
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload);
+    }
 
     const { data, error, count } = await supabase
       .from("services")
-      .select("*", { count: "exact" })
+      .select("*", { count: "planned" })
       .eq("is_active", true)
       .order("name", { ascending: true })
       .range(offset, offset + limit - 1);
@@ -1101,7 +1147,7 @@ app.get("/services", async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
-    return res.status(200).json({
+    const payload = {
       data,
       pagination: {
         limit,
@@ -1109,7 +1155,10 @@ app.get("/services", async (req, res) => {
         total: count,
         hasMore: offset + limit < count
       }
-    });
+    };
+
+    writeResponseCache(cacheKey, payload);
+    return res.status(200).json(payload);
   } catch (err) {
     console.error("Server Crash:", err);
     return res.status(500).json({ error: err.message });
