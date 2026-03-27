@@ -12,6 +12,16 @@ import {
   setDefaultAddress,
   type SavedAddress,
 } from "@/lib/address-book";
+import { readUserLocation } from "@/lib/location";
+import { apiUrl } from "@/lib/env";
+
+type UserBooking = {
+  id: string | number;
+  status?: "pending" | "assigned" | "completed";
+  created_at?: string;
+  total_amount?: number;
+  services?: { name?: string };
+};
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -19,10 +29,22 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [isVendor, setIsVendor] = useState(false);
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
-  const [addressLabel, setAddressLabel] = useState("");
-  const [addressCity, setAddressCity] = useState("");
-  const [addressLine, setAddressLine] = useState("");
-  const [addressPhone, setAddressPhone] = useState("");
+  
+  // Edit profile modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  
+  // Location selector modal state
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [locationSearch, setLocationSearch] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState("");
+  
+  // Bookings stat
+  const [bookingStats, setBookingStats] = useState({ total: 0, confirmed: 0, pending: 0, totalSpent: 0 });
+  const [recentBookings, setRecentBookings] = useState<UserBooking[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -39,10 +61,41 @@ export default function ProfilePage() {
 
       const vendorAccount = await isVendorUser(currentUser.id);
 
+      // Load bookings stats
+      try {
+        const response = await fetch(`${apiUrl}/customer-bookings`, {
+          headers: {
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+        });
+        const bookings: UserBooking[] = await response.json();
+        
+        const stats = {
+          total: bookings.length,
+          confirmed: bookings.filter(b => b.status === "completed").length,
+          pending: bookings.filter(b => b.status === "pending" || b.status === "assigned").length,
+          totalSpent: bookings.reduce((sum, b) => sum + (b.total_amount || 0), 0),
+        };
+        
+        if (isMounted) {
+          setBookingStats(stats);
+          setRecentBookings(bookings.slice(0, 3));
+        }
+      } catch (err) {
+        console.error("Failed to load bookings:", err);
+      }
+
       if (isMounted) {
         setUser(currentUser);
+        setEditName(currentUser.user_metadata?.name || "");
+        setEditEmail(currentUser.email || "");
+        setEditPhone(currentUser.user_metadata?.phone || "");
+        setEditAddress(currentUser.user_metadata?.address || "");
         setIsVendor(vendorAccount);
         setLoading(false);
+        
+        const loc = readUserLocation();
+        setSelectedLocation(loc?.city || "");
       }
     };
 
@@ -64,268 +117,345 @@ export default function ProfilePage() {
     setAddresses(readAddressBook());
   }, []);
 
-  const addAddress = () => {
-    if (!addressLabel.trim() || !addressCity.trim() || !addressLine.trim() || !addressPhone.trim()) {
-      return;
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          name: editName,
+          phone: editPhone,
+          address: editAddress,
+        },
+      });
+      
+      setUser({ ...user, user_metadata: { ...user.user_metadata, name: editName, phone: editPhone, address: editAddress } });
+      setEditModalOpen(false);
+    } catch (err) {
+      console.error("Failed to save profile:", err);
     }
+  };
 
-    const updated = saveAddress({
-      label: addressLabel,
-      city: addressCity,
-      addressLine,
-      phone: addressPhone,
-      isDefault: addresses.length === 0,
-    });
-
-    setAddresses(updated);
-    setAddressLabel("");
-    setAddressCity("");
-    setAddressLine("");
-    setAddressPhone("");
+  const handleUseCurrentLocation = () => {
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await response.json();
+          setSelectedLocation(data.address?.city || data.address?.town || "");
+          setLocationSearch("");
+        } catch (err) {
+          console.error("Failed to get location:", err);
+        }
+      },
+      (err) => {
+        console.error("Geolocation error:", err);
+        alert("Unable to access your location. Please enable location permissions.");
+      }
+    );
   };
 
   if (loading) {
     return (
-      <main className="landing theme-centered-status">
-        <p>Loading profile...</p>
+      <main className="servicego-app-root" style={{ minHeight: "100vh", padding: "6rem 1rem 3rem" }}>
+        <div style={{ maxWidth: "1200px", margin: "0 auto", textAlign: "center" }}>
+          <p>Loading profile...</p>
+        </div>
       </main>
     );
   }
 
+  const userInitial = user?.email?.charAt(0).toUpperCase() || "?";
+
   return (
-    <main
-      className="landing"
-      style={{
-        minHeight: "100vh",
-        padding: "6rem 1rem 3rem",
-        background:
-          "radial-gradient(circle at 88% 10%, rgba(122,106,0,0.13), transparent 35%), radial-gradient(circle at 12% 14%, rgba(30,144,255,0.1), transparent 36%), var(--off-white)",
-      }}
-    >
-      <div className="container" style={{ maxWidth: "760px" }}>
-        <button
-          type="button"
-          onClick={() => router.push("/")}
-          style={{
-            border: "none",
-            background: "transparent",
-            color: "var(--gray-500)",
-            fontSize: "0.9rem",
-            padding: 0,
-            marginBottom: "1rem",
-            cursor: "pointer",
-          }}
-        >
-          {"<- Back to Home"}
-        </button>
-
-        <section
-          style={{
-            background: "var(--white)",
-            border: "1px solid var(--gray-200)",
-            borderRadius: "18px",
-            boxShadow: "var(--shadow-lg)",
-            padding: "1.4rem",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.2rem" }}>
-            <div
-              style={{
-                width: "60px",
-                height: "60px",
-                borderRadius: "50%",
-                display: "grid",
-                placeItems: "center",
-                background: "linear-gradient(135deg, rgba(122,106,0,0.16), rgba(166,138,0,0.26))",
-                color: "var(--gold)",
-                fontSize: "1.45rem",
-                fontWeight: 800,
-              }}
-            >
-              {username.charAt(0).toUpperCase()}
-            </div>
-
-            <div>
-              <h1 style={{ margin: 0, color: "var(--gray-800)", fontFamily: "var(--font-display)", fontSize: "1.85rem" }}>
-                My Profile
-              </h1>
-              <p style={{ marginTop: "0.35rem", color: "var(--gray-500)", fontSize: "0.95rem" }}>
-                View your account details and quick actions.
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gap: "0.7rem" }}>
-            <ProfileRow label="Username" value={username} />
-            <ProfileRow label="Email" value={user?.email || "-"} />
-            <ProfileRow label="Account Type" value={isVendor ? "Vendor" : "Customer"} />
-            <ProfileRow label="User ID" value={user?.id || "-"} />
-            <ProfileRow label="Created At" value={user?.created_at ? new Date(user.created_at).toLocaleString() : "-"} />
-          </div>
-
-          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginTop: "1.2rem" }}>
-            <button
-              type="button"
-              className="btn-book"
-              onClick={() => router.push(isVendor ? "/vendor/dashboard" : "/bookings")}
-            >
-              {isVendor ? "Open Dashboard" : "My Bookings"}
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                await supabase.auth.signOut();
-                router.replace("/");
-              }}
-              className="profile-secondary-btn"
-              style={{
-                borderRadius: "999px",
-                border: "1px solid var(--gray-300)",
-                background: "var(--white)",
-                color: "var(--gray-700)",
-                fontWeight: 600,
-                padding: "0.72rem 1.1rem",
-                cursor: "pointer",
-              }}
-            >
-              Logout
-            </button>
-          </div>
-
-          <div style={{ marginTop: "1.4rem", paddingTop: "1.1rem", borderTop: "1px solid var(--gray-200)" }}>
-            <h2 style={{ margin: 0, color: "var(--gray-800)", fontSize: "1.2rem" }}>Address Book</h2>
-            <p style={{ marginTop: "0.3rem", color: "var(--gray-500)", fontSize: "0.9rem" }}>
-              Saved addresses are used during checkout and can be changed on payment page.
-            </p>
-
-            <div style={{ display: "grid", gap: "0.65rem", marginTop: "0.8rem" }}>
-              <input
-                value={addressLabel}
-                onChange={(event) => setAddressLabel(event.target.value)}
-                placeholder="Label (Home, Office)"
-                style={{ borderRadius: "10px", border: "1px solid var(--gray-300)", padding: "0.72rem 0.85rem" }}
-              />
-              <input
-                value={addressCity}
-                onChange={(event) => setAddressCity(event.target.value)}
-                placeholder="City"
-                style={{ borderRadius: "10px", border: "1px solid var(--gray-300)", padding: "0.72rem 0.85rem" }}
-              />
-              <textarea
-                rows={3}
-                value={addressLine}
-                onChange={(event) => setAddressLine(event.target.value)}
-                placeholder="Full address"
-                style={{ borderRadius: "10px", border: "1px solid var(--gray-300)", padding: "0.72rem 0.85rem", resize: "vertical" }}
-              />
-              <input
-                value={addressPhone}
-                onChange={(event) => setAddressPhone(event.target.value)}
-                placeholder="Phone number"
-                style={{ borderRadius: "10px", border: "1px solid var(--gray-300)", padding: "0.72rem 0.85rem" }}
-              />
+    <>
+      <main className="servicego-app-root" style={{ minHeight: "100vh", padding: "6rem 1rem 3rem" }}>
+        <div className="container" style={{ maxWidth: "1200px", margin: "0 auto" }}>
+          {/* PROFILE CARD SECTION */}
+          <div className="profile-card-container">
+            <div className="profile-card">
+              <div className="profile-avatar-section">
+                <div className="profile-avatar">{userInitial}</div>
+              </div>
+              
+              <div className="profile-info-section">
+                <h1 className="profile-name">{editName || user?.email?.split("@")[0] || "User"}</h1>
+                <p className="profile-email">{user?.email || "-"}</p>
+                <p className="profile-meta">Not provided</p>
+              </div>
+              
               <button
                 type="button"
-                onClick={addAddress}
-                className="btn-book"
-                style={{
-                  width: "fit-content",
-                  padding: "0.62rem 1.08rem",
-                  cursor: "pointer",
-                }}
+                onClick={() => setEditModalOpen(true)}
+                className="profile-edit-btn"
               >
-                Save Address
+                Edit Profile
               </button>
             </div>
 
-            <div style={{ marginTop: "1rem", display: "grid", gap: "0.7rem" }}>
-              {addresses.length === 0 ? (
-                <p style={{ color: "var(--gray-500)", margin: 0 }}>No saved addresses yet.</p>
+            {/* STATS GRID */}
+            <div className="profile-stats-grid">
+              <div className="profile-stat-item">
+                <div className="stat-value">{bookingStats.total}</div>
+                <div className="stat-label">Total Bookings</div>
+              </div>
+              <div className="profile-stat-item">
+                <div className="stat-value">{bookingStats.confirmed}</div>
+                <div className="stat-label">Confirmed</div>
+              </div>
+              <div className="profile-stat-item">
+                <div className="stat-value">{bookingStats.pending}</div>
+                <div className="stat-label">Pending</div>
+              </div>
+            </div>
+          </div>
+
+          {/* SECONDARY SECTION */}
+          <div className="profile-secondary-container">
+            <div className="profile-total-spent">
+              <div className="stat-label">Total Spent</div>
+              <div className="stat-value">Rs. {bookingStats.totalSpent.toFixed(2)}</div>
+            </div>
+
+            {/* RECENT BOOKINGS */}
+            <div className="profile-section-block">
+              <div className="section-header">
+                <h2 className="section-title">RECENT BOOKINGS</h2>
+                <button
+                  type="button"
+                  onClick={() => router.push("/bookings")}
+                  className="section-view-all"
+                >
+                  View All
+                </button>
+              </div>
+              
+              {recentBookings.length === 0 ? (
+                <p className="empty-state">No bookings yet. Start booking services to see them here!</p>
               ) : (
-                addresses.map((address) => (
-                  <article
-                    key={address.id}
-                    style={{
-                      border: "1px solid var(--gray-200)",
-                      borderRadius: "12px",
-                      background: "var(--gray-50)",
-                      padding: "0.82rem 0.9rem",
-                      display: "grid",
-                      gap: "0.4rem",
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: "0.7rem", alignItems: "center", flexWrap: "wrap" }}>
-                      <strong style={{ color: "var(--gray-800)" }}>
-                        {address.label} {address.isDefault ? "(Default)" : ""}
-                      </strong>
-                      <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
-                        {!address.isDefault ? (
-                          <button
-                            type="button"
-                            onClick={() => setAddresses(setDefaultAddress(address.id))}
-                            style={{
-                              borderRadius: "999px",
-                              border: "1px solid var(--gray-300)",
-                              background: "var(--white)",
-                              color: "var(--gray-700)",
-                              padding: "0.42rem 0.72rem",
-                              fontSize: "0.78rem",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Set Default
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() => setAddresses(removeAddress(address.id))}
-                          style={{
-                            borderRadius: "999px",
-                            border: "1px solid #ef4444",
-                            background: "#fff",
-                            color: "#b42318",
-                            padding: "0.42rem 0.72rem",
-                            fontSize: "0.78rem",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Remove
-                        </button>
+                <div className="bookings-list">
+                  {recentBookings.map((booking) => (
+                    <div key={booking.id} className="booking-item">
+                      <div className="booking-service">{booking.services?.name || "Service"}</div>
+                      <div className="booking-date">{new Date(booking.created_at || "").toLocaleDateString()}</div>
+                      <div className={`booking-status booking-status-${booking.status || "pending"}`}>
+                        {booking.status ? booking.status.charAt(0).toUpperCase() + booking.status.slice(1) : "Pending"}
                       </div>
                     </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-                    <p style={{ margin: 0, color: "var(--gray-600)", fontSize: "0.88rem" }}>{address.city}</p>
-                    <p style={{ margin: 0, color: "var(--gray-700)", fontSize: "0.9rem" }}>{address.addressLine}</p>
-                    <p style={{ margin: 0, color: "var(--gray-700)", fontSize: "0.88rem" }}>
-                      Phone: {address.phone || "Not set"}
-                    </p>
-                  </article>
-                ))
+            {/* ACCOUNT ACTIONS */}
+            <div className="profile-section-block">
+              <h2 className="section-title">ACCOUNT ACTIONS</h2>
+              <div className="account-actions-list">
+                <button
+                  type="button"
+                  onClick={() => router.push("/bookings")}
+                  className="action-item"
+                >
+                  <span>View All Bookings</span>
+                  <span className="action-arrow">→</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLocationModalOpen(true)}
+                  className="action-item"
+                >
+                  <span>Select Location</span>
+                  <span className="action-arrow">→</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    router.replace("/");
+                  }}
+                  className="action-item action-logout"
+                >
+                  <span>Logout</span>
+                  <span className="action-arrow">→</span>
+                </button>
+              </div>
+            </div>
+
+            {/* ADDRESS BOOK */}
+            <div className="profile-section-block">
+              <h2 className="section-title">ADDRESS BOOK</h2>
+              {addresses.length === 0 ? (
+                <p className="empty-state">No saved addresses yet.</p>
+              ) : (
+                <div className="addresses-list">
+                  {addresses.map((address) => (
+                    <div key={address.id} className="address-item">
+                      <div className="address-header">
+                        <div className="address-label">{address.label}</div>
+                        {address.isDefault && <span className="address-default-badge">Default</span>}
+                      </div>
+                      <div className="address-city">{address.city}</div>
+                      <div className="address-line">{address.addressLine}</div>
+                      <div className="address-phone">Phone: {address.phone || "Not set"}</div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
-        </section>
-      </div>
-    </main>
-  );
-}
+        </div>
+      </main>
 
-function ProfileRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      className="profile-row"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "180px 1fr",
-        gap: "0.8rem",
-        background: "var(--gray-50)",
-        border: "1px solid var(--gray-200)",
-        borderRadius: "12px",
-        padding: "0.78rem 0.9rem",
-      }}
-    >
-      <strong style={{ color: "var(--gray-600)", fontSize: "0.88rem" }}>{label}</strong>
-      <span style={{ color: "var(--gray-800)", fontSize: "0.92rem", wordBreak: "break-word" }}>{value}</span>
-    </div>
+      {/* EDIT PROFILE MODAL */}
+      {editModalOpen && (
+        <div className="profile-modal-overlay" onClick={() => setEditModalOpen(false)}>
+          <div className="profile-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>EDIT PROFILE</h2>
+              <button
+                type="button"
+                onClick={() => setEditModalOpen(false)}
+                className="modal-close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-avatar-section">
+              <div className="modal-avatar">{userInitial}</div>
+            </div>
+
+            <div className="modal-form">
+              <div className="form-group">
+                <label>Name</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Your name"
+                  className="form-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Email</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="Your email"
+                  className="form-input"
+                  disabled
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Phone Number</label>
+                <input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="Your phone"
+                  className="form-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Address</label>
+                <textarea
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  placeholder="Your address"
+                  className="form-textarea"
+                  rows={3}
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  className="btn-cancel"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveProfile}
+                  className="btn-save"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LOCATION SELECTOR MODAL */}
+      {locationModalOpen && (
+        <div className="profile-modal-overlay" onClick={() => setLocationModalOpen(false)}>
+          <div className="profile-modal location-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>SELECT YOUR LOCATION</h2>
+              <button
+                type="button"
+                onClick={() => setLocationModalOpen(false)}
+                className="modal-close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="location-form">
+              <div className="location-search-group">
+                <input
+                  type="text"
+                  value={locationSearch}
+                  onChange={(e) => setLocationSearch(e.target.value)}
+                  placeholder="Search for your location..."
+                  className="location-input"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleUseCurrentLocation}
+                className="use-current-location-btn"
+              >
+                <span className="location-icon">📍</span>
+                Use current location
+              </button>
+
+              {selectedLocation && (
+                <div className="selected-location-display">
+                  <strong>Selected:</strong> {selectedLocation}
+                </div>
+              )}
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => setLocationModalOpen(false)}
+                  className="btn-cancel"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLocationModalOpen(false)}
+                  className="btn-save"
+                >
+                  Confirm Location
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
