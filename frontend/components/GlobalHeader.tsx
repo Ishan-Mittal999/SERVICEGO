@@ -105,6 +105,7 @@ export default function GlobalHeader() {
         <nav className="global-nav" aria-label="Primary navigation">
           <button type="button" onClick={() => openSection("services")}>Services</button>
           <button type="button" onClick={() => openSection("how")}>How It Works</button>
+          <button type="button" onClick={() => router.push("/profile")}>Profile</button>
           <button type="button" onClick={() => router.push("/bookings")}>My Bookings</button>
         </nav>
 
@@ -164,6 +165,7 @@ export default function GlobalHeader() {
                 <nav className="global-mobile-menu-links" aria-label="Mobile menu">
                   <button type="button" onClick={() => openSection("services")}>Services</button>
                   <button type="button" onClick={() => openSection("how")}>How It Works</button>
+                  <button type="button" onClick={() => router.push("/profile")}>Profile</button>
                   <button type="button" onClick={() => router.push("/bookings")}>My Bookings</button>
                   <button type="button" onClick={() => router.push("/faqs")}>FAQs</button>
                   <button type="button" onClick={() => router.push("/privacy")}>Privacy Policy</button>
