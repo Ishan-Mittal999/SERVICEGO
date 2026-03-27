@@ -1,8 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
 import { mergeBookingDraft } from "@/lib/booking-flow";
@@ -22,6 +20,12 @@ type Vendor = {
   sub_services?: unknown;
 };
 
+type SubserviceCard = {
+  id: string;
+  name: string;
+  description: string;
+};
+
 const PREDEFINED_SUBSERVICE_MAP: Record<string, string[]> = {
   ac: ["Foam jet service", "AC checkup", "AC installation", "AC uninstallation"],
   washing_machine: ["Semi automatic machine repair", "Automatic top load repair", "Automatic front load repair"],
@@ -33,6 +37,8 @@ const PREDEFINED_SUBSERVICE_MAP: Record<string, string[]> = {
   heater: [],
   cooler: [],
 };
+
+const normalizeSubserviceText = (value: string) => value.trim().toLowerCase();
 
 const getServiceKey = (serviceName: string) => {
   const normalized = normalizeSubserviceText(serviceName);
@@ -46,36 +52,46 @@ const getServiceKey = (serviceName: string) => {
   if (normalized.includes("microwave")) return "microwave";
   if (normalized.includes("heater")) return "heater";
   if (normalized.includes("cooler")) return "cooler";
-  if (normalized.includes("cooler")) return "cooler";
 
   return normalized.replace(/\s+/g, "_");
 };
 
-const normalizeSubserviceText = (value: string) => value.trim().toLowerCase();
-
-const vendorHasService = (vendor: Vendor, service: Service | null) => {
-  if (!service) {
-    return true;
+const getSubserviceScore = (service: Service, query: string) => {
+  if (!query) {
+    return 0;
   }
 
-  const targetServiceId = String(service.id);
-  const targetServiceName = normalizeSubserviceText(service.name || "");
+  const name = normalizeSubserviceText(service.name || "");
+  const description = normalizeSubserviceText(service.description || "");
+  const combined = `${name} ${description}`;
 
-  if (String(vendor.service_id || "") === targetServiceId) {
-    return true;
+  let score = 0;
+  if (name === query) score += 100;
+  if (name.startsWith(query)) score += 70;
+  if (name.includes(query)) score += 50;
+  if (description.includes(query)) score += 20;
+  if (query.split(/\s+/).every((word) => combined.includes(word))) score += 15;
+
+  return score;
+};
+
+const getDemandScore = (value: string) => {
+  let score = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    score += value.charCodeAt(index);
   }
+  return score % 100;
+};
 
-  const vendorServiceIds = parseVendorListField((vendor as Record<string, unknown>).service_ids);
-  if (vendorServiceIds.some((id) => String(id) === targetServiceId)) {
-    return true;
-  }
+const getSubserviceVisual = (itemId: string) => {
+  const palette = [
+    "linear-gradient(135deg, #f43f5e 0%, #ef4444 40%, #dc2626 100%)",
+    "linear-gradient(135deg, #1d4ed8 0%, #06b6d4 48%, #0e7490 100%)",
+    "linear-gradient(135deg, #16a34a 0%, #22c55e 45%, #15803d 100%)",
+    "linear-gradient(135deg, #f97316 0%, #f59e0b 42%, #d97706 100%)",
+  ];
 
-  const vendorServiceNames = parseVendorListField((vendor as Record<string, unknown>).selected_service_names);
-  if (vendorServiceNames.some((name) => normalizeSubserviceText(name) === targetServiceName)) {
-    return true;
-  }
-
-  return false;
+  return palette[getDemandScore(itemId) % palette.length];
 };
 
 const parseVendorListField = (value: unknown): string[] => {
@@ -106,9 +122,6 @@ const parseVendorListField = (value: unknown): string[] => {
 
     try {
       const parsed = JSON.parse(normalized);
-      if (parsed == null) {
-        return [];
-      }
       if (Array.isArray(parsed)) {
         return parsed
           .map((item) => normalizeEntry(String(item || "")))
@@ -142,9 +155,6 @@ const parseServiceSubservices = (value: unknown): string[] => {
 
     try {
       const parsed = JSON.parse(normalized);
-      if (parsed == null) {
-        return [];
-      }
       if (Array.isArray(parsed)) {
         return parsed
           .map((item) => String(item || "").trim())
@@ -163,23 +173,29 @@ const parseServiceSubservices = (value: unknown): string[] => {
   return [];
 };
 
-const getSubserviceScore = (service: Service, query: string) => {
-  if (!query) {
-    return 0;
+const vendorHasService = (vendor: Vendor, service: Service | null) => {
+  if (!service) {
+    return true;
   }
 
-  const name = normalizeSubserviceText(service.name || "");
-  const description = normalizeSubserviceText(service.description || "");
-  const combined = `${name} ${description}`;
+  const targetServiceId = String(service.id);
+  const targetServiceName = normalizeSubserviceText(service.name || "");
 
-  let score = 0;
-  if (name === query) score += 100;
-  if (name.startsWith(query)) score += 70;
-  if (name.includes(query)) score += 50;
-  if (description.includes(query)) score += 20;
-  if (query.split(/\s+/).every((word) => combined.includes(word))) score += 15;
+  if (String(vendor.service_id || "") === targetServiceId) {
+    return true;
+  }
 
-  return score;
+  const vendorServiceIds = parseVendorListField((vendor as Record<string, unknown>).service_ids);
+  if (vendorServiceIds.some((id) => String(id) === targetServiceId)) {
+    return true;
+  }
+
+  const vendorServiceNames = parseVendorListField((vendor as Record<string, unknown>).selected_service_names);
+  if (vendorServiceNames.some((name) => normalizeSubserviceText(name) === targetServiceName)) {
+    return true;
+  }
+
+  return false;
 };
 
 const findBestServiceForQuery = (serviceList: Service[], query: string) => {
@@ -188,7 +204,6 @@ const findBestServiceForQuery = (serviceList: Service[], query: string) => {
   }
 
   const queryKey = getServiceKey(query);
-
   const exactKeyMatch = serviceList.find((service) => getServiceKey(service.name || "") === queryKey);
   if (exactKeyMatch) {
     return exactKeyMatch;
@@ -204,6 +219,14 @@ const findBestServiceForQuery = (serviceList: Service[], query: string) => {
   return best && best.score >= 50 ? best.service : null;
 };
 
+const getSubserviceDescription = (name: string) => {
+  const normalized = normalizeSubserviceText(name);
+  if (normalized.includes("install")) return "Ideal for safe installation with complete setup checks.";
+  if (normalized.includes("uninstall")) return "Best for clean removal and site-safe disconnection.";
+  if (normalized.includes("repair") || normalized.includes("check")) return "Covers diagnosis and reliable issue resolution.";
+  return "Trusted option for quick and reliable doorstep support.";
+};
+
 function SubservicesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -212,14 +235,12 @@ function SubservicesPageContent() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [hasAutoRedirected, setHasAutoRedirected] = useState(false);
+  const [menuQuery, setMenuQuery] = useState("");
+  const [recommendedOnly, setRecommendedOnly] = useState(false);
+  const [highDemandOnly, setHighDemandOnly] = useState(false);
 
   const serviceId = searchParams.get("serviceId") || "";
   const serviceQuery = normalizeSubserviceText(searchParams.get("serviceQuery") || "");
-
-  useEffect(() => {
-    setHasAutoRedirected(false);
-  }, [serviceId, serviceQuery]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -230,23 +251,19 @@ function SubservicesPageContent() {
           const serviceResponse = await fetch(apiUrl(`/services/${encodeURIComponent(serviceId)}`), {
             cache: "force-cache",
           });
-
           if (!serviceResponse.ok) {
             throw new Error(`Service API failed with ${serviceResponse.status}`);
           }
 
           const serviceDataRaw = await serviceResponse.json();
           const serviceData = serviceDataRaw.data || null;
-
           const vendorsResponse = await fetch(
             apiUrl(
               `/vendors?serviceId=${encodeURIComponent(serviceId)}&serviceName=${encodeURIComponent(
                 serviceData?.name || ""
               )}&limit=100`
             ),
-            {
-              cache: "force-cache",
-            }
+            { cache: "force-cache" }
           );
 
           if (!vendorsResponse.ok) {
@@ -263,7 +280,6 @@ function SubservicesPageContent() {
         }
 
         const servicesResponse = await fetch(apiUrl("/services?limit=100"), { cache: "force-cache" });
-
         if (!servicesResponse.ok) {
           throw new Error(`Services API failed with ${servicesResponse.status}`);
         }
@@ -327,18 +343,13 @@ function SubservicesPageContent() {
     }
 
     const serviceDefinedSubservices = parseServiceSubservices(selectedService.sub_services);
-    const hasServiceDefinedSubservices =
-      (selectedService as Record<string, unknown>).sub_services !== undefined;
-
+    const hasServiceDefinedSubservices = (selectedService as Record<string, unknown>).sub_services !== undefined;
     if (hasServiceDefinedSubservices) {
       return serviceDefinedSubservices;
     }
 
-    const serviceKey = getServiceKey(selectedService.name || "");
-    const predefined = PREDEFINED_SUBSERVICE_MAP[serviceKey] || [];
-
+    const predefined = PREDEFINED_SUBSERVICE_MAP[getServiceKey(selectedService.name || "")] || [];
     const relatedVendors = vendors.filter((vendor) => vendorHasService(vendor, selectedService));
-
     const seen = new Set<string>();
     const options: string[] = [...predefined];
     predefined.forEach((item) => seen.add(normalizeSubserviceText(item)));
@@ -349,7 +360,6 @@ function SubservicesPageContent() {
         if (!normalized || seen.has(normalized)) {
           return;
         }
-
         seen.add(normalized);
         options.push(item);
       });
@@ -358,33 +368,26 @@ function SubservicesPageContent() {
     return options;
   }, [vendors, selectedService]);
 
-  useEffect(() => {
-    if (!selectedService || loading || hasAutoRedirected) {
-      return;
-    }
+  const subserviceCards = useMemo<SubserviceCard[]>(
+    () => subserviceOptions.map((name, index) => ({
+      id: `${normalizeSubserviceText(name).replace(/\s+/g, "-")}-${index}`,
+      name,
+      description: getSubserviceDescription(name),
+    })),
+    [subserviceOptions]
+  );
 
-    const serviceKey = getServiceKey(selectedService.name || "");
-    const predefined = PREDEFINED_SUBSERVICE_MAP[serviceKey];
-    const hasServiceDefinedSubservices =
-      (selectedService as Record<string, unknown>).sub_services !== undefined;
+  const visibleSubservices = useMemo(() => {
+    const normalizedQuery = normalizeSubserviceText(menuQuery);
 
-    if (hasServiceDefinedSubservices && subserviceOptions.length === 0) {
-      setHasAutoRedirected(true);
-      continueWithoutSubservice();
-      return;
-    }
-
-    if (predefined && predefined.length === 0) {
-      setHasAutoRedirected(true);
-      continueWithoutSubservice();
-      return;
-    }
-
-    if (!hasServiceDefinedSubservices && subserviceOptions.length === 0) {
-      setHasAutoRedirected(true);
-      continueWithoutSubservice();
-    }
-  }, [selectedService, loading, hasAutoRedirected, subserviceOptions]);
+    return subserviceCards.filter((item, index) => {
+      const matchesQuery = !normalizedQuery
+        || `${item.name} ${item.description}`.toLowerCase().includes(normalizedQuery);
+      const matchesRecommended = !recommendedOnly || index < 3;
+      const matchesHighDemand = !highDemandOnly || getDemandScore(item.id) >= 55;
+      return matchesQuery && matchesRecommended && matchesHighDemand;
+    });
+  }, [highDemandOnly, menuQuery, recommendedOnly, subserviceCards]);
 
   const openShopsForSubservice = (subService: string) => {
     if (!selectedService) {
@@ -410,7 +413,6 @@ function SubservicesPageContent() {
         serviceName: selectedService.name,
         serviceDescription: selectedService.description,
       });
-
       router.push(`/shops?serviceId=${encodeURIComponent(String(selectedService.id))}`);
       return;
     }
@@ -424,80 +426,127 @@ function SubservicesPageContent() {
   };
 
   return (
-    <main
-      className="landing mobile-page-shell shops-mobile-shell"
-      style={{
-        minHeight: "100vh",
-        padding: "0.75rem 0 2rem",
-        background:
-          "radial-gradient(circle at 85% 10%, rgba(122,106,0,0.12), transparent 36%), radial-gradient(circle at 15% 14%, rgba(30,144,255,0.1), transparent 35%), var(--off-white)",
-      }}
-    >
-      <div className="container" style={{ maxWidth: "100%", padding: "0 clamp(0.35rem, 2vw, 0.75rem)" }}>
-        <section className="shop-preorder-hero">
-          <div className="shop-preorder-topbar">
-            <Link href="/" className="shop-preorder-brand" aria-label="Go to homepage">
-              <Image src="/icon.webp" alt="ServiceGo" width={34} height={34} className="shop-preorder-logo" />
-              <div>
-                <strong>Service<span>Go</span></strong>
-                <p>Choose sub-service first</p>
-              </div>
-            </Link>
-            <div className="shop-preorder-actions">
-              <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/checkout")} aria-label="Cart">🛒</button>
-              <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/bookings")} aria-label="Recent orders">🕒</button>
-              <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/profile")} aria-label="Profile">👤</button>
-            </div>
+    <main className="landing mobile-page-shell service-menu-shell">
+      <div className="container service-menu-wrap" style={{ maxWidth: "980px" }}>
+        <header className="service-menu-header">
+          <button type="button" className="service-menu-back" onClick={() => router.back()} aria-label="Back">
+            ←
+          </button>
+
+          <div className="service-menu-search-wrap">
+            <input
+              value={menuQuery}
+              onChange={(event) => setMenuQuery(event.target.value)}
+              placeholder={`Search in ${(selectedService?.name || "service").toLowerCase()} plans`}
+              aria-label="Search subservices"
+            />
           </div>
 
-          <div className="shop-preorder-category">
-            <span>🧰 {selectedService ? `Sub-services for ${selectedService.name}` : "Choose a sub-service"}</span>
-          </div>
+          <button type="button" className="service-menu-kebab" aria-label="More options">⋮</button>
+        </header>
 
+        <section className="service-menu-meta">
+          <h1>{selectedService ? `${selectedService.name} service plans` : "Service plans"}</h1>
+          <p>Choose a plan first, then we will show matching service partners near you.</p>
+
+          <div className="service-menu-cart-row">
+            <button type="button" className="service-menu-cart-btn" onClick={continueWithoutSubservice}>Continue</button>
+            <span>{visibleSubservices.length} options</span>
+          </div>
         </section>
-        {errorMessage ? (
-          <>
-            <Image src="/hero-bg.webp" alt="Hero Background" width={800} height={400} style={{ width: "100%", height: "auto" }} />
-            <p style={{ color: "#b42318", marginTop: "0.9rem" }}>{errorMessage}</p>
-          </>
-        ) : null}
 
-        {loading ? (
-          <p style={{ marginTop: "1rem", color: "var(--gray-500)" }}>Loading sub-services...</p>
-        ) : (
-          <section style={{ marginTop: "1rem", display: "grid", gap: "0.75rem" }}>
-            {subserviceOptions.length > 0 ? (
-              <div className="subservice-grid">
-                {subserviceOptions.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    className="subservice-chip subservice-card"
-                    onClick={() => openShopsForSubservice(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div
-                style={{
-                  background: "var(--white)",
-                  border: "1px solid var(--gray-200)",
-                  borderRadius: "14px",
-                  padding: "1rem",
-                  color: "var(--gray-600)",
-                }}
-              >
-                No sub-services configured for this category yet. You can continue to view shops.
-              </div>
-            )}
+        <section className="service-offer-strip" aria-label="Service offer">
+          <span className="service-offer-chip">Offers</span>
+          <span>Save up to 20% on bundled service plans</span>
+          <button
+            type="button"
+            onClick={() => {
+              setRecommendedOnly(false);
+              setHighDemandOnly(false);
+            }}
+          >
+            Reset
+          </button>
+        </section>
 
-            <button type="button" className="subservice-continue" onClick={continueWithoutSubservice}>
-              Continue to shops
-            </button>
-          </section>
-        )}
+        <section className="service-filter-row" aria-label="Service filters">
+          <button
+            type="button"
+            className={`service-filter-chip ${recommendedOnly ? "active" : ""}`}
+            onClick={() => setRecommendedOnly((current) => !current)}
+          >
+            Recommended plans
+          </button>
+
+          <button
+            type="button"
+            className={`service-filter-chip ${highDemandOnly ? "active" : ""}`}
+            onClick={() => setHighDemandOnly((current) => !current)}
+          >
+            Highly rebooked
+          </button>
+
+          <button type="button" className="service-filter-chip" onClick={continueWithoutSubservice}>
+            Skip and view shops
+          </button>
+        </section>
+
+        {errorMessage ? <p className="checkout-error-text">{errorMessage}</p> : null}
+
+        <section className="service-menu-section">
+          {loading ? <p style={{ color: "var(--gray-500)" }}>Loading service options...</p> : null}
+
+          {!loading && visibleSubservices.length > 0 ? (
+            <>
+              <h2 className="service-menu-section-title">Best Service Plans</h2>
+              {visibleSubservices.map((item) => (
+                <article
+                  className="service-item-card"
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openShopsForSubservice(item.name)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openShopsForSubservice(item.name);
+                    }
+                  }}
+                >
+                  <div className="service-item-content">
+                    <span className="service-item-badge">Verified</span>
+                    <h3>{item.name}</h3>
+                    <p>{item.description}</p>
+                    <div className="service-item-note">Ideal for quick and reliable fixes.</div>
+                  </div>
+
+                  <div className="service-item-visual-wrap">
+                    <div className="service-item-visual" style={{ background: getSubserviceVisual(item.id) }}>
+                      <span>Service plan</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="service-item-add-btn"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openShopsForSubservice(item.name);
+                      }}
+                    >
+                      Choose
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </>
+          ) : null}
+
+          {!loading && visibleSubservices.length === 0 ? (
+            <div className="service-menu-empty">
+              No results found for this search/filter. Try removing a filter.
+            </div>
+          ) : null}
+        </section>
       </div>
     </main>
   );
@@ -507,10 +556,8 @@ export default function SubservicesPage() {
   return (
     <Suspense
       fallback={
-        <main className="landing" style={{ minHeight: "100vh", padding: "6rem 0 2rem" }}>
-          <div className="container" style={{ maxWidth: "100%", padding: "0 clamp(0.35rem, 2vw, 0.75rem)" }}>
-            <p style={{ margin: 0, color: "var(--gray-500)" }}>Loading sub-services...</p>
-          </div>
+        <main className="landing" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+          <p style={{ color: "var(--gray-500)" }}>Loading service options...</p>
         </main>
       }
     >
