@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { Map as LeafletMap } from "leaflet";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -24,7 +23,6 @@ import {
 import {
   detectUserLocation,
   geocodeArea,
-  readUserLocation,
   reverseGeocode,
 } from "@/lib/location";
 import {
@@ -35,6 +33,15 @@ import {
 
 type CheckoutStep = "review" | "payment";
 type PaymentMethod = PaymentGatewayMethod;
+
+const normalizeVisibleAddress = (value: string) => {
+  return value
+    .replace(/\(?\s*-?\d{1,2}\.\d+\s*,\s*-?\d{1,3}\.\d+\s*\)?/g, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+,/g, ",")
+    .replace(/,+$/g, "")
+    .trim();
+};
 
 const PAYMENT_METHODS: Array<{
   id: PaymentMethod;
@@ -93,15 +100,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
   const [placingOrder, setPlacingOrder] = useState(false);
   const [isResolvingPin, setIsResolvingPin] = useState(false);
-  const [isMapMoving, setIsMapMoving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [mapCoords, setMapCoords] = useState<{ lat: number; lng: number }>({ lat: 28.6139, lng: 77.209 });
-
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const leafletMapRef = useRef<LeafletMap | null>(null);
-  const reverseGeocodeTimerRef = useRef<number | null>(null);
-  const reverseGeocodeRequestRef = useRef(0);
-  const mapPrimedRef = useRef(false);
 
   useEffect(() => {
     const currentCart = readShopCart();
@@ -114,12 +113,12 @@ export default function CheckoutPage() {
     if (defaultAddress) {
       setSelectedAddressId(defaultAddress.id);
       setManualCity(defaultAddress.city);
-      setManualAddress(defaultAddress.addressLine);
+      setManualAddress(normalizeVisibleAddress(defaultAddress.addressLine));
       setManualPhone(defaultAddress.phone || "");
       setReceiverName(defaultAddress.label || "");
     } else if (currentCart) {
       setManualCity(currentCart.city || "");
-      setManualAddress(currentCart.addressLine || "");
+      setManualAddress(normalizeVisibleAddress(currentCart.addressLine || ""));
       setAddressEditorOpen(true);
     }
   }, []);
@@ -180,29 +179,14 @@ export default function CheckoutPage() {
     };
   }, [addressSheetOpen, addressEditorOpen]);
 
-  useEffect(() => {
-    return () => {
-      if (reverseGeocodeTimerRef.current) {
-        window.clearTimeout(reverseGeocodeTimerRef.current);
-      }
-    };
-  }, []);
-
   const syncAddressFromCoords = async (lat: number, lng: number) => {
-    setMapCoords({ lat, lng });
     setIsResolvingPin(true);
-    const requestId = reverseGeocodeRequestRef.current + 1;
-    reverseGeocodeRequestRef.current = requestId;
 
     try {
       const reverse = await reverseGeocode(lat, lng);
 
-      if (reverseGeocodeRequestRef.current !== requestId) {
-        return;
-      }
-
       const city = reverse.address?.city || reverse.address?.town || reverse.address?.village || "";
-      const display = reverse.display_name || "";
+      const display = normalizeVisibleAddress(reverse.display_name || "");
 
       if (city) {
         setManualCity(city);
@@ -213,132 +197,12 @@ export default function CheckoutPage() {
       }
       setErrorMessage(null);
     } catch (error) {
-      if (reverseGeocodeRequestRef.current !== requestId) {
-        return;
-      }
-
-      console.error("Failed to resolve address from map pin", error);
-      setErrorMessage("Could not fetch address for selected pin. You can still type it manually.");
+      console.error("Failed to resolve address from location", error);
+      setErrorMessage("Could not fetch address for selected location. You can still type it manually.");
     } finally {
-      if (reverseGeocodeRequestRef.current === requestId) {
-        setIsResolvingPin(false);
-      }
+      setIsResolvingPin(false);
     }
   };
-
-  const moveMapPin = async (lat: number, lng: number, shouldSync = true) => {
-    setMapCoords({ lat, lng });
-
-    if (leafletMapRef.current) {
-      leafletMapRef.current.setView([lat, lng], Math.max(leafletMapRef.current.getZoom(), 16));
-    }
-
-    if (shouldSync) {
-      await syncAddressFromCoords(lat, lng);
-    }
-  };
-
-  useEffect(() => {
-    if (!addressEditorOpen) {
-      mapPrimedRef.current = false;
-      if (leafletMapRef.current) {
-        leafletMapRef.current.remove();
-        leafletMapRef.current = null;
-      }
-      return;
-    }
-
-    if (mapPrimedRef.current) {
-      return;
-    }
-
-    mapPrimedRef.current = true;
-
-    const primeMapCoords = async () => {
-      if (manualAddress.trim()) {
-        const resolved = await geocodeArea(manualAddress.trim());
-        if (resolved) {
-          setMapCoords({ lat: resolved.lat, lng: resolved.lng });
-          return;
-        }
-      }
-
-      const stored = readUserLocation();
-      if (stored) {
-        setMapCoords({ lat: stored.lat, lng: stored.lng });
-      }
-    };
-
-    primeMapCoords();
-  }, [addressEditorOpen, manualAddress]);
-
-  useEffect(() => {
-    if (!addressEditorOpen || !mapContainerRef.current) {
-      return;
-    }
-
-    let isCancelled = false;
-
-    const setupMap = async () => {
-      // Lazy load Leaflet only when map is needed (PERFORMANCE OPTIMIZATION)
-      // This prevents loading the entire Leaflet library (~100KB+) on pages that don't use maps
-      const L = await import("leaflet");
-      if (isCancelled || !mapContainerRef.current) {
-        return;
-      }
-
-      if (!leafletMapRef.current) {
-        const map = L.map(mapContainerRef.current, {
-          zoomControl: false,
-        }).setView([mapCoords.lat, mapCoords.lng], 16);
-
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: "&copy; OpenStreetMap contributors",
-          maxZoom: 19,
-        }).addTo(map);
-
-        map.on("movestart", () => {
-          setIsMapMoving(true);
-          if (reverseGeocodeTimerRef.current) {
-            window.clearTimeout(reverseGeocodeTimerRef.current);
-            reverseGeocodeTimerRef.current = null;
-          }
-        });
-
-        map.on("moveend", async () => {
-          setIsMapMoving(false);
-          const center = map.getCenter();
-          if (reverseGeocodeTimerRef.current) {
-            window.clearTimeout(reverseGeocodeTimerRef.current);
-          }
-
-          reverseGeocodeTimerRef.current = window.setTimeout(() => {
-            void syncAddressFromCoords(center.lat, center.lng);
-          }, 300);
-        });
-
-        leafletMapRef.current = map;
-      } else {
-        const currentCenter = leafletMapRef.current.getCenter();
-        const latDiff = Math.abs(currentCenter.lat - mapCoords.lat);
-        const lngDiff = Math.abs(currentCenter.lng - mapCoords.lng);
-
-        if (latDiff > 0.00001 || lngDiff > 0.00001) {
-          leafletMapRef.current.setView([mapCoords.lat, mapCoords.lng], leafletMapRef.current.getZoom());
-        }
-      }
-
-      window.setTimeout(() => {
-        leafletMapRef.current?.invalidateSize();
-      }, 120);
-    };
-
-    setupMap();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [addressEditorOpen, mapCoords]);
 
   const locateBySearch = async () => {
     const query = searchAddressText.trim();
@@ -352,7 +216,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    await moveMapPin(resolved.lat, resolved.lng);
+    await syncAddressFromCoords(resolved.lat, resolved.lng);
     setErrorMessage(null);
   };
 
@@ -360,14 +224,19 @@ export default function CheckoutPage() {
     try {
       setIsResolvingPin(true);
       const detected = await detectUserLocation();
-      await moveMapPin(detected.lat, detected.lng, false);
+      const visibleAddress = normalizeVisibleAddress(detected.fullAddress || "");
       setManualCity(detected.city || manualCity);
-      setManualAddress(detected.fullAddress || manualAddress);
-      setSearchAddressText(detected.fullAddress || "");
+      setManualAddress(visibleAddress || manualAddress);
+      setSearchAddressText(visibleAddress || "");
+
+      if (!visibleAddress) {
+        await syncAddressFromCoords(detected.lat, detected.lng);
+      }
+
       setErrorMessage(null);
     } catch (error) {
-      console.error("Failed to detect current location for map", error);
-      setErrorMessage("Unable to detect current location. Search or drag the pin manually.");
+      console.error("Failed to detect current location", error);
+      setErrorMessage("Unable to detect current location. Search or enter address manually.");
     } finally {
       setIsResolvingPin(false);
     }
@@ -381,7 +250,7 @@ export default function CheckoutPage() {
   const totalAmount = getCartTotal(cart);
 
   const resolvedCity = selectedAddress?.city || manualCity.trim();
-  const resolvedAddress = selectedAddress?.addressLine || manualAddress.trim();
+  const resolvedAddress = normalizeVisibleAddress(selectedAddress?.addressLine || manualAddress.trim());
   const resolvedPhone = (selectedAddress?.phone || "").trim() || manualPhone.trim() || profilePhone.trim();
 
   const cartItems = cart?.items || [];
@@ -408,10 +277,10 @@ export default function CheckoutPage() {
     setSelectedAddressId(address.id);
     setDefaultAddress(address.id);
     setManualCity(address.city);
-    setManualAddress(address.addressLine);
+    setManualAddress(normalizeVisibleAddress(address.addressLine));
     setManualPhone(address.phone || profilePhone);
     setReceiverName(address.label || receiverName);
-    patchCartAddress(address.city, address.addressLine);
+    patchCartAddress(address.city, normalizeVisibleAddress(address.addressLine));
     setAddressSheetOpen(false);
     setStep("payment");
     setErrorMessage(null);
@@ -425,7 +294,7 @@ export default function CheckoutPage() {
 
   const saveAddressFromEditor = () => {
     const city = manualCity.trim();
-    const addressLine = manualAddress.trim();
+    const addressLine = normalizeVisibleAddress(manualAddress.trim());
     const phone = manualPhone.trim() || profilePhone.trim();
 
     if (!city || !addressLine) {
@@ -753,7 +622,7 @@ export default function CheckoutPage() {
                   onClick={() => chooseSavedAddress(address)}
                 >
                   <strong>{address.label}</strong>
-                  <span>{address.addressLine}</span>
+                  <span>{normalizeVisibleAddress(address.addressLine)}</span>
                 </button>
               ))}
 
@@ -787,11 +656,7 @@ export default function CheckoutPage() {
             </header>
 
             <div className="checkout-map-panel">
-              <p>{isResolvingPin ? "Updating address from selected pin..." : "Move pin to your exact delivery location"}</p>
-              <div className="checkout-map-wrap">
-                <div ref={mapContainerRef} className="checkout-map-canvas" />
-                <div className={isMapMoving ? "checkout-map-pin-fixed is-moving" : "checkout-map-pin-fixed"} aria-hidden="true"><span /></div>
-              </div>
+              <p>{isResolvingPin ? "Updating address..." : "Use current location or search and save your address."}</p>
               <button type="button" onClick={() => void applyCurrentLocationToPin()}>
                 Use current location
               </button>
@@ -810,7 +675,7 @@ export default function CheckoutPage() {
               </label>
 
               <p className={isResolvingPin ? "checkout-geocode-hint active" : "checkout-geocode-hint"} aria-live="polite">
-                {isResolvingPin ? "Locating address from map pin..." : "Pin location is synced with delivery address."}
+                {isResolvingPin ? "Locating address..." : "Address is auto-filled from your selected location."}
               </p>
 
               <label>
