@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://servicego.works"),
   title: "ServiceGo",
   description: "Trusted local services at your doorstep.",
+  manifest: "/manifest.webmanifest",
   alternates: {
     canonical: "/",
   },
@@ -44,12 +45,12 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.ico?v=2", type: "image/x-icon" },
-      { url: "/apple-icon.webp?v=2", type: "image/webp" },
-      { url: "/icon.webp?v=2", type: "image/webp" },
+      { url: "/favicon.ico", type: "image/x-icon" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+      { url: "/icon.webp", type: "image/webp" },
     ],
-    shortcut: [{ url: "/favicon.ico?v=2", type: "image/x-icon" }],
-    apple: [{ url: "/apple-icon.webp?v=2", type: "image/webp" }],
+    shortcut: [{ url: "/favicon.ico", type: "image/x-icon" }],
+    apple: [{ url: "/apple-icon.webp", type: "image/webp" }],
   },
 };
 
