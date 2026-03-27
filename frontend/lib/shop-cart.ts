@@ -17,6 +17,14 @@ export type ShopCart = {
 
 const CART_KEY = "servicego-shop-cart";
 
+function notifyCartUpdated() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new Event("servicego-cart-updated"));
+}
+
 function canUseStorage() {
   return typeof window !== "undefined";
 }
@@ -45,6 +53,7 @@ export function writeShopCart(cart: ShopCart) {
   }
 
   window.localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  notifyCartUpdated();
 }
 
 export function clearShopCart() {
@@ -53,6 +62,7 @@ export function clearShopCart() {
   }
 
   window.localStorage.removeItem(CART_KEY);
+  notifyCartUpdated();
 }
 
 export function initializeShopCart(cart: ShopCart) {

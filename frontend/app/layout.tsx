@@ -16,11 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://servicego.works"),
   title: {
-    default: "ServiceGo Works | Home Services Platform",
-    template: "%s | ServiceGo Works",
+    default: "ServiceGo | Home Services Platform",
+    template: "%s | ServiceGo",
   },
-  description: "ServiceGo Works is the official ServiceGo home-services platform for trusted AC, electrical, carpentry, appliance, and doorstep repair services.",
-  applicationName: "ServiceGo Works",
+  description: "ServiceGo is the official home-services platform for trusted AC, electrical, carpentry, appliance, and doorstep repair services.",
+  applicationName: "ServiceGo",
   keywords: [
     "servicego",
     "servicego works",
@@ -46,10 +46,10 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "ServiceGo Works | Home Services Platform",
-    description: "Official ServiceGo Works website for trusted doorstep home services.",
+    title: "ServiceGo | Home Services Platform",
+    description: "Official ServiceGo website for trusted doorstep home services.",
     url: "https://servicego.works",
-    siteName: "ServiceGo Works",
+    siteName: "ServiceGo",
     locale: "en_IN",
     type: "website",
     images: [
@@ -63,8 +63,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ServiceGo Works | Home Services Platform",
-    description: "Official ServiceGo Works website for trusted doorstep home services.",
+    title: "ServiceGo | Home Services Platform",
+    description: "Official ServiceGo website for trusted doorstep home services.",
     images: ["/icon.webp"],
   },
   icons: {
@@ -86,7 +86,7 @@ export default function RootLayout({
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "ServiceGo Works",
+    name: "ServiceGo",
     alternateName: ["ServiceGo", "servicego.works"],
     url: "https://servicego.works",
     logo: "https://servicego.works/icon.webp",
@@ -95,7 +95,7 @@ export default function RootLayout({
   const websiteSchema = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: "ServiceGo Works",
+    name: "ServiceGo",
     url: "https://servicego.works",
     inLanguage: "en-IN",
   };

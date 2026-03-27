@@ -1,34 +1,70 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { User } from "@supabase/supabase-js";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { readShopCart } from "@/lib/shop-cart";
+import { readUserLocation } from "@/lib/location";
 
 export default function GlobalHeader() {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<User | null>(null);
   const [logoSrc, setLogoSrc] = useState("/icon.webp");
+  const [cartCount, setCartCount] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [locationLabel, setLocationLabel] = useState("Select location");
 
   useEffect(() => {
-    const loadUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user ?? null);
+    const syncCartCount = () => {
+      const cart = readShopCart();
+      const count = cart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
+      setCartCount(count);
+
+      const storedLocation = readUserLocation();
+      const nextLabel = storedLocation?.area || storedLocation?.city || "Select location";
+      setLocationLabel(nextLabel);
     };
 
-    loadUser();
+    syncCartCount();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+    const onStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === "servicego-shop-cart") {
+        syncCartCount();
+      }
+    };
+
+    const onCartUpdated = () => {
+      syncCartCount();
+    };
+
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("servicego-cart-updated", onCartUpdated as EventListener);
+    window.addEventListener("focus", syncCartCount);
 
     return () => {
-      listener.subscription.unsubscribe();
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("servicego-cart-updated", onCartUpdated as EventListener);
+      window.removeEventListener("focus", syncCartCount);
     };
   }, []);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileMenuOpen]);
 
   const openSection = (sectionId: string) => {
     if (pathname === "/") {
@@ -38,8 +74,6 @@ export default function GlobalHeader() {
 
     router.push(`/#${sectionId}`);
   };
-
-  const userInitial = (user?.email?.charAt(0) || "S").toUpperCase();
 
   return (
     <header className="global-app-header">
@@ -68,41 +102,71 @@ export default function GlobalHeader() {
           <button type="button" onClick={() => router.push("/bookings")}>My Bookings</button>
         </nav>
 
-        <div className="global-user-actions">
-          {user ? (
-            <>
-              <button
-                type="button"
-                className="global-profile-pill"
-                onClick={() => router.push("/profile")}
-                aria-label="Profile"
-                title="Profile"
-              >
-                {userInitial}
-              </button>
-
-              <button
-                type="button"
-                className="global-auth-btn"
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  router.refresh();
-                }}
-              >
-                Logout
-              </button>
-            </>
-          ) : (
+        <div className="global-header-actions">
+          {cartCount > 0 ? (
             <button
               type="button"
-              className="global-auth-btn"
-              onClick={() => router.push("/auth/login")}
+              className="global-cart-icon-btn"
+              onClick={() => router.push("/cart")}
+              aria-label="Open cart"
             >
-              Login
+              <span aria-hidden="true">🛒</span>
+              <span className="global-cart-badge">{cartCount}</span>
             </button>
-          )}
+          ) : null}
+
+          <button
+            type="button"
+            className="global-menu-btn"
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            onClick={() => setMobileMenuOpen((value) => !value)}
+          >
+            {mobileMenuOpen ? "×" : "☰"}
+          </button>
+
+          {cartCount > 0 ? (
+            <button
+              type="button"
+              className="global-cart-btn"
+              onClick={() => router.push("/cart")}
+              aria-label="Open cart"
+            >
+              Cart
+              <span className="global-cart-badge">{cartCount}</span>
+            </button>
+          ) : null}
         </div>
       </div>
+
+      {mobileMenuOpen ? (
+        <div className="global-mobile-menu-overlay" onClick={() => setMobileMenuOpen(false)}>
+          <aside className="global-mobile-menu" onClick={(event) => event.stopPropagation()}>
+            <div className="global-mobile-menu-head">
+              <div className="global-mobile-brand-row">
+                <Image src="/icon.webp" alt="ServiceGo" width={28} height={28} unoptimized />
+                <strong>ServiceGo</strong>
+              </div>
+              <button type="button" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">×</button>
+            </div>
+
+            <div className="global-mobile-menu-card">
+              <span className="global-mobile-menu-label">Location</span>
+              <strong>{locationLabel}</strong>
+            </div>
+
+            <nav className="global-mobile-menu-links" aria-label="Mobile menu">
+              <button type="button" onClick={() => openSection("services")}>Services</button>
+              <button type="button" onClick={() => openSection("how")}>How It Works</button>
+              <button type="button" onClick={() => router.push("/bookings")}>My Bookings</button>
+              <button type="button" onClick={() => router.push("/faqs")}>FAQs</button>
+              <button type="button" onClick={() => router.push("/privacy")}>Privacy Policy</button>
+              {cartCount > 0 ? (
+                <button type="button" onClick={() => router.push("/cart")}>Cart ({cartCount})</button>
+              ) : null}
+            </nav>
+          </aside>
+        </div>
+      ) : null}
     </header>
   );
 }
