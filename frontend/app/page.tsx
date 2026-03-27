@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { User } from "@supabase/supabase-js";
 import Image from "next/image";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
-import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/env";
 import { mergeBookingDraft } from "@/lib/booking-flow";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { isVendorUser } from "@/lib/user-role";
 import {
   detectUserLocation,
   readUserLocation,
@@ -211,15 +208,12 @@ export default function HomePage() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [servicesError, setServicesError] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [isVendorAccount, setIsVendorAccount] = useState<boolean | null>(null);
   const [searchHasRun, setSearchHasRun] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [enableHeroVideo, setEnableHeroVideo] = useState(false);
   const [heroVideoReady, setHeroVideoReady] = useState(false);
   const [heroVideoFailed, setHeroVideoFailed] = useState(false);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -322,66 +316,8 @@ export default function HomePage() {
     };
   }, [enableHeroVideo, heroVideoReady]);
 
-/* ================= Get Logged-in User ================= */
-  useEffect(() => {
-  const getUser = async () => {
-    const { data } = await supabase.auth.getUser();
-    setUser(data.user);
-  };
-
-  getUser();
-
-  const { data: listener } = supabase.auth.onAuthStateChange(
-    (_event, session) => {
-      setUser(session?.user ?? null);
-    }
-  );
-
-  return () => {
-    listener.subscription.unsubscribe();
-  };
-}, []);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadRole = async () => {
-      if (!user) {
-        if (isMounted) {
-          setIsVendorAccount(null);
-        }
-        return;
-      }
-
-      const vendorAccount = await isVendorUser(user.id);
-      if (isMounted) {
-        setIsVendorAccount(vendorAccount);
-      }
-    };
-
-    loadRole();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
-
   /* ================= ANIMATIONS ================= */
   useEffect(() => {
-    const navbar = document.querySelector(".navbar");
-
-    const handleScroll = () => {
-      if (window.scrollY > 20) {
-        navbar?.classList.add("scrolled");
-      } else {
-        navbar?.classList.remove("scrolled");
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll);
-
-    
-
     const counters = document.querySelectorAll<HTMLElement>(".trust-number");
 
     counters.forEach((counter) => {
@@ -404,10 +340,7 @@ export default function HomePage() {
       updateCount();
     });
 
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      
-    };
+    return () => {};
   }, []);
 
   const normalizedSearchTerm = useMemo(() => normalizeText(searchTerm), [searchTerm]);
@@ -564,147 +497,8 @@ export default function HomePage() {
     openServiceShops(service);
   };
 
-  const userHandle = user?.email?.split("@")[0] || "User";
-  const profileInitial = userHandle.charAt(0).toUpperCase();
-  const closeMobileNav = () => setMobileNavOpen(false);
-
   return (
     <div className="landing">
-      {/* NAVBAR */}
-      <header className="navbar">
-        <div className="container">
-          <Link href="/" className="navbar-logo" aria-label="Go to homepage" onClick={closeMobileNav}>
-            <Image
-              src="/icon.webp"
-              alt="ServiceGo"
-              className="logo-icon"
-              width={40}
-              height={40}
-              priority
-            />
-            <span>ServiceGo</span>
-          </Link>
-
-          <button
-            type="button"
-            className={mobileNavOpen ? "hamburger active" : "hamburger"}
-            aria-label="Toggle navigation menu"
-            aria-expanded={mobileNavOpen}
-            onClick={() => setMobileNavOpen((value) => !value)}
-          >
-            <span />
-            <span />
-            <span />
-          </button>
-
-          <nav className={mobileNavOpen ? "nav-links active" : "nav-links"}>
-  <a href="#services" onClick={closeMobileNav}>Services</a>
-  <a href="#how" onClick={closeMobileNav}>How It Works</a>
-
-  {!user ? (
-    <>
-      <a
-        onClick={() => {
-          closeMobileNav();
-          router.push("/auth/login");
-        }}
-        style={{ cursor: "pointer" }}
-      >
-        Login
-      </a>
-
-      <a
-        className="nav-cta"
-        onClick={() => {
-          closeMobileNav();
-          router.push("/auth/signup");
-        }}
-        style={{ cursor: "pointer" }}
-      >
-        Sign Up
-      </a>
-    </>
-  ) : isVendorAccount ? (
-    <>
-      <a
-        className="nav-cta"
-        onClick={() => {
-          closeMobileNav();
-          router.push("/vendor/dashboard");
-        }}
-        style={{ cursor: "pointer" }}
-      >
-        Vendor Dashboard
-      </a>
-
-      <button
-        type="button"
-        className="profile-nav-button"
-        onClick={() => {
-          closeMobileNav();
-          router.push("/profile");
-        }}
-        aria-label="My Profile"
-        title={`My Profile (${userHandle})`}
-      >
-        {profileInitial}
-      </button>
-
-      <a
-        onClick={async () => {
-          closeMobileNav();
-          await supabase.auth.signOut();
-          router.refresh();
-        }}
-        style={{ cursor: "pointer" }}
-      >
-        Logout
-      </a>
-    </>
-  ) : isVendorAccount === null ? (
-    <span style={{ color: "var(--gray-500)" }}>Loading account...</span>
-  ) : (
-    <>
-      <a
-        onClick={() => {
-          closeMobileNav();
-          router.push("/bookings");
-        }}
-        style={{ cursor: "pointer", marginRight: "1rem" }}
-      >
-        My Bookings
-      </a>
-
-      <button
-        type="button"
-        className="profile-nav-button"
-        onClick={() => {
-          closeMobileNav();
-          router.push("/profile");
-        }}
-        aria-label="My Profile"
-        title={`My Profile (${userHandle})`}
-      >
-        {profileInitial}
-      </button>
-
-      <a
-        className="nav-cta"
-        onClick={async () => {
-          closeMobileNav();
-          await supabase.auth.signOut();
-          router.refresh();
-        }}
-        style={{ cursor: "pointer" }}
-      >
-        Logout
-      </a>
-    </>
-  )}
-</nav>
-        </div>
-      </header>
-
       {/* HERO */}
       <section className="hero">
         <div className="hero-bg">

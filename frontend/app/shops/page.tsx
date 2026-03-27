@@ -607,21 +607,6 @@ function ShopsPageContent() {
     >
       <div className="container" style={{ maxWidth: "100%", padding: "0 clamp(0.35rem, 2vw, 0.75rem)" }}>
         <section className="shop-preorder-hero">
-          <div className="shop-preorder-topbar">
-            <Link href="/" className="shop-preorder-brand" aria-label="Go to homepage">
-              <Image src="/icon.webp" alt="ServiceGo" width={34} height={34} className="shop-preorder-logo" />
-              <div>
-                <strong>Service<span>Go</span></strong>
-                <p>Trusted Local Services</p>
-              </div>
-            </Link>
-            <div className="shop-preorder-actions">
-              <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/checkout")} aria-label="Cart">🛒</button>
-              <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/bookings")} aria-label="Recent orders">🕒</button>
-              <button type="button" className="shop-preorder-action-icon" onClick={() => router.push("/profile")} aria-label="Profile">👤</button>
-            </div>
-          </div>
-
           <div className="shop-preorder-search-row">
             <input
               value={browseQuery}

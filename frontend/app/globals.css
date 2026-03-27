@@ -15,6 +15,150 @@
     linear-gradient(180deg, #f8f6ef 0%, #fcfbf7 36%, #ffffff 100%);
 }
 
+.servicego-page-content {
+  min-height: 100vh;
+}
+
+.global-app-header {
+  position: sticky;
+  top: 0;
+  z-index: 1400;
+  border-bottom: 1px solid rgba(122, 106, 0, 0.14);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
+}
+
+.global-app-header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 74px;
+  padding: 0.65rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.global-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: #6b5e00;
+}
+
+.global-brand-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #7a6a00, #8c7600);
+  color: #fff;
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.global-brand strong {
+  color: #6b5e00;
+  font-size: 2rem;
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+.global-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.7rem;
+}
+
+.global-nav button {
+  border: none;
+  background: transparent;
+  color: #4b4b4b;
+  font-size: 1.03rem;
+  font-weight: 500;
+}
+
+.global-user-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.global-profile-pill {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  border: 1px solid rgba(122, 106, 0, 0.3);
+  background: #ece8d5;
+  color: #7a6a00;
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.global-auth-btn {
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #7a6a00, #8c7600);
+  color: #fff;
+  min-height: 52px;
+  padding: 0.75rem 1.75rem;
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+@media (max-width: 980px) {
+  .global-brand strong {
+    font-size: 1.7rem;
+  }
+
+  .global-nav {
+    gap: 0.95rem;
+  }
+
+  .global-nav button {
+    font-size: 0.92rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .global-app-header-inner {
+    min-height: 64px;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .global-brand-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    font-size: 1.2rem;
+  }
+
+  .global-brand strong {
+    font-size: 1.05rem;
+  }
+
+  .global-nav {
+    display: none;
+  }
+
+  .global-profile-pill {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
+
+  .global-auth-btn {
+    min-height: 36px;
+    padding: 0.35rem 0.78rem;
+    font-size: 0.8rem;
+  }
+}
+
 .theme-centered-status {
   min-height: 100vh;
   display: grid;

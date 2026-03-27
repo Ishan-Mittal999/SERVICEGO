@@ -590,16 +590,12 @@ export default function CheckoutPage() {
   return (
     <main className="landing checkout-mobile-shell">
       <div className="checkout-mobile-wrap">
-        <header className="checkout-mobile-header">
-          <button type="button" onClick={() => router.back()} aria-label="Back">&lt;</button>
-          <div>
-            <h1>Secure Checkout</h1>
-            <p>
-              {step === "review" ? "Review service order" : "Select payment and place order"}
-            </p>
-          </div>
-          <button type="button" onClick={() => router.push("/shops")} aria-label="Back to shops" title="Back to shops">S</button>
-        </header>
+        <section className="checkout-block" style={{ marginTop: "0.8rem" }}>
+          <h2 style={{ margin: 0, color: "#0f172a", fontSize: "1.05rem" }}>Secure Checkout</h2>
+          <p style={{ margin: "0.25rem 0 0", color: "#64748b", fontSize: "0.85rem" }}>
+            {step === "review" ? "Review service order" : "Select payment and place order"}
+          </p>
+        </section>
 
         <section className="checkout-saved-banner">
           {step === "review"

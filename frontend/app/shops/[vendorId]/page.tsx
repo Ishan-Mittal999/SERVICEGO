@@ -250,22 +250,14 @@ export default function ShopDetailPage() {
   return (
     <main className="landing mobile-page-shell service-menu-shell">
       <div className="container service-menu-wrap" style={{ maxWidth: "980px" }}>
-        <header className="service-menu-header">
-          <button type="button" className="service-menu-back" onClick={goBackToVendorSelection} aria-label="Back">
-            ←
-          </button>
-
-          <div className="service-menu-search-wrap">
-            <input
-              value={menuQuery}
-              onChange={(event) => setMenuQuery(event.target.value)}
-              placeholder={`Search in ${service.name.toLowerCase()} plans`}
-              aria-label="Search services"
-            />
-          </div>
-
-          <button type="button" className="service-menu-kebab" aria-label="More options">⋮</button>
-        </header>
+        <div className="service-menu-search-wrap" style={{ marginTop: "0.8rem" }}>
+          <input
+            value={menuQuery}
+            onChange={(event) => setMenuQuery(event.target.value)}
+            placeholder={`Search in ${service.name.toLowerCase()} plans`}
+            aria-label="Search services"
+          />
+        </div>
 
         <section className="service-menu-meta">
           <h1>{vendor.name || "Service Partner"}</h1>
