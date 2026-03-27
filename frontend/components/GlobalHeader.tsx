@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -13,7 +14,12 @@ export default function GlobalHeader() {
   const [logoSrc, setLogoSrc] = useState("/icon.webp");
   const [cartCount, setCartCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [locationLabel, setLocationLabel] = useState("Select location");
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const syncCartCount = () => {
@@ -138,35 +144,38 @@ export default function GlobalHeader() {
         </div>
       </div>
 
-      {mobileMenuOpen ? (
-        <div className="global-mobile-menu-overlay" onClick={() => setMobileMenuOpen(false)}>
-          <aside className="global-mobile-menu" onClick={(event) => event.stopPropagation()}>
-            <div className="global-mobile-menu-head">
-              <div className="global-mobile-brand-row">
-                <Image src="/icon.webp" alt="ServiceGo" width={28} height={28} unoptimized />
-                <strong>ServiceGo</strong>
-              </div>
-              <button type="button" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">×</button>
-            </div>
+      {isMounted && mobileMenuOpen
+        ? createPortal(
+            <div className="global-mobile-menu-overlay" onClick={() => setMobileMenuOpen(false)}>
+              <aside className="global-mobile-menu" onClick={(event) => event.stopPropagation()}>
+                <div className="global-mobile-menu-head">
+                  <div className="global-mobile-brand-row">
+                    <Image src="/icon.webp" alt="ServiceGo" width={28} height={28} unoptimized />
+                    <strong>ServiceGo</strong>
+                  </div>
+                  <button type="button" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">×</button>
+                </div>
 
-            <div className="global-mobile-menu-card">
-              <span className="global-mobile-menu-label">Location</span>
-              <strong>{locationLabel}</strong>
-            </div>
+                <div className="global-mobile-menu-card">
+                  <span className="global-mobile-menu-label">Location</span>
+                  <strong>{locationLabel}</strong>
+                </div>
 
-            <nav className="global-mobile-menu-links" aria-label="Mobile menu">
-              <button type="button" onClick={() => openSection("services")}>Services</button>
-              <button type="button" onClick={() => openSection("how")}>How It Works</button>
-              <button type="button" onClick={() => router.push("/bookings")}>My Bookings</button>
-              <button type="button" onClick={() => router.push("/faqs")}>FAQs</button>
-              <button type="button" onClick={() => router.push("/privacy")}>Privacy Policy</button>
-              {cartCount > 0 ? (
-                <button type="button" onClick={() => router.push("/cart")}>Cart ({cartCount})</button>
-              ) : null}
-            </nav>
-          </aside>
-        </div>
-      ) : null}
+                <nav className="global-mobile-menu-links" aria-label="Mobile menu">
+                  <button type="button" onClick={() => openSection("services")}>Services</button>
+                  <button type="button" onClick={() => openSection("how")}>How It Works</button>
+                  <button type="button" onClick={() => router.push("/bookings")}>My Bookings</button>
+                  <button type="button" onClick={() => router.push("/faqs")}>FAQs</button>
+                  <button type="button" onClick={() => router.push("/privacy")}>Privacy Policy</button>
+                  {cartCount > 0 ? (
+                    <button type="button" onClick={() => router.push("/cart")}>Cart ({cartCount})</button>
+                  ) : null}
+                </nav>
+              </aside>
+            </div>,
+            document.body,
+          )
+        : null}
     </header>
   );
 }
