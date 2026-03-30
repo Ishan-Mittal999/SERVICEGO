@@ -1,3 +1,7 @@
+-- Add sub_services column if it doesn't exist
+ALTER TABLE services
+ADD COLUMN IF NOT EXISTS sub_services jsonb DEFAULT '[]'::jsonb;
+
 -- Update services with accurate sub_services arrays
 -- This migration populates each service with its precise subservice offerings
 
