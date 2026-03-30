@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { apiUrl } from "@/lib/env";
 import { mergeBookingDraft } from "@/lib/booking-flow";
+import { writeClientCache } from "@/lib/client-cache";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -249,6 +250,79 @@ export default function HomePage() {
 
     fetchServices();
   }, []);
+
+  useEffect(() => {
+    if (services.length === 0) {
+      return;
+    }
+
+    const prefetchSubservices = async () => {
+      const topServices = services
+        .filter((service) => REQUIRES_SUBSERVICE_SERVICE_KEYS.has(getServiceFlowKey(service.name || "")))
+        .slice(0, 3);
+
+      await Promise.all(
+        topServices.map(async (service) => {
+          const cacheKey = `subservices:${String(service.id)}:`;
+
+          try {
+            const [serviceResponse, vendorsResponse] = await Promise.all([
+              fetch(apiUrl(`/services/${encodeURIComponent(String(service.id))}`), { cache: "force-cache" }),
+              fetch(
+                apiUrl(
+                  `/vendors?serviceId=${encodeURIComponent(String(service.id))}&serviceName=${encodeURIComponent(
+                    service.name || ""
+                  )}&limit=100`
+                ),
+                { cache: "force-cache" }
+              ),
+            ]);
+
+            if (!serviceResponse.ok || !vendorsResponse.ok) {
+              return;
+            }
+
+            const serviceDataRaw = await serviceResponse.json();
+            const vendorsDataRaw = await vendorsResponse.json();
+            const serviceData = serviceDataRaw.data || null;
+            const vendorsData = vendorsDataRaw.data || (Array.isArray(vendorsDataRaw) ? vendorsDataRaw : []);
+
+            writeClientCache(cacheKey, {
+              services: serviceData ? [serviceData] : [],
+              vendors: vendorsData,
+            });
+
+            router.prefetch(
+              `/subservices?serviceId=${encodeURIComponent(String(service.id))}&serviceName=${encodeURIComponent(
+                service.name || ""
+              )}`
+            );
+          } catch {
+            // Best-effort prefetch only.
+          }
+        })
+      );
+    };
+
+    if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+      const requestIdleCallback = window.requestIdleCallback as (
+        callback: IdleRequestCallback,
+        options?: IdleRequestOptions
+      ) => number;
+      const cancelIdleCallback = window.cancelIdleCallback as (handle: number) => void;
+
+      const idleHandle = requestIdleCallback(() => {
+        prefetchSubservices();
+      });
+
+      return () => {
+        cancelIdleCallback(idleHandle);
+      };
+    }
+
+    void prefetchSubservices();
+    return undefined;
+  }, [router, services]);
 
   const detectAndSaveUserLocation = async (showErrorToUser = true) => {
     try {

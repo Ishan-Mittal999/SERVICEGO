@@ -58,6 +58,15 @@ const responseCacheStore = new Map();
 const VENDORS_CACHE_TTL_MS = 2 * 60 * 1000;
 const SERVICES_CACHE_TTL_MS = 5 * 60 * 1000;
 
+function nowMs() {
+  return Number(process.hrtime.bigint()) / 1_000_000;
+}
+
+function logRouteTiming(route, startedAtMs, details = {}) {
+  const durationMs = Math.round((nowMs() - startedAtMs) * 10) / 10;
+  console.log(`[perf] ${route} ${durationMs}ms`, details);
+}
+
 function readResponseCache(key, ttlMs) {
   const cached = responseCacheStore.get(key);
   if (!cached) {
@@ -77,6 +86,57 @@ function writeResponseCache(key, payload) {
     cachedAt: Date.now(),
     payload,
   });
+}
+
+function invalidateResponseCacheByPrefix(prefix) {
+  for (const key of responseCacheStore.keys()) {
+    if (key.startsWith(prefix)) {
+      responseCacheStore.delete(key);
+    }
+  }
+}
+
+async function warmServicesResponseCache() {
+  const warmConfigs = [
+    { limit: 50, offset: 0 },
+    { limit: 100, offset: 0 },
+  ];
+
+  for (const config of warmConfigs) {
+    const cacheKey = ["services", config.limit, config.offset].join("|");
+    const cachedPayload = readResponseCache(cacheKey, SERVICES_CACHE_TTL_MS);
+    if (cachedPayload) {
+      continue;
+    }
+
+    const startedAtMs = nowMs();
+    const { data, error, count } = await supabase
+      .from("services")
+      .select("*", { count: "planned" })
+      .eq("is_active", true)
+      .order("name", { ascending: true })
+      .range(config.offset, config.offset + config.limit - 1);
+
+    if (error) {
+      console.error("Warm cache services fetch error:", error.message);
+      continue;
+    }
+
+    writeResponseCache(cacheKey, {
+      data,
+      pagination: {
+        limit: config.limit,
+        offset: config.offset,
+        total: count,
+        hasMore: config.offset + config.limit < count,
+      },
+    });
+
+    logRouteTiming("warm:/services", startedAtMs, {
+      limit: config.limit,
+      rows: Array.isArray(data) ? data.length : 0,
+    });
+  }
 }
 
 function createStubPaymentSignature({ providerOrderId, providerPaymentId, method, amount }) {
@@ -897,6 +957,7 @@ app.delete("/booking/:id", async (req, res) => {
 });
 
 app.get("/vendors", async (req, res) => {
+  const startedAtMs = nowMs();
   try {
     const includeAll = String(req.query.includeAll || "").toLowerCase() === "true";
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
@@ -907,6 +968,13 @@ app.get("/vendors", async (req, res) => {
     const cachedPayload = readResponseCache(cacheKey, VENDORS_CACHE_TTL_MS);
 
     if (cachedPayload) {
+      logRouteTiming("GET /vendors", startedAtMs, {
+        cache: "hit",
+        includeAll,
+        limit,
+        offset,
+        serviceId: serviceId || null,
+      });
       return res.status(200).json(cachedPayload);
     }
 
@@ -933,13 +1001,15 @@ app.get("/vendors", async (req, res) => {
         normalizedServiceName = normalizeVendorServiceText(serviceRecord?.name || "");
       }
 
-      const { data, error } = await query;
+      const { data: candidates, error } = await query.select(
+        "id, service_id, service_ids, selected_service_names, approval_status"
+      );
 
       if (error) {
         return res.status(500).json({ error: error.message });
       }
 
-      let filtered = (data || []).filter((vendor) =>
+      let filtered = (candidates || []).filter((vendor) =>
         vendorOffersService(vendor, serviceId, normalizedServiceName)
       );
 
@@ -947,7 +1017,27 @@ app.get("/vendors", async (req, res) => {
         filtered = filtered.filter((vendor) => isVendorApproved(vendor));
       }
 
-      const pagedData = filtered.slice(offset, offset + limit);
+      const pagedIds = filtered
+        .slice(offset, offset + limit)
+        .map((vendor) => String(vendor.id));
+
+      let pagedData = [];
+      if (pagedIds.length > 0) {
+        const { data: pagedRows, error: pagedRowsError } = await supabase
+          .from("vendors")
+          .select("*")
+          .in("id", pagedIds);
+
+        if (pagedRowsError) {
+          return res.status(500).json({ error: pagedRowsError.message });
+        }
+
+        const vendorById = new Map((pagedRows || []).map((vendor) => [String(vendor.id), vendor]));
+        pagedData = pagedIds
+          .map((id) => vendorById.get(id))
+          .filter(Boolean);
+      }
+
       const total = filtered.length;
       const payload = {
         data: pagedData,
@@ -960,6 +1050,17 @@ app.get("/vendors", async (req, res) => {
       };
 
       writeResponseCache(cacheKey, payload);
+
+      logRouteTiming("GET /vendors", startedAtMs, {
+        cache: "miss",
+        includeAll,
+        limit,
+        offset,
+        serviceId: serviceId || null,
+        candidates: Array.isArray(candidates) ? candidates.length : 0,
+        total,
+        rows: pagedData.length,
+      });
 
       return res.status(200).json(payload);
     }
@@ -998,6 +1099,15 @@ app.get("/vendors", async (req, res) => {
       };
 
       writeResponseCache(cacheKey, payload);
+      logRouteTiming("GET /vendors", startedAtMs, {
+        cache: "miss",
+        includeAll,
+        limit,
+        offset,
+        serviceId: serviceId || null,
+        total: count,
+        rows: filtered.length,
+      });
       return res.status(200).json(payload);
     }
 
@@ -1012,8 +1122,21 @@ app.get("/vendors", async (req, res) => {
     };
 
     writeResponseCache(cacheKey, payload);
+    logRouteTiming("GET /vendors", startedAtMs, {
+      cache: "miss",
+      includeAll,
+      limit,
+      offset,
+      serviceId: serviceId || null,
+      total: count,
+      rows: Array.isArray(data) ? data.length : 0,
+    });
     return res.status(200).json(payload);
   } catch (err) {
+    logRouteTiming("GET /vendors", startedAtMs, {
+      cache: "error",
+      message: err.message,
+    });
     return res.status(500).json({ error: err.message });
   }
 });
@@ -1125,6 +1248,7 @@ app.delete("/vendors/:id", async (req, res) => {
 });
 // GET Services route
 app.get("/services", async (req, res) => {
+  const startedAtMs = nowMs();
   try {
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const offset = Math.max(parseInt(req.query.offset) || 0, 0);
@@ -1132,6 +1256,11 @@ app.get("/services", async (req, res) => {
     const cachedPayload = readResponseCache(cacheKey, SERVICES_CACHE_TTL_MS);
 
     if (cachedPayload) {
+      logRouteTiming("GET /services", startedAtMs, {
+        cache: "hit",
+        limit,
+        offset,
+      });
       return res.status(200).json(cachedPayload);
     }
 
@@ -1158,9 +1287,20 @@ app.get("/services", async (req, res) => {
     };
 
     writeResponseCache(cacheKey, payload);
+    logRouteTiming("GET /services", startedAtMs, {
+      cache: "miss",
+      limit,
+      offset,
+      total: count,
+      rows: Array.isArray(data) ? data.length : 0,
+    });
     return res.status(200).json(payload);
   } catch (err) {
     console.error("Server Crash:", err);
+    logRouteTiming("GET /services", startedAtMs, {
+      cache: "error",
+      message: err.message,
+    });
     return res.status(500).json({ error: err.message });
   }
 });
@@ -1213,6 +1353,8 @@ app.post("/services", async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
+    invalidateResponseCacheByPrefix("services|");
+
     return res.status(201).json({ message: "Service created", service: data });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -1247,6 +1389,8 @@ app.put("/services/:id", async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
+    invalidateResponseCacheByPrefix("services|");
+
     return res.status(200).json({ message: "Service updated", service: data });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -1269,6 +1413,8 @@ app.delete("/services/:id", async (req, res) => {
     if (error) {
       return res.status(500).json({ error: error.message });
     }
+
+    invalidateResponseCacheByPrefix("services|");
 
     return res.status(200).json({ message: "Service deleted" });
   } catch (err) {
@@ -1558,5 +1704,14 @@ const PORT = process.env.PORT || 5000;
 // 🚀 Server should ALWAYS be last
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  warmServicesResponseCache().catch((error) => {
+    console.error("Initial services cache warmup failed:", error.message || error);
+  });
+
+  setInterval(() => {
+    warmServicesResponseCache().catch((error) => {
+      console.error("Scheduled services cache warmup failed:", error.message || error);
+    });
+  }, 4 * 60 * 1000);
 });
 
