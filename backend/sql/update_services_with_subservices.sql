@@ -14,7 +14,7 @@ SET sub_services = jsonb_build_array(
   'AC Installation',
   'AC Uninstallation'
 )
-WHERE name = 'AC Service' AND is_active = true;
+WHERE name IN ('AC', 'AC Service') AND is_active = true;
 
 UPDATE services 
 SET sub_services = jsonb_build_array(
@@ -34,7 +34,7 @@ SET sub_services = jsonb_build_array(
   'RO Annual Care Plan (12 Months)',
   'Standard RO Service'
 )
-WHERE name = 'RO Service' AND is_active = true;
+WHERE name IN ('RO', 'RO Service') AND is_active = true;
 
 UPDATE services 
 SET sub_services = jsonb_build_array(
@@ -77,9 +77,6 @@ SET sub_services = jsonb_build_array(
   'Cooler Pad Replacement'
 )
 WHERE name = 'Cooler' AND is_active = true;
-
--- Services without subservices (Electrical and Carpenter remain with empty arrays)
--- UPDATE services SET sub_services = '[]'::jsonb WHERE name IN ('Electrical', 'Carpenter') AND is_active = true;
 
 -- Verify updates were successful
 SELECT id, name, sub_services FROM services WHERE is_active = true ORDER BY name;
