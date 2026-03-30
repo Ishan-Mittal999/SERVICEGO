@@ -14,7 +14,7 @@ WHERE name IN ('Carpenter', 'Cleaning', 'Electrical', 'Plumbing') AND is_active 
 
 -- Step 3: Create missing services if they don't exist
 INSERT INTO services (name, description, is_active, sub_services)
-VALUES 
+SELECT * FROM (VALUES
   ('Washing Machine', 'Washing Machine Services', true, '[]'::jsonb),
   ('RO Service', 'RO Water Purifier Services', true, '[]'::jsonb),
   ('Microwave', 'Microwave Services', true, '[]'::jsonb),
@@ -22,7 +22,8 @@ VALUES
   ('Chimney', 'Chimney Services', true, '[]'::jsonb),
   ('Fridge', 'Refrigerator Services', true, '[]'::jsonb),
   ('Cooler', 'Air Cooler Services', true, '[]'::jsonb)
-ON CONFLICT (name) DO NOTHING;
+) as new_services(name, description, is_active, sub_services)
+WHERE NOT EXISTS (SELECT 1 FROM services WHERE services.name = new_services.name);
 
 -- Step 4: Populate all services with their subservices
 
