@@ -14,7 +14,7 @@ SET sub_services = jsonb_build_array(
   'AC Installation',
   'AC Uninstallation'
 )
-WHERE LOWER(TRIM(name)) = 'ac' AND is_active = true;
+WHERE name = 'AC Service' AND is_active = true;
 
 UPDATE services 
 SET sub_services = jsonb_build_array(
@@ -26,7 +26,7 @@ SET sub_services = jsonb_build_array(
   'Front Load Normal Cleaning',
   'Front Load Deep Cleaning'
 )
-WHERE LOWER(TRIM(name)) LIKE '%washing%machine%' AND is_active = true;
+WHERE name = 'Washing Machine' AND is_active = true;
 
 UPDATE services 
 SET sub_services = jsonb_build_array(
@@ -34,7 +34,7 @@ SET sub_services = jsonb_build_array(
   'RO Annual Care Plan (12 Months)',
   'Standard RO Service'
 )
-WHERE LOWER(TRIM(name)) IN ('ro', 'ro service', 'water purifier') AND is_active = true;
+WHERE name = 'RO Service' AND is_active = true;
 
 UPDATE services 
 SET sub_services = jsonb_build_array(
@@ -42,7 +42,7 @@ SET sub_services = jsonb_build_array(
   'Magnetron Replacement',
   'Microwave PCB Service'
 )
-WHERE LOWER(TRIM(name)) LIKE '%microwave%' AND is_active = true;
+WHERE name = 'Microwave' AND is_active = true;
 
 UPDATE services 
 SET sub_services = jsonb_build_array(
@@ -50,7 +50,7 @@ SET sub_services = jsonb_build_array(
   'Geyser Uninstallation',
   'Geyser Check-up & Diagnosis'
 )
-WHERE LOWER(TRIM(name)) LIKE '%geyser%' AND is_active = true;
+WHERE name = 'Geyser' AND is_active = true;
 
 UPDATE services 
 SET sub_services = jsonb_build_array(
@@ -60,7 +60,7 @@ SET sub_services = jsonb_build_array(
   'Chimney Normal Cleaning',
   'Chimney Deep Cleaning'
 )
-WHERE LOWER(TRIM(name)) LIKE '%chimney%' AND is_active = true;
+WHERE name = 'Chimney' AND is_active = true;
 
 UPDATE services 
 SET sub_services = jsonb_build_array(
@@ -69,14 +69,17 @@ SET sub_services = jsonb_build_array(
   'Double Door Fridge Gas Charging',
   'Side-by-Side (Almirah) Fridge Check-up'
 )
-WHERE LOWER(TRIM(name)) IN ('fridge', 'refrigerator') AND is_active = true;
+WHERE name = 'Fridge' AND is_active = true;
 
 UPDATE services 
 SET sub_services = jsonb_build_array(
   'Air Cooler Check-up',
   'Cooler Pad Replacement'
 )
-WHERE LOWER(TRIM(name)) LIKE '%cooler%' AND is_active = true;
+WHERE name = 'Cooler' AND is_active = true;
+
+-- Services without subservices (Electrical and Carpenter remain with empty arrays)
+-- UPDATE services SET sub_services = '[]'::jsonb WHERE name IN ('Electrical', 'Carpenter') AND is_active = true;
 
 -- Verify updates were successful
 SELECT id, name, sub_services FROM services WHERE is_active = true ORDER BY name;
