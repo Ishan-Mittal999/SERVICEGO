@@ -1,0 +1,257 @@
+.detailCard {
+  border: 1px solid var(--gray-300, #e5e7eb);
+  border-radius: 12px;
+  background: #fff;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.detailCard:hover {
+  border-color: var(--gray-400, #d1d5db);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.headerContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.badge {
+  display: inline-block;
+  background: #f0fdf4;
+  color: #16a34a;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.813rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.headerContent h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0.5rem 0 0.375rem 0;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.note {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0.5rem 0 0;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.headerVisual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.visualBox {
+  width: 80px;
+  height: 60px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.selectBtn {
+  width: 80px;
+  padding: 0.5rem 1rem;
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.selectBtn:hover {
+  background: #dc2626;
+  transform: translateY(-2px);
+}
+
+.selectBtn:active {
+  transform: translateY(0);
+}
+
+.detailsSection {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--gray-200, #f3f4f6);
+}
+
+.expandable {
+  margin-bottom: 0.75rem;
+}
+
+.expandable:last-child {
+  margin-bottom: 0;
+}
+
+.expandBtn {
+  width: 100%;
+  background: var(--gray-50, #f9fafb);
+  border: 1px solid var(--gray-200, #f3f4f6);
+  border-radius: 8px;
+  padding: 0.875rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.938rem;
+  font-weight: 500;
+  color: #1f2937;
+  transition: all 0.2s ease;
+}
+
+.expandBtn:hover {
+  background: var(--gray-100, #f3f4f6);
+  border-color: var(--gray-300, #e5e7eb);
+}
+
+.expandBtn[aria-expanded="true"] {
+  background: var(--gray-100, #f3f4f6);
+  border-color: var(--gray-300, #e5e7eb);
+}
+
+.expandIcon {
+  display: inline-flex;
+  font-size: 0.75rem;
+  width: 1rem;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.expandLabel {
+  flex: 1;
+}
+
+.count {
+  font-size: 0.813rem;
+  color: #6b7280;
+  margin-left: auto;
+}
+
+.expandedContent {
+  animation: slideDown 0.2s ease forwards;
+  margin-top: 0.5rem;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+
+  to {
+    opacity: 1;
+    max-height: 1000px;
+  }
+}
+
+.itemList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  border: 1px solid var(--gray-200, #f3f4f6);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.itemList li {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--gray-100, #f3f4f6);
+  font-size: 0.938rem;
+  color: #374151;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  line-height: 1.5;
+}
+
+.itemList li:last-child {
+  border-bottom: none;
+}
+
+.includedItem {
+  color: #1f2937;
+}
+
+.excludedItem {
+  color: #6b7280;
+}
+
+.bullet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.includedItem .bullet {
+  color: #16a34a;
+}
+
+.excludedItem .bullet {
+  color: #ef4444;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 640px) {
+  .cardHeader {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .headerVisual {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .visualBox {
+    width: 100%;
+    height: 50px;
+  }
+
+  .selectBtn {
+    width: 100%;
+  }
+
+  .expandBtn {
+    font-size: 0.875rem;
+    padding: 0.75rem 0.875rem;
+  }
+
+  .itemList li {
+    font-size: 0.875rem;
+    padding: 0.625rem 0.875rem;
+  }
+}

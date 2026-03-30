@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
 import { mergeBookingDraft } from "@/lib/booking-flow";
 import { readClientCache, writeClientCache } from "@/lib/client-cache";
+import { SubserviceDetail } from "@/components/SubserviceDetail";
 
 type Service = {
   id: string | number;
@@ -21,10 +22,18 @@ type Vendor = {
   sub_services?: unknown;
 };
 
+type SubserviceItem = {
+  name: string;
+  included?: string[] | string;
+  notIncluded?: string[] | string;
+  note?: string;
+};
+
 type SubserviceCard = {
   id: string;
   name: string;
-  description: string;
+  isDetailed: boolean;
+  details?: SubserviceItem;
 };
 
 type SubservicesCachePayload = {
@@ -157,11 +166,22 @@ const parseVendorListField = (value: unknown): string[] => {
   return [];
 };
 
-const parseServiceSubservices = (value: unknown): string[] => {
+const parseServiceSubservices = (value: unknown): SubserviceItem[] => {
   if (Array.isArray(value)) {
     return value
-      .map((item) => String(item || "").trim())
-      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
+      .map((item) => {
+        // If it's a detailed object with name property
+        if (typeof item === "object" && item !== null && "name" in item) {
+          return item as SubserviceItem;
+        }
+        // If it's a simple string, convert to basic SubserviceItem
+        const nameStr = String(item || "").trim();
+        if (nameStr && nameStr.toLowerCase() !== "null" && nameStr.toLowerCase() !== "undefined") {
+          return { name: nameStr };
+        }
+        return null;
+      })
+      .filter((item) => item !== null) as SubserviceItem[];
   }
 
   if (typeof value === "string") {
@@ -174,8 +194,17 @@ const parseServiceSubservices = (value: unknown): string[] => {
       const parsed = JSON.parse(normalized);
       if (Array.isArray(parsed)) {
         return parsed
-          .map((item) => String(item || "").trim())
-          .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
+          .map((item) => {
+            if (typeof item === "object" && item !== null && "name" in item) {
+              return item as SubserviceItem;
+            }
+            const nameStr = String(item || "").trim();
+            if (nameStr && nameStr.toLowerCase() !== "null" && nameStr.toLowerCase() !== "undefined") {
+              return { name: nameStr };
+            }
+            return null;
+          })
+          .filter((item) => item !== null) as SubserviceItem[];
       }
     } catch {
       // Fallback to comma-separated values.
@@ -183,8 +212,11 @@ const parseServiceSubservices = (value: unknown): string[] => {
 
     return normalized
       .split(",")
-      .map((item) => item.trim())
-      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
+      .map((item) => {
+        const nameStr = item.trim();
+        return nameStr ? { name: nameStr } : null;
+      })
+      .filter((item) => item !== null) as SubserviceItem[];
   }
 
   return [];
@@ -435,7 +467,7 @@ function SubservicesPageContent() {
     const predefined = PREDEFINED_SUBSERVICE_MAP[getServiceKey(selectedService.name || "")] || [];
     const relatedVendors = vendors.filter((vendor) => vendorHasService(vendor, selectedService));
     const seen = new Set<string>();
-    const options: string[] = [...predefined];
+    const options: SubserviceItem[] = predefined.map((item) => ({ name: item }));
     predefined.forEach((item) => seen.add(normalizeSubserviceText(item)));
 
     relatedVendors.forEach((vendor) => {
@@ -449,7 +481,7 @@ function SubservicesPageContent() {
           return;
         }
         seen.add(normalized);
-        options.push(item);
+        options.push({ name: item });
       });
     });
 
@@ -457,10 +489,11 @@ function SubservicesPageContent() {
   }, [vendors, selectedService]);
 
   const subserviceCards = useMemo<SubserviceCard[]>(
-    () => subserviceOptions.map((name, index) => ({
-      id: `${normalizeSubserviceText(name).replace(/\s+/g, "-")}-${index}`,
-      name,
-      description: getSubserviceDescription(name),
+    () => subserviceOptions.map((item, index) => ({
+      id: `${normalizeSubserviceText(item.name).replace(/\s+/g, "-")}-${index}`,
+      name: item.name,
+      isDetailed: Boolean(item.included || item.notIncluded || item.note),
+      details: item,
     })),
     [subserviceOptions]
   );
@@ -504,45 +537,59 @@ function SubservicesPageContent() {
           {!loading && subserviceCards.length > 0 ? (
             <>
               <h2 className="service-menu-section-title">Best Service Plans</h2>
-              {subserviceCards.map((item) => (
-                <article
-                  className="service-item-card"
-                  key={item.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openShopsForSubservice(item.name)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      openShopsForSubservice(item.name);
-                    }
-                  }}
-                >
-                  <div className="service-item-content">
-                    <span className="service-item-badge">Verified</span>
-                    <h3>{item.name}</h3>
-                    <p>{item.description}</p>
-                    <div className="service-item-note">Ideal for quick and reliable fixes.</div>
-                  </div>
+              {subserviceCards.map((item) => {
+                if (item.isDetailed && item.details) {
+                  return (
+                    <SubserviceDetail
+                      key={item.id}
+                      item={item.details}
+                      onSelect={() => openShopsForSubservice(item.name)}
+                      visualGradient={getSubserviceVisual(item.id)}
+                    />
+                  );
+                }
 
-                  <div className="service-item-visual-wrap">
-                    <div className="service-item-visual" style={{ background: getSubserviceVisual(item.id) }}>
-                      <span>Service plan</span>
+                // Fallback to simple card for non-detailed subservices
+                return (
+                  <article
+                    className="service-item-card"
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openShopsForSubservice(item.name)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openShopsForSubservice(item.name);
+                      }
+                    }}
+                  >
+                    <div className="service-item-content">
+                      <span className="service-item-badge">Verified</span>
+                      <h3>{item.name}</h3>
+                      <p>{getSubserviceDescription(item.name)}</p>
+                      <div className="service-item-note">Ideal for quick and reliable fixes.</div>
                     </div>
 
-                    <button
-                      type="button"
-                      className="service-item-add-btn"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openShopsForSubservice(item.name);
-                      }}
-                    >
-                      Select
-                    </button>
-                  </div>
-                </article>
-              ))}
+                    <div className="service-item-visual-wrap">
+                      <div className="service-item-visual" style={{ background: getSubserviceVisual(item.id) }}>
+                        <span>Service plan</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="service-item-add-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openShopsForSubservice(item.name);
+                        }}
+                      >
+                        Select
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
             </>
           ) : null}
 
