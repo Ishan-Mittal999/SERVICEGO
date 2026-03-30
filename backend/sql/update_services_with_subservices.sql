@@ -2,8 +2,29 @@
 ALTER TABLE services
 ADD COLUMN IF NOT EXISTS sub_services jsonb DEFAULT '[]'::jsonb;
 
--- Update services with accurate sub_services arrays
--- This migration populates each service with its precise subservice offerings
+-- Step 1: Rename AC Repair to AC Service
+UPDATE services 
+SET name = 'AC Service'
+WHERE name = 'AC Repair' AND is_active = true;
+
+-- Step 2: Deactivate services that are not in the new list
+UPDATE services 
+SET is_active = false
+WHERE name IN ('Carpenter', 'Cleaning', 'Electrical', 'Plumbing') AND is_active = true;
+
+-- Step 3: Create missing services if they don't exist
+INSERT INTO services (name, description, is_active, sub_services)
+VALUES 
+  ('Washing Machine', 'Washing Machine Services', true, '[]'::jsonb),
+  ('RO Service', 'RO Water Purifier Services', true, '[]'::jsonb),
+  ('Microwave', 'Microwave Services', true, '[]'::jsonb),
+  ('Geyser', 'Geyser/Water Heater Services', true, '[]'::jsonb),
+  ('Chimney', 'Chimney Services', true, '[]'::jsonb),
+  ('Fridge', 'Refrigerator Services', true, '[]'::jsonb),
+  ('Cooler', 'Air Cooler Services', true, '[]'::jsonb)
+ON CONFLICT (name) DO NOTHING;
+
+-- Step 4: Populate all services with their subservices
 
 UPDATE services 
 SET sub_services = jsonb_build_array(
@@ -14,7 +35,7 @@ SET sub_services = jsonb_build_array(
   'AC Installation',
   'AC Uninstallation'
 )
-WHERE name IN ('AC', 'AC Service') AND is_active = true;
+WHERE name = 'AC Service' AND is_active = true;
 
 UPDATE services 
 SET sub_services = jsonb_build_array(
@@ -34,7 +55,7 @@ SET sub_services = jsonb_build_array(
   'RO Annual Care Plan (12 Months)',
   'Standard RO Service'
 )
-WHERE name IN ('RO', 'RO Service') AND is_active = true;
+WHERE name = 'RO Service' AND is_active = true;
 
 UPDATE services 
 SET sub_services = jsonb_build_array(
@@ -78,5 +99,10 @@ SET sub_services = jsonb_build_array(
 )
 WHERE name = 'Cooler' AND is_active = true;
 
--- Verify updates were successful
-SELECT id, name, sub_services FROM services WHERE is_active = true ORDER BY name;
+-- Verify: Show all active services with their subservices
+SELECT 'ACTIVE SERVICES' as status;
+SELECT id, name, jsonb_array_length(sub_services) as subservice_count, sub_services FROM services WHERE is_active = true ORDER BY name;
+
+-- Verify: Show deactivated services
+SELECT 'DEACTIVATED SERVICES' as status;
+SELECT id, name FROM services WHERE is_active = false;
