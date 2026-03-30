@@ -1698,6 +1698,157 @@ app.post("/push/unsubscribe", async (req, res) => {
   }
 });
 
+// Admin endpoint to update services with accurate subservices
+app.post("/admin/update-services-subservices", async (req, res) => {
+  try {
+    const adminToken = req.headers["x-admin-token"];
+    const expectedToken = process.env.ADMIN_TOKEN || "admin-servicego-update";
+
+    if (!adminToken || adminToken !== expectedToken) {
+      return res.status(403).json({ error: "Unauthorized: invalid admin token" });
+    }
+
+    const subservicesConfig = {
+      ac: [
+        "AC Foam Jet Service",
+        "General AC Service",
+        "Gas Refilling Service",
+        "AC Check-up & Diagnosis",
+        "AC Installation",
+        "AC Uninstallation",
+      ],
+      washing_machine: [
+        "Semi-Auto WM Check-up",
+        "Top Load WM Check-up",
+        "Front Load WM Check-up",
+        "Top Load Normal Cleaning",
+        "Top Load Deep Cleaning",
+        "Front Load Normal Cleaning",
+        "Front Load Deep Cleaning",
+      ],
+      ro: [
+        "RO Purifier Check-up",
+        "RO Annual Care Plan (12 Months)",
+        "Standard RO Service",
+      ],
+      microwave: [
+        "Microwave Check-up",
+        "Magnetron Replacement",
+        "Microwave PCB Service",
+      ],
+      geyser: [
+        "Geyser Installation",
+        "Geyser Uninstallation",
+        "Geyser Check-up & Diagnosis",
+      ],
+      chimney: [
+        "Chimney Check-up",
+        "Chimney Installation",
+        "Chimney Uninstallation",
+        "Chimney Normal Cleaning",
+        "Chimney Deep Cleaning",
+      ],
+      fridge: [
+        "Fridge Check-up & Diagnosis",
+        "Single Door Fridge Gas Charging",
+        "Double Door Fridge Gas Charging",
+        "Side-by-Side (Almirah) Fridge Check-up",
+      ],
+      cooler: [
+        "Air Cooler Check-up",
+        "Cooler Pad Replacement",
+      ],
+    };
+
+    const results = [];
+
+    for (const [serviceKey, subservices] of Object.entries(subservicesConfig)) {
+      const matchPatterns = {
+        ac: /^ac$/i,
+        washing_machine: /washing.*machine|machine.*wash/i,
+        ro: /^ro$|purifier|water.*filter/i,
+        microwave: /microwave/i,
+        geyser: /geyser|water.*heater/i,
+        chimney: /chimney|kitchen.*chimney/i,
+        fridge: /fridge|refrigerator/i,
+        cooler: /cooler|air.*cooler/i,
+      };
+
+      const pattern = matchPatterns[serviceKey];
+      if (!pattern) continue;
+
+      const { data: allServicesForKey, error: fetchError } = await supabase
+        .from("services")
+        .select("id, name")
+        .eq("is_active", true);
+
+      if (fetchError || !allServicesForKey) {
+        results.push({
+          service: serviceKey,
+          status: "skipped",
+          reason: fetchError ? fetchError.message : "Service fetch failed",
+        });
+        continue;
+      }
+
+      const service = (allServicesForKey || []).find((s) =>
+        pattern.test(s.name || "")
+      );
+
+      if (!service) {
+        results.push({
+          service: serviceKey,
+          status: "skipped",
+          reason: "Service not found matching pattern",
+        });
+        continue;
+      }
+
+      const { error: updateError } = await supabase
+        .from("services")
+        .update({ sub_services: subservices })
+        .eq("id", service.id);
+
+      if (updateError) {
+        results.push({
+          service: serviceKey,
+          serviceId: service.id,
+          status: "error",
+          error: updateError.message,
+        });
+        continue;
+      }
+
+      invalidateResponseCacheByPrefix("services|");
+
+      results.push({
+        service: serviceKey,
+        serviceId: service.id,
+        serviceName: service.name,
+        status: "updated",
+        subserviceCount: subservices.length,
+      });
+    }
+
+    const { data: allServices, error: verifyError } = await supabase
+      .from("services")
+      .select("id, name, sub_services")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    return res.status(200).json({
+      message: "Services subservices update completed",
+      updateResults: results,
+      verifyServices: verifyError ? null : allServices,
+    });
+  } catch (err) {
+    console.error("Admin update services failure:", err);
+    return res.status(500).json({
+      error: err.message || "Failed to update services subservices",
+    });
+  }
+});
+
 // Render provides PORT at runtime; fallback keeps local dev unchanged.
 const PORT = process.env.PORT || 5000;
 
