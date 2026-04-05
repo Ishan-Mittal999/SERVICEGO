@@ -34,6 +34,7 @@ type SubserviceCard = {
   name: string;
   isDetailed: boolean;
   details?: SubserviceItem;
+  imageSrc?: string;
 };
 
 type SubservicesCachePayload = {
@@ -65,6 +66,80 @@ const SERVICE_SUBSERVICE_KEYWORDS: Record<string, string[]> = {
   microwave: ["microwave", "oven"],
   heater: ["heater"],
   cooler: ["cooler"],
+};
+
+const SUBSERVICE_IMAGE_FILES = [
+  "AC-form-service.webp",
+  "AC-install (1).webp",
+  "ac-normal_service.webp",
+  "AC-rent-service.webp",
+  "AC-service.webp",
+  "AC-unistallation.webp",
+  "ac_gas_refilling (1).webp",
+  "auto-front-repair.webp",
+  "auto-top-repair.webp",
+  "chimney -service.webp",
+  "chimney-install.webp",
+  "chimney-uninstall.webp",
+  "deep-cleaning-front-load.webp",
+  "deep-cleaning-top-load.webp",
+  "geyser-install.webp",
+  "geyser-uninstalled.webp",
+  "normal-cleaning-top-load-washing-machine.webp",
+  "RO-service.webp",
+] as const;
+
+const normalizeImageKey = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const scoreImageMatch = (subserviceName: string, fileName: string) => {
+  const subserviceKey = normalizeImageKey(subserviceName);
+  const fileKey = normalizeImageKey(fileName);
+
+  if (!subserviceKey || !fileKey) {
+    return 0;
+  }
+
+  if (subserviceKey === fileKey) {
+    return 100;
+  }
+
+  if (fileKey.includes(subserviceKey) || subserviceKey.includes(fileKey)) {
+    return 70;
+  }
+
+  const subTokens = subserviceKey.split(" ").filter(Boolean);
+  const fileTokens = new Set(fileKey.split(" ").filter(Boolean));
+  if (subTokens.length === 0) {
+    return 0;
+  }
+
+  const sharedTokenCount = subTokens.filter((token) => fileTokens.has(token)).length;
+  if (sharedTokenCount === 0) {
+    return 0;
+  }
+
+  return Math.round((sharedTokenCount / subTokens.length) * 60);
+};
+
+const getSubserviceImagePath = (subserviceName: string) => {
+  const bestMatch = SUBSERVICE_IMAGE_FILES
+    .map((fileName) => ({
+      fileName,
+      score: scoreImageMatch(subserviceName, fileName),
+    }))
+    .sort((left, right) => right.score - left.score)[0];
+
+  if (!bestMatch || bestMatch.score < 35) {
+    return undefined;
+  }
+
+  return `/Subservices/${encodeURIComponent(bestMatch.fileName)}`;
 };
 
 const normalizeSubserviceText = (value: string) => value.trim().toLowerCase();
@@ -494,6 +569,7 @@ function SubservicesPageContent() {
       name: item.name,
       isDetailed: Boolean(item.included || item.notIncluded || item.note),
       details: item,
+      imageSrc: getSubserviceImagePath(item.name),
     })),
     [subserviceOptions]
   );
@@ -545,6 +621,7 @@ function SubservicesPageContent() {
                       item={item.details}
                       onSelect={() => openShopsForSubservice(item.name)}
                       visualGradient={getSubserviceVisual(item.id)}
+                      imageSrc={item.imageSrc}
                     />
                   );
                 }
@@ -573,7 +650,20 @@ function SubservicesPageContent() {
 
                     <div className="service-item-visual-wrap">
                       <div className="service-item-visual" style={{ background: getSubserviceVisual(item.id) }}>
-                        <span>Service plan</span>
+                        {item.imageSrc ? (
+                          <img
+                            src={item.imageSrc}
+                            alt={item.name}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              borderRadius: "12px",
+                            }}
+                          />
+                        ) : (
+                          <span>Service plan</span>
+                        )}
                       </div>
 
                       <button

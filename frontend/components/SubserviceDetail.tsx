@@ -14,6 +14,7 @@ interface SubserviceDetailProps {
   item: DetailItem;
   onSelect: () => void;
   visualGradient?: string;
+  imageSrc?: string;
 }
 
 const parseArray = (value: unknown): string[] => {
@@ -40,7 +41,7 @@ const parseArray = (value: unknown): string[] => {
   return [];
 };
 
-export function SubserviceDetail({ item, onSelect, visualGradient }: SubserviceDetailProps) {
+export function SubserviceDetail({ item, onSelect, visualGradient, imageSrc }: SubserviceDetailProps) {
   const [expandedSection, setExpandedSection] = useState<"included" | "notIncluded" | null>(null);
 
   const included = parseArray(item.included || []);
@@ -62,7 +63,7 @@ export function SubserviceDetail({ item, onSelect, visualGradient }: SubserviceD
 
         <div className={styles.headerVisual}>
           <div className={styles.visualBox} style={{ background: visualGradient }}>
-            <span>Service</span>
+            {imageSrc ? <img src={imageSrc} alt={item.name} className={styles.visualImage} /> : <span>Service</span>}
           </div>
           <button
             type="button"
