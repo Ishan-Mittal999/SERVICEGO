@@ -18,7 +18,7 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-top: 0.9rem;
 }
 
 .headerContent {
@@ -54,17 +54,9 @@
   line-height: 1.5;
 }
 
-.headerVisual {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  flex-shrink: 0;
-}
-
-.visualBox {
-  width: 80px;
-  height: 60px;
+.visualHero {
+  width: 100%;
+  height: 190px;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -83,8 +75,8 @@
 }
 
 .selectBtn {
-  width: 80px;
-  padding: 0.5rem 1rem;
+  min-width: 110px;
+  padding: 0.58rem 1rem;
   background: #ef4444;
   color: #fff;
   border: none;
@@ -233,23 +225,17 @@
 /* Mobile responsiveness */
 @media (max-width: 640px) {
   .cardHeader {
-    flex-direction: column;
+    flex-direction: row;
+    align-items: flex-start;
     gap: 1rem;
   }
 
-  .headerVisual {
-    width: 100%;
-    flex-direction: row;
-    justify-content: space-between;
-  }
-
-  .visualBox {
-    width: 100%;
-    height: 50px;
+  .visualHero {
+    height: 170px;
   }
 
   .selectBtn {
-    width: 100%;
+    min-width: 94px;
   }
 
   .expandBtn {

@@ -54,6 +54,10 @@ export function SubserviceDetail({ item, onSelect, visualGradient, imageSrc }: S
 
   return (
     <article className={styles.detailCard} role="button" tabIndex={0}>
+      <div className={styles.visualHero} style={{ background: visualGradient }}>
+        {imageSrc ? <img src={imageSrc} alt={item.name} className={styles.visualImage} /> : <span>Service</span>}
+      </div>
+
       <div className={styles.cardHeader}>
         <div className={styles.headerContent}>
           <span className={styles.badge}>Verified</span>
@@ -61,21 +65,16 @@ export function SubserviceDetail({ item, onSelect, visualGradient, imageSrc }: S
           {item.note && <p className={styles.note}>{item.note}</p>}
         </div>
 
-        <div className={styles.headerVisual}>
-          <div className={styles.visualBox} style={{ background: visualGradient }}>
-            {imageSrc ? <img src={imageSrc} alt={item.name} className={styles.visualImage} /> : <span>Service</span>}
-          </div>
-          <button
-            type="button"
-            className={styles.selectBtn}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect();
-            }}
-          >
-            Select
-          </button>
-        </div>
+        <button
+          type="button"
+          className={styles.selectBtn}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+          }}
+        >
+          Select
+        </button>
       </div>
 
       {hasDetails && (
