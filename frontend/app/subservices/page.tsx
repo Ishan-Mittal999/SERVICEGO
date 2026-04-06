@@ -191,7 +191,7 @@ const getSubserviceImagePath = (subserviceName: string, serviceName: string) => 
     }))
     .sort((left, right) => right.score - left.score)[0];
 
-  if (!bestMatch || bestMatch.score < 20) {
+  if (!bestMatch || bestMatch.score < 15) {
     return undefined;
   }
 
