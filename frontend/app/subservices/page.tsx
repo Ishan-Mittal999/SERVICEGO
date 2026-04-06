@@ -29,6 +29,8 @@ type SubserviceItem = {
   note?: string;
 };
 
+type PredefinedSubservice = string | SubserviceItem;
+
 type SubserviceCard = {
   id: string;
   name: string;
@@ -44,9 +46,143 @@ type SubservicesCachePayload = {
 
 const SUBSERVICES_CACHE_TTL_MS = 5 * 60 * 1000;
 
-const PREDEFINED_SUBSERVICE_MAP: Record<string, string[]> = {
+const PREDEFINED_SUBSERVICE_MAP: Record<string, PredefinedSubservice[]> = {
   ac: ["Foam jet service", "AC checkup", "AC installation", "AC uninstallation"],
-  washing_machine: ["Semi automatic machine repair", "Automatic top load repair", "Automatic front load repair"],
+  washing_machine: [
+    {
+      name: "Semi-Auto WM Check-up",
+      note: "Check-up fee waived if you choose repair through ServiceGo immediately",
+      included: [
+        "Dual-Motor Performance Test",
+        "Mechanical Timer Audit",
+        "Belt & Pulley Tension Check",
+        "Capacitor Health Check",
+        "Drainage System Inspection",
+        "Wiring & Rodent Damage Scan",
+      ],
+      notIncluded: [
+        "Actual Repair Work",
+        "Spare Parts Cost",
+        "Washing Machine Cleaning",
+        "Lifting/Moving Machine",
+        "Rat-Proofing Mesh",
+      ],
+    },
+    {
+      name: "Top Load WM Check-up",
+      note: "Top Load error codes (E1, dE, PE) decoded and explained",
+      included: [
+        "Digital Controller Audit",
+        "Sensor Calibration Check",
+        "Inlet & Drain Valve Test",
+        "Drum Balance & Suspension Scan",
+        "Motor & Capacitor Health",
+        "Agitator/Pulsator Inspection",
+      ],
+      notIncluded: [
+        "Repair or Part Replacement",
+        "PCB Repair/Recoding",
+        "Internal Tub Descaling",
+        "Rat-Mesh Installation",
+        "Plumbing/Tap Fixes",
+      ],
+    },
+    {
+      name: "Front Load WM Check-up",
+      note: "Expert verifies machine leveling to prevent future vibration damage",
+      included: [
+        "Error Code Diagnosis",
+        "Inverter Motor & Carbon Brush Check",
+        "Door Bellow Inspection",
+        "Heating Element & NTC Test",
+        "Suspension & Bearing Audit",
+        "Drain Pump & Filter Scan",
+      ],
+      notIncluded: [
+        "Actual Repair or Part Cost",
+        "Drum/Bearing Replacement",
+        "PCB Motherboard Repair",
+        "Door Gasket Replacement",
+        "Internal Descaling",
+      ],
+    },
+    {
+      name: "Top Load Normal Cleaning",
+      note: "Single normal cleaning may not remove 100% crust if heavily scaled",
+      included: [
+        "Lint Filter Deep Clean",
+        "Detergent Drawer Sanitization",
+        "Pulsator Surface Cleaning",
+        "Inner Drum Scrubbing",
+        "Eco-Tub Wash Cycle",
+        "Outer Body Wipe-down",
+      ],
+      notIncluded: [
+        "Full Drum Dismantling",
+        "Repair of Mechanical Parts",
+        "Inlet/Drain Pipe Replacement",
+        "Rat-Mesh Installation",
+        "Major Descaling",
+      ],
+    },
+    {
+      name: "Top Load Deep Cleaning",
+      note: "Takes 90-120 minutes. Ensure continuous water supply and floor drain",
+      included: [
+        "Full Drum Dismantling",
+        "High-Pressure Jet Wash",
+        "Pulsator Deep Scrub",
+        "Tub-in-Tub Sanitization",
+        "Drain Pump & Filter Clear-out",
+        "Re-balancing & Calibration",
+      ],
+      notIncluded: [
+        "Mechanical Repairs",
+        "Replacement of Rusted Parts",
+        "Inlet/Outlet Pipe Material",
+        "Body Dent/Paint Repair",
+        "Rat-Mesh Installation",
+      ],
+    },
+    {
+      name: "Front Load Normal Cleaning",
+      note: "Does not involve pulling heavy drum out of machine",
+      included: [
+        "Rubber Gasket Sanitization",
+        "Drain Pump Filter Clear-out",
+        "Detergent Drawer Deep Clean",
+        "Inner Drum Surface Polish",
+        "High-Temp Descaling Cycle",
+        "Glass Door & Panel Wipe",
+      ],
+      notIncluded: [
+        "Full Drum Extraction",
+        "Gasket/Seal Replacement",
+        "Bearing or Motor Repair",
+        "Inlet Water Filter Cleaning",
+        "Plumbing/Drainage Fixes",
+      ],
+    },
+    {
+      name: "Front Load Deep Cleaning",
+      note: "Takes 2-3 hours. Ensure dedicated workspace and water supply",
+      included: [
+        "Major Teardown Service",
+        "Complete Drum Extraction",
+        "High-Pressure Chemical Wash",
+        "Bellow Deep Scrub",
+        "Drain Pump & Manifold Cleaning",
+        "Re-assembly & Leveling",
+      ],
+      notIncluded: [
+        "Bearing or Spider Replacement",
+        "Repair of Mechanical/Electronic Faults",
+        "Gasket/Seal Replacement",
+        "Body Rust/Paint Restoration",
+        "Plumbing/Tap Fixes",
+      ],
+    },
+  ],
   geyser: ["Install", "Uninstall", "Repair"],
   chimney: [],
   refrigerator: [],
@@ -403,17 +539,21 @@ const findBestServiceForQuery = (serviceList: Service[], query: string) => {
   return best && best.score >= 50 ? best.service : null;
 };
 
+const getPredefinedSubserviceName = (entry: PredefinedSubservice) =>
+  typeof entry === "string" ? entry : entry.name;
+
 const isSubserviceRelevantToService = (
   subserviceName: string,
   service: Service,
-  predefinedForService: string[]
+  predefinedForService: PredefinedSubservice[]
 ) => {
   const normalizedSubservice = normalizeSubserviceText(subserviceName);
   if (!normalizedSubservice) {
     return false;
   }
 
-  const normalizedPredefined = predefinedForService.map((item) => normalizeSubserviceText(item));
+  const normalizedPredefined = predefinedForService
+    .map((item) => normalizeSubserviceText(getPredefinedSubserviceName(item)));
   if (
     normalizedPredefined.some(
       (entry) =>
@@ -595,15 +735,17 @@ function SubservicesPageContent() {
 
     const serviceDefinedSubservices = parseServiceSubservices(selectedService.sub_services);
     const hasServiceDefinedSubservices = (selectedService as Record<string, unknown>).sub_services !== undefined;
-    if (hasServiceDefinedSubservices) {
+    if (hasServiceDefinedSubservices && serviceDefinedSubservices.length > 0) {
       return serviceDefinedSubservices;
     }
 
     const predefined = PREDEFINED_SUBSERVICE_MAP[getServiceKey(selectedService.name || "")] || [];
     const relatedVendors = vendors.filter((vendor) => vendorHasService(vendor, selectedService));
     const seen = new Set<string>();
-    const options: SubserviceItem[] = predefined.map((item) => ({ name: item }));
-    predefined.forEach((item) => seen.add(normalizeSubserviceText(item)));
+    const options: SubserviceItem[] = predefined.map((item) =>
+      typeof item === "string" ? { name: item } : item
+    );
+    predefined.forEach((item) => seen.add(normalizeSubserviceText(getPredefinedSubserviceName(item))));
 
     relatedVendors.forEach((vendor) => {
       parseVendorListField(vendor.sub_services).forEach((item) => {
