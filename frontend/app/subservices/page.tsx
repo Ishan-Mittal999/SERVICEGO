@@ -110,6 +110,7 @@ const SUBSERVICE_TOKEN_ALIASES: Record<string, string> = {
   uninstalling: "uninstall",
   uninstallation: "uninstall",
   uninstalled: "uninstall",
+  unistallation: "uninstall",
   refilling: "charging",
   refill: "charging",
   chargin: "charging",
