@@ -117,6 +117,7 @@ const SUBSERVICE_TOKEN_ALIASES: Record<string, string> = {
   chargin: "charging",
   auto: "automatic",
   almirah: "side",
+  up: "checkup",
 };
 
 const SERVICE_IMAGE_HINTS: Record<string, string[]> = {
