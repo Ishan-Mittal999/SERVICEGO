@@ -123,7 +123,7 @@ const SERVICE_IMAGE_HINTS: Record<string, string[]> = {
   ac: ["ac", "foam", "cooling", "gas", "install", "uninstall"],
   washing_machine: ["washing", "machine", "automatic", "front", "top", "load", "cleaning", "repair"],
   geyser: ["geyser", "heater", "install", "uninstall", "repair"],
-  chimney: ["chimney", "cleaning", "install", "uninstall"],
+  chimney: ["chimney", "cleaning", "checkup", "install", "uninstall"],
   refrigerator: ["fridge", "refrigerator", "door", "charging", "checkup"],
   ro: ["ro", "purifier", "checkup", "service"],
   microwave: ["microwave", "oven"],
