@@ -50,18 +50,23 @@ const SUBSERVICE_PRESETS: Record<string, string[]> = {
 
 const normalizeServiceName = (value: string) => value.trim().toLowerCase();
 
+const isACServiceName = (normalizedName: string) => {
+  return /\bac\b/.test(normalizedName)
+    || normalizedName.includes("air conditioner")
+    || normalizedName.includes("air conditioning");
+};
+
 const getServiceKey = (serviceName: string) => {
   const normalized = normalizeServiceName(serviceName);
 
-  if (normalized.includes("ac")) return "ac";
   if (normalized.includes("washing")) return "washing_machine";
+  if (isACServiceName(normalized)) return "ac";
   if (normalized.includes("geyser")) return "geyser";
   if (normalized.includes("chimney")) return "chimney";
   if (normalized.includes("refrigerator") || normalized.includes("fridge")) return "refrigerator";
   if (normalized.includes("ro") || normalized.includes("purifier")) return "ro";
   if (normalized.includes("microwave")) return "microwave";
   if (normalized.includes("heater")) return "heater";
-  if (normalized.includes("cooler")) return "cooler";
   if (normalized.includes("cooler")) return "cooler";
 
   return normalized.replace(/\s+/g, "_");

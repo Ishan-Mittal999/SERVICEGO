@@ -340,11 +340,17 @@ const getSubserviceImagePath = (subserviceName: string, serviceName: string) => 
 
 const normalizeSubserviceText = (value: string) => value.trim().toLowerCase();
 
+const isACServiceName = (normalizedName: string) => {
+  return /\bac\b/.test(normalizedName)
+    || normalizedName.includes("air conditioner")
+    || normalizedName.includes("air conditioning");
+};
+
 const getServiceKey = (serviceName: string) => {
   const normalized = normalizeSubserviceText(serviceName);
 
-  if (normalized.includes("ac")) return "ac";
   if (normalized.includes("washing")) return "washing_machine";
+  if (isACServiceName(normalized)) return "ac";
   if (normalized.includes("geyser")) return "geyser";
   if (normalized.includes("chimney")) return "chimney";
   if (normalized.includes("refrigerator") || normalized.includes("fridge")) return "refrigerator";
