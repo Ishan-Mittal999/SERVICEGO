@@ -76,18 +76,58 @@ const SUBSERVICE_IMAGE_FILES = [
   "AC-service.webp",
   "AC-unistallation.webp",
   "ac_gas_refilling (1).webp",
+  "Air Cooler Check-up.webp",
   "auto-front-repair.webp",
   "auto-top-repair.webp",
   "chimney -service.webp",
+  "Chimney Deep Cleaning.webp",
+  "chimney normal cleaning.webp",
   "chimney-install.webp",
   "chimney-uninstall.webp",
+  "Cooler Pad Replacement.webp",
   "deep-cleaning-front-load.webp",
   "deep-cleaning-top-load.webp",
+  "Double Door Fridge Gas Charging.webp",
+  "Fridge Check-up & Diagnosis.webp",
   "geyser-install.webp",
   "geyser-uninstalled.webp",
   "normal-cleaning-top-load-washing-machine.webp",
+  "RO Purifier Check-up.webp",
   "RO-service.webp",
+  "Side-by-Side (Almirah) Fridge Check-up.webp",
+  "Single Door Fridge Gas Chargin.webp",
 ] as const;
+
+const SUBSERVICE_TOKEN_ALIASES: Record<string, string> = {
+  ac: "ac",
+  conditioner: "ac",
+  form: "foam",
+  check: "checkup",
+  diagnosis: "checkup",
+  diagnostic: "checkup",
+  installing: "install",
+  installation: "install",
+  uninstalling: "uninstall",
+  uninstallation: "uninstall",
+  uninstalled: "uninstall",
+  refilling: "charging",
+  refill: "charging",
+  chargin: "charging",
+  auto: "automatic",
+  almirah: "side",
+};
+
+const SERVICE_IMAGE_HINTS: Record<string, string[]> = {
+  ac: ["ac", "foam", "cooling", "gas", "install", "uninstall"],
+  washing_machine: ["washing", "machine", "automatic", "front", "top", "load", "cleaning", "repair"],
+  geyser: ["geyser", "heater", "install", "uninstall", "repair"],
+  chimney: ["chimney", "cleaning", "install", "uninstall"],
+  refrigerator: ["fridge", "refrigerator", "door", "charging", "checkup"],
+  ro: ["ro", "purifier", "checkup", "service"],
+  microwave: ["microwave", "oven"],
+  heater: ["heater"],
+  cooler: ["cooler", "pad", "checkup"],
+};
 
 const normalizeImageKey = (value: string) =>
   value
@@ -97,26 +137,35 @@ const normalizeImageKey = (value: string) =>
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
-const scoreImageMatch = (subserviceName: string, fileName: string) => {
-  const subserviceKey = normalizeImageKey(subserviceName);
-  const fileKey = normalizeImageKey(fileName);
+const toCanonicalToken = (token: string) => {
+  const normalizedToken = token.trim().toLowerCase();
+  return SUBSERVICE_TOKEN_ALIASES[normalizedToken] || normalizedToken;
+};
 
-  if (!subserviceKey || !fileKey) {
+const tokenizeImageKey = (value: string) =>
+  normalizeImageKey(value)
+    .split(" ")
+    .map(toCanonicalToken)
+    .filter(Boolean);
+
+const scoreImageMatch = (subserviceName: string, fileName: string, serviceName: string) => {
+  const subTokens = tokenizeImageKey(subserviceName);
+  const fileTokens = new Set(tokenizeImageKey(fileName));
+  const serviceTokens = SERVICE_IMAGE_HINTS[getServiceKey(serviceName)] || [];
+
+  if (subTokens.length === 0 || fileTokens.size === 0) {
     return 0;
   }
 
-  if (subserviceKey === fileKey) {
+  const normalizedSubservice = subTokens.join(" ");
+  const normalizedFile = Array.from(fileTokens).join(" ");
+
+  if (normalizedSubservice === normalizedFile) {
     return 100;
   }
 
-  if (fileKey.includes(subserviceKey) || subserviceKey.includes(fileKey)) {
+  if (normalizedFile.includes(normalizedSubservice) || normalizedSubservice.includes(normalizedFile)) {
     return 70;
-  }
-
-  const subTokens = subserviceKey.split(" ").filter(Boolean);
-  const fileTokens = new Set(fileKey.split(" ").filter(Boolean));
-  if (subTokens.length === 0) {
-    return 0;
   }
 
   const sharedTokenCount = subTokens.filter((token) => fileTokens.has(token)).length;
@@ -124,18 +173,23 @@ const scoreImageMatch = (subserviceName: string, fileName: string) => {
     return 0;
   }
 
-  return Math.round((sharedTokenCount / subTokens.length) * 60);
+  let score = Math.round((sharedTokenCount / subTokens.length) * 60);
+
+  const serviceBoost = serviceTokens.filter((token) => fileTokens.has(toCanonicalToken(token))).length;
+  score += serviceBoost * 8;
+
+  return score;
 };
 
-const getSubserviceImagePath = (subserviceName: string) => {
+const getSubserviceImagePath = (subserviceName: string, serviceName: string) => {
   const bestMatch = SUBSERVICE_IMAGE_FILES
     .map((fileName) => ({
       fileName,
-      score: scoreImageMatch(subserviceName, fileName),
+      score: scoreImageMatch(subserviceName, fileName, serviceName),
     }))
     .sort((left, right) => right.score - left.score)[0];
 
-  if (!bestMatch || bestMatch.score < 35) {
+  if (!bestMatch || bestMatch.score < 20) {
     return undefined;
   }
 
@@ -569,9 +623,9 @@ function SubservicesPageContent() {
       name: item.name,
       isDetailed: Boolean(item.included || item.notIncluded || item.note),
       details: item,
-      imageSrc: getSubserviceImagePath(item.name),
+      imageSrc: getSubserviceImagePath(item.name, selectedService?.name || ""),
     })),
-    [subserviceOptions]
+    [subserviceOptions, selectedService]
   );
 
   const openShopsForSubservice = (subService: string) => {
