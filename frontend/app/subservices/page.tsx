@@ -80,6 +80,7 @@ const SUBSERVICE_IMAGE_FILES = [
   "auto-front-repair.webp",
   "auto-top-repair.webp",
   "chimney -service.webp",
+  "chimney checkup.webp",
   "Chimney Deep Cleaning.webp",
   "chimney normal cleaning.webp",
   "chimney-install.webp",
