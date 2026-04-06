@@ -42,6 +42,7 @@ const SERVICE_IMAGE_LIBRARY: Array<{ image: string; label: string; terms: string
   { image: "/service_cooler.webp", label: "Cooler", terms: ["cooler", "air cooler", "desert cooler"] },
   { image: "/service_fridge.webp", label: "Fridge", terms: ["fridge", "refrigerator", "refrigeration"] },
   { image: "/service_geyser.webp", label: "Geyser", terms: ["geyser", "water heater", "heater"] },
+  { image: "/Subservices/auto-top-repair.webp", label: "Washing Machine", terms: ["washing", "washing machine", "wm", "top load", "front load", "laundry"] },
   { image: "/service_microwave.webp", label: "Microwave", terms: ["microwave", "oven", "otg"] },
   { image: "/service_ro.webp", label: "RO Service", terms: ["ro", "water purifier", "purifier", "aquaguard", "water filter"] },
 ];
