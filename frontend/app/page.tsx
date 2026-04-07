@@ -228,6 +228,55 @@ export default function HomePage() {
   // ✅ CALL CUSTOM HOOK HERE
   useScrollReveal(services);
 
+  const primeSubservicesCache = (service: Service, prefetchRoute = false) => {
+    const cacheKey = `subservices:${String(service.id)}:`;
+    const route = `/subservices?serviceId=${encodeURIComponent(String(service.id))}&serviceName=${encodeURIComponent(
+      service.name || ""
+    )}`;
+
+    // Optimistic cache lets subservices page render instantly while network data hydrates.
+    writeClientCache(cacheKey, {
+      services: [service],
+      vendors: [],
+    });
+
+    if (prefetchRoute) {
+      router.prefetch(route);
+    }
+
+    void (async () => {
+      try {
+        const [serviceResponse, vendorsResponse] = await Promise.all([
+          fetch(apiUrl(`/services/${encodeURIComponent(String(service.id))}`), { cache: "force-cache" }),
+          fetch(
+            apiUrl(
+              `/vendors?serviceId=${encodeURIComponent(String(service.id))}&serviceName=${encodeURIComponent(
+                service.name || ""
+              )}&limit=100`
+            ),
+            { cache: "force-cache" }
+          ),
+        ]);
+
+        if (!serviceResponse.ok || !vendorsResponse.ok) {
+          return;
+        }
+
+        const serviceDataRaw = await serviceResponse.json();
+        const vendorsDataRaw = await vendorsResponse.json();
+        const serviceData = serviceDataRaw.data || null;
+        const vendorsData = vendorsDataRaw.data || (Array.isArray(vendorsDataRaw) ? vendorsDataRaw : []);
+
+        writeClientCache(cacheKey, {
+          services: serviceData ? [serviceData] : [service],
+          vendors: vendorsData,
+        });
+      } catch {
+        // Best-effort cache warm-up only.
+      }
+    })();
+  };
+
   /* ================= FETCH SERVICES ================= */
   useEffect(() => {
     
@@ -262,52 +311,14 @@ export default function HomePage() {
       return;
     }
 
-    const prefetchSubservices = async () => {
+    const prefetchSubservices = () => {
       const topServices = services
         .filter((service) => REQUIRES_SUBSERVICE_SERVICE_KEYS.has(getServiceFlowKey(service.name || "")))
         .slice(0, 3);
 
-      await Promise.all(
-        topServices.map(async (service) => {
-          const cacheKey = `subservices:${String(service.id)}:`;
-
-          try {
-            const [serviceResponse, vendorsResponse] = await Promise.all([
-              fetch(apiUrl(`/services/${encodeURIComponent(String(service.id))}`), { cache: "force-cache" }),
-              fetch(
-                apiUrl(
-                  `/vendors?serviceId=${encodeURIComponent(String(service.id))}&serviceName=${encodeURIComponent(
-                    service.name || ""
-                  )}&limit=100`
-                ),
-                { cache: "force-cache" }
-              ),
-            ]);
-
-            if (!serviceResponse.ok || !vendorsResponse.ok) {
-              return;
-            }
-
-            const serviceDataRaw = await serviceResponse.json();
-            const vendorsDataRaw = await vendorsResponse.json();
-            const serviceData = serviceDataRaw.data || null;
-            const vendorsData = vendorsDataRaw.data || (Array.isArray(vendorsDataRaw) ? vendorsDataRaw : []);
-
-            writeClientCache(cacheKey, {
-              services: serviceData ? [serviceData] : [],
-              vendors: vendorsData,
-            });
-
-            router.prefetch(
-              `/subservices?serviceId=${encodeURIComponent(String(service.id))}&serviceName=${encodeURIComponent(
-                service.name || ""
-              )}`
-            );
-          } catch {
-            // Best-effort prefetch only.
-          }
-        })
-      );
+      topServices.forEach((service) => {
+        primeSubservicesCache(service, true);
+      });
     };
 
     if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
@@ -326,9 +337,9 @@ export default function HomePage() {
       };
     }
 
-    void prefetchSubservices();
+    prefetchSubservices();
     return undefined;
-  }, [router, services]);
+  }, [services]);
 
   const detectAndSaveUserLocation = async (showErrorToUser = true) => {
     try {
@@ -538,6 +549,8 @@ export default function HomePage() {
       );
       return;
     }
+
+    primeSubservicesCache(service, true);
 
     router.push(
       `/subservices?serviceId=${encodeURIComponent(String(service.id))}&serviceName=${encodeURIComponent(service.name || "")}`
