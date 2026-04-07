@@ -320,6 +320,38 @@ function parseVendorListField(value) {
   return [];
 }
 
+function isSchemaColumnCompatibilityError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  if (!message) {
+    return false;
+  }
+
+  return (
+    (message.includes("column") && message.includes("does not exist"))
+    || message.includes("schema cache")
+    || message.includes("could not find the")
+  );
+}
+
+function extractMissingColumnFromSchemaError(error) {
+  const message = String(error?.message || "");
+  if (!message) {
+    return "";
+  }
+
+  const couldNotFindMatch = message.match(/could not find the ['\"]([^'\"]+)['\"] column/i);
+  if (couldNotFindMatch?.[1]) {
+    return couldNotFindMatch[1].trim();
+  }
+
+  const columnDoesNotExistMatch = message.match(/column ['\"]?([^'\"\s]+)['\"]? .* does not exist/i);
+  if (columnDoesNotExistMatch?.[1]) {
+    return columnDoesNotExistMatch[1].trim();
+  }
+
+  return "";
+}
+
 function vendorOffersService(vendor, targetServiceId, targetServiceName) {
   const normalizedServiceId = targetServiceId ? String(targetServiceId).trim() : "";
   const normalizedServiceName = normalizeVendorServiceText(targetServiceName);
@@ -1187,12 +1219,40 @@ app.put("/vendors/:id", async (req, res) => {
       return res.status(400).json({ error: "No fields provided to update" });
     }
 
-    const { data, error } = await supabase
-      .from("vendors")
-      .update(updatePayload)
-      .eq("id", vendorId)
-      .select("*")
-      .single();
+    let payload = { ...updatePayload };
+    let data = null;
+    let error = null;
+
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const response = await supabase
+        .from("vendors")
+        .update(payload)
+        .eq("id", vendorId)
+        .select("*")
+        .single();
+
+      data = response.data;
+      error = response.error;
+
+      if (!error) {
+        break;
+      }
+
+      if (!isSchemaColumnCompatibilityError(error)) {
+        break;
+      }
+
+      const missingColumn = extractMissingColumnFromSchemaError(error);
+      if (!missingColumn || !(missingColumn in payload)) {
+        break;
+      }
+
+      delete payload[missingColumn];
+
+      if (Object.keys(payload).length === 0) {
+        return res.status(400).json({ error: "No compatible fields provided to update" });
+      }
+    }
 
     if (error) {
       return res.status(500).json({ error: error.message });
