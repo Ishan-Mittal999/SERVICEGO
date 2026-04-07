@@ -35,7 +35,7 @@ type ServiceCard = {
 };
 
 const SERVICE_IMAGE_LIBRARY: Array<{ image: string; label: string; terms: string[] }> = [
-  { image: "/service_ac.webp", label: "AC Service", terms: ["ac", "air conditioner", "air conditioning", "split ac", "window ac", "hvac"] },
+  { image: "/service_ac.webp", label: "AC", terms: ["ac", "air conditioner", "air conditioning", "split ac", "window ac", "hvac"] },
   { image: "/service_electrical.webp", label: "Electrical", terms: ["electrical", "electrician", "wiring", "electric", "switch", "socket", "mcb", "fan"] },
   { image: "/service_carpenter.webp", label: "Carpenter", terms: ["carpenter", "carpentry", "wood", "furniture", "wardrobe", "door"] },
   { image: "/service_chimney.webp", label: "Chimney", terms: ["chimney", "kitchen chimney", "exhaust"] },
@@ -44,7 +44,7 @@ const SERVICE_IMAGE_LIBRARY: Array<{ image: string; label: string; terms: string
   { image: "/service_geyser.webp", label: "Geyser", terms: ["geyser", "water heater", "heater"] },
   { image: "/Subservices/auto-top-repair.webp", label: "Washing Machine", terms: ["washing", "washing machine", "wm", "top load", "front load", "laundry"] },
   { image: "/service_microwave.webp", label: "Microwave", terms: ["microwave", "oven", "otg"] },
-  { image: "/service_ro.webp", label: "RO Service", terms: ["ro", "water purifier", "purifier", "aquaguard", "water filter"] },
+  { image: "/service_ro.webp", label: "RO", terms: ["ro", "water purifier", "purifier", "aquaguard", "water filter"] },
 ];
 
 const REQUIRES_SUBSERVICE_SERVICE_KEYS = new Set([
@@ -779,28 +779,32 @@ export default function HomePage() {
                 No services matched "{submittedQuery || searchTerm.trim()}". Try keywords like AC, Electrical, or Carpenter.
               </p>
             ) : (
-              filteredServiceCards.map((card) => (
-                <button
-                  key={card.key}
-                  type="button"
-                  className={`service-card service-card--icon animate-on-scroll ${searchHasRun ? "visible" : ""}`}
-                  onClick={() => openCardInShops(card)}
-                  aria-label={card.label}
-                  title={card.label}
-                >
-                  <div className="service-icon" aria-hidden="true">
-                  <Image
-                    src={card.image}
-                    alt={card.label}
-                    className="service-icon-image"
-                    width={80}
-                    height={80}
-                    loading="lazy"
-                  />
-                  </div>
-                  <h3>{card.label}</h3>
-                </button>
-              ))
+              filteredServiceCards.map((card) => {
+                const displayLabel = (card.service?.name || "").trim() || card.label;
+
+                return (
+                  <button
+                    key={card.key}
+                    type="button"
+                    className={`service-card service-card--icon animate-on-scroll ${searchHasRun ? "visible" : ""}`}
+                    onClick={() => openCardInShops(card)}
+                    aria-label={displayLabel}
+                    title={displayLabel}
+                  >
+                    <div className="service-icon" aria-hidden="true">
+                    <Image
+                      src={card.image}
+                      alt={displayLabel}
+                      className="service-icon-image"
+                      width={80}
+                      height={80}
+                      loading="lazy"
+                    />
+                    </div>
+                    <h3>{displayLabel}</h3>
+                  </button>
+                );
+              })
             )}
             
           </div>
