@@ -19,6 +19,7 @@ type ServiceOption = {
   id: string | null;
   name: string;
   subServices: string[];
+  rawSubServices?: unknown[];
 };
 
 type ServicemanForm = {
@@ -30,47 +31,7 @@ type ServicemanForm = {
   aadharPhoto: string;
 };
 
-const REQUIRED_SERVICE_NAMES = [
-  "AC Repair",
-  "Washing Machine Repair",
-  "Chimney Repair",
-  "Refrigerator Repair",
-  "Geyser Service",
-  "RO Service",
-  "Microwave Repair",
-  "Heater Repair",
-  "Cooler Repair",
-];
-
-const SUBSERVICE_PRESETS: Record<string, string[]> = {
-  ac: ["Foam jet service", "AC checkup", "AC installation", "AC uninstallation"],
-  washing_machine: ["Semi automatic machine repair", "Automatic top load repair", "Automatic front load repair"],
-  geyser: ["Install", "Uninstall", "Repair"],
-};
-
 const normalizeServiceName = (value: string) => value.trim().toLowerCase();
-
-const isACServiceName = (normalizedName: string) => {
-  return /\bac\b/.test(normalizedName)
-    || normalizedName.includes("air conditioner")
-    || normalizedName.includes("air conditioning");
-};
-
-const getServiceKey = (serviceName: string) => {
-  const normalized = normalizeServiceName(serviceName);
-
-  if (normalized.includes("washing")) return "washing_machine";
-  if (isACServiceName(normalized)) return "ac";
-  if (normalized.includes("geyser")) return "geyser";
-  if (normalized.includes("chimney")) return "chimney";
-  if (normalized.includes("refrigerator") || normalized.includes("fridge")) return "refrigerator";
-  if (normalized.includes("ro") || normalized.includes("purifier")) return "ro";
-  if (normalized.includes("microwave")) return "microwave";
-  if (normalized.includes("heater")) return "heater";
-  if (normalized.includes("cooler")) return "cooler";
-
-  return normalized.replace(/\s+/g, "_");
-};
 
 const readFilesAsDataUrl = async (files: File[]) => {
   return Promise.all(
@@ -166,7 +127,15 @@ const upsertVendorWithSchemaCompatibility = async (payload: Record<string, unkno
 
 const parseServiceSubservices = (value: unknown): string[] => {
   if (Array.isArray(value)) {
-    return value.map((item) => String(item || "").trim()).filter(Boolean);
+    return value
+      .map((item) => {
+        if (typeof item === "object" && item !== null && "name" in item) {
+          return String((item as { name?: unknown }).name || "").trim();
+        }
+
+        return String(item || "").trim();
+      })
+      .filter(Boolean);
   }
 
   if (typeof value === "string") {
@@ -190,12 +159,8 @@ const parseServiceSubservices = (value: unknown): string[] => {
   return [];
 };
 
-const getEffectiveServiceSubServices = (serviceName: string, serviceSubServices: string[]) => {
-  const preset = SUBSERVICE_PRESETS[getServiceKey(serviceName)] || [];
-  return Array.from(
-    new Set([...serviceSubServices, ...preset].map((item) => String(item || "").trim()).filter(Boolean))
-  );
-};
+const getEffectiveServiceSubServices = (serviceSubServices: string[]) =>
+  Array.from(new Set(serviceSubServices.map((item) => String(item || "").trim()).filter(Boolean)));
 
 const buildDefaultServiceman = (): ServicemanForm => ({
   name: "",
@@ -242,7 +207,7 @@ export default function VendorOnboardingPage() {
 
   const subServiceOptionsByService = useMemo(() => {
     return selectedServices.reduce<Record<string, string[]>>((acc, service) => {
-      acc[service.key] = getEffectiveServiceSubServices(service.name, service.subServices);
+      acc[service.key] = getEffectiveServiceSubServices(service.subServices);
       return acc;
     }, {});
   }, [selectedServices]);
@@ -261,11 +226,12 @@ export default function VendorOnboardingPage() {
       try {
         const res = await fetch(apiUrl("/services"), { cache: "no-store" });
         const data = await res.json();
+        const servicesData = data?.data || (Array.isArray(data) ? data : []);
 
         const normalizedMap = new Map<string, ServiceOption>();
 
-        if (Array.isArray(data)) {
-          data.forEach((entry) => {
+        if (Array.isArray(servicesData)) {
+          servicesData.forEach((entry) => {
             if (!entry?.name) return;
             const nameText = String(entry.name).trim();
             if (!nameText) return;
@@ -275,23 +241,10 @@ export default function VendorOnboardingPage() {
               id: String(entry.id),
               name: nameText,
               subServices: entrySubServices,
+              rawSubServices: Array.isArray(entry.sub_services) ? entry.sub_services : undefined,
             });
           });
         }
-
-        REQUIRED_SERVICE_NAMES.forEach((nameText) => {
-          const normalized = normalizeServiceName(nameText);
-          if (normalizedMap.has(normalized)) {
-            return;
-          }
-
-          normalizedMap.set(normalized, {
-            key: `custom:${normalized}`,
-            id: null,
-            name: nameText,
-            subServices: SUBSERVICE_PRESETS[getServiceKey(nameText)] || [],
-          });
-        });
 
         const mergedServices = Array.from(normalizedMap.values()).sort((a, b) => a.name.localeCompare(b.name));
         setServiceOptions(mergedServices);
@@ -540,6 +493,93 @@ export default function VendorOnboardingPage() {
     const selectedApiServiceIds = selectedServices
       .map((service) => service.id)
       .filter((id): id is string => Boolean(id));
+
+    const manualSubserviceUpdates = selectedServices
+      .map((service) => {
+        if (!service.id) {
+          return null;
+        }
+
+        const selectedForService = (selectedSubServicesByService[service.key] || [])
+          .map((name) => name.trim())
+          .filter(Boolean);
+
+        if (selectedForService.length === 0) {
+          return null;
+        }
+
+        const existingNames = new Set(service.subServices.map((name) => normalizeServiceName(name)));
+        const manualNames = selectedForService
+          .filter((name) => !existingNames.has(normalizeServiceName(name)));
+
+        if (manualNames.length === 0) {
+          return null;
+        }
+
+        const currentRawSubservices = Array.isArray(service.rawSubServices)
+          ? [...service.rawSubServices]
+          : [...service.subServices];
+
+        const mergedRawSubservices = [...currentRawSubservices];
+        const mergedNames = new Set(parseServiceSubservices(currentRawSubservices).map((name) => normalizeServiceName(name)));
+
+        manualNames.forEach((name) => {
+          const normalizedName = normalizeServiceName(name);
+          if (!mergedNames.has(normalizedName)) {
+            mergedRawSubservices.push(name);
+            mergedNames.add(normalizedName);
+          }
+        });
+
+        return {
+          serviceKey: service.key,
+          serviceId: service.id,
+          mergedRawSubservices,
+        };
+      })
+      .filter((entry): entry is { serviceKey: string; serviceId: string; mergedRawSubservices: unknown[] } => Boolean(entry));
+
+    if (manualSubserviceUpdates.length > 0) {
+      try {
+        await Promise.all(
+          manualSubserviceUpdates.map(async (entry) => {
+            const response = await fetch(apiUrl(`/services/${encodeURIComponent(entry.serviceId)}`), {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                sub_services: entry.mergedRawSubservices,
+              }),
+            });
+
+            if (!response.ok) {
+              const data = await response.json().catch(() => null);
+              throw new Error(data?.error || `Failed to update service ${entry.serviceId}`);
+            }
+          })
+        );
+
+        setServiceOptions((current) =>
+          current.map((service) => {
+            const syncedEntry = manualSubserviceUpdates.find((entry) => entry.serviceKey === service.key);
+            if (!syncedEntry) {
+              return service;
+            }
+
+            return {
+              ...service,
+              rawSubServices: syncedEntry.mergedRawSubservices,
+              subServices: parseServiceSubservices(syncedEntry.mergedRawSubservices),
+            };
+          })
+        );
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "Could not sync sub-services to database.");
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
     const primaryServiceId = selectedApiServiceIds[0] || null;
 
