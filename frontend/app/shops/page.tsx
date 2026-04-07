@@ -547,18 +547,22 @@ function ShopsPageContent() {
       ? vendors.filter((vendor) => vendorHasService(vendor, selectedService))
       : vendors;
 
+    const safeServiceFiltered = selectedService && serviceFiltered.length === 0
+      ? vendors
+      : serviceFiltered;
+
     const subServiceFilteredStrict = selectedSubService
-      ? serviceFiltered.filter((vendor) =>
+      ? safeServiceFiltered.filter((vendor) =>
           parseVendorListField((vendor as Record<string, unknown>).sub_services).some((item) =>
             normalizeShopText(item).includes(selectedSubService)
           )
         )
-      : serviceFiltered;
+      : safeServiceFiltered;
 
     // If no vendor has explicit mapping for the chosen sub-service, keep service-level vendors visible.
     const subServiceFiltered =
       selectedSubService && subServiceFilteredStrict.length === 0
-        ? serviceFiltered
+        ? safeServiceFiltered
         : subServiceFilteredStrict;
 
     return subServiceFiltered.sort((left, right) => {
