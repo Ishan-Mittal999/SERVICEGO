@@ -270,6 +270,28 @@ function normalizeVendorServiceText(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function isACServiceName(normalizedName) {
+  return /\bac\b/.test(normalizedName)
+    || normalizedName.includes("air conditioner")
+    || normalizedName.includes("air conditioning");
+}
+
+function getVendorServiceKey(serviceName) {
+  const normalized = normalizeVendorServiceText(serviceName);
+
+  if (normalized.includes("washing")) return "washing_machine";
+  if (isACServiceName(normalized)) return "ac";
+  if (normalized.includes("geyser")) return "geyser";
+  if (normalized.includes("chimney")) return "chimney";
+  if (normalized.includes("refrigerator") || normalized.includes("fridge")) return "refrigerator";
+  if (normalized.includes("ro") || normalized.includes("purifier")) return "ro";
+  if (normalized.includes("microwave")) return "microwave";
+  if (normalized.includes("heater")) return "heater";
+  if (normalized.includes("cooler")) return "cooler";
+
+  return normalized.replace(/\s+/g, "_");
+}
+
 function parseVendorListField(value) {
   const normalizeEntry = (entry) => {
     const trimmed = String(entry || "").trim();
@@ -355,6 +377,7 @@ function extractMissingColumnFromSchemaError(error) {
 function vendorOffersService(vendor, targetServiceId, targetServiceName) {
   const normalizedServiceId = targetServiceId ? String(targetServiceId).trim() : "";
   const normalizedServiceName = normalizeVendorServiceText(targetServiceName);
+  const targetServiceKey = normalizedServiceName ? getVendorServiceKey(normalizedServiceName) : "";
 
   if (!normalizedServiceId && !normalizedServiceName) {
     return true;
@@ -373,6 +396,13 @@ function vendorOffersService(vendor, targetServiceId, targetServiceName) {
     .map((name) => normalizeVendorServiceText(name));
   if (normalizedServiceName && vendorServiceNames.some((name) => name === normalizedServiceName)) {
     return true;
+  }
+
+  if (targetServiceKey) {
+    const vendorServiceKeys = vendorServiceNames.map((name) => getVendorServiceKey(name));
+    if (vendorServiceKeys.some((key) => key === targetServiceKey)) {
+      return true;
+    }
   }
 
   return false;
