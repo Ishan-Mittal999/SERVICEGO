@@ -258,6 +258,28 @@ const parseVendorSubservicePricing = (vendor: Vendor): PricedSubService[] => {
 
 const normalizeShopText = (value: string) => value.trim().toLowerCase();
 
+const normalizeSubserviceMatchKey = (value: string) =>
+  normalizeShopText(value)
+    .replace(/check\s*-\s*up/g, "checkup")
+    .replace(/\bwm\b/g, "washing machine")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b(ac|air conditioner|washing machine|machine)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const isSubserviceNameMatch = (selectedName: string, vendorName: string) => {
+  const normalizedSelected = normalizeSubserviceMatchKey(selectedName);
+  const normalizedVendor = normalizeSubserviceMatchKey(vendorName);
+
+  if (!normalizedSelected || !normalizedVendor) {
+    return false;
+  }
+
+  return normalizedSelected === normalizedVendor
+    || normalizedSelected.includes(normalizedVendor)
+    || normalizedVendor.includes(normalizedSelected);
+};
+
 const vendorHasService = (vendor: Vendor, service: Service | null) => {
   if (!service) {
     return true;
@@ -537,7 +559,7 @@ function ShopsPageContent() {
 
     if (selectedSubService) {
       const match = parsedSubservices.find(
-        (entry) => normalizeShopText(entry.name) === selectedSubService
+        (entry) => isSubserviceNameMatch(selectedSubServiceLabel || selectedSubService, entry.name)
       );
 
       if (match?.price) {
