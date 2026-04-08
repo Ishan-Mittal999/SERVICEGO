@@ -216,7 +216,6 @@ export default function HomePage() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
   const [servicesError, setServicesError] = useState<string | null>(null);
   const [searchHasRun, setSearchHasRun] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState("");
@@ -286,7 +285,6 @@ export default function HomePage() {
     if (cachedServices && cachedServices.length > 0) {
       setServices(cachedServices);
       setServicesError(null);
-      setLoading(false);
     }
 
     
@@ -309,10 +307,6 @@ export default function HomePage() {
         console.error("Failed to fetch services", err);
         if (!cachedServices || cachedServices.length === 0) {
           setServicesError("Unable to load services right now. Please refresh in a minute.");
-        }
-      } finally {
-        if (!cachedServices || cachedServices.length === 0) {
-          setLoading(false);
         }
       }
     };
@@ -796,13 +790,11 @@ export default function HomePage() {
               : `Showing all ${serviceCards.length} services`}
           </p>
 
+          {servicesError ? <p>{servicesError}</p> : null}
+
           <div className="services-grid">
             
-            {loading ? (
-              <p>Loading services...</p>
-            ) : servicesError ? (
-              <p>{servicesError}</p>
-            ) : filteredServiceCards.length === 0 ? (
+            {filteredServiceCards.length === 0 ? (
               <p>
                 No services matched "{submittedQuery || searchTerm.trim()}". Try keywords like AC, Electrical, or Carpenter.
               </p>
