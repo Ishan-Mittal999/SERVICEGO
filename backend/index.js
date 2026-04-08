@@ -292,6 +292,61 @@ function getVendorServiceKey(serviceName) {
   return normalized.replace(/\s+/g, "_");
 }
 
+function parsePostgresArrayString(rawValue) {
+  if (typeof rawValue !== "string") {
+    return [];
+  }
+
+  const normalized = rawValue.trim();
+  if (!normalized.startsWith("{") || !normalized.endsWith("}")) {
+    return [];
+  }
+
+  const body = normalized.slice(1, -1);
+  if (!body) {
+    return [];
+  }
+
+  const items = [];
+  let current = "";
+  let inQuotes = false;
+  let escaped = false;
+
+  for (let index = 0; index < body.length; index += 1) {
+    const char = body[index];
+
+    if (escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      items.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current.trim()) {
+    items.push(current.trim());
+  }
+
+  return items.filter(Boolean);
+}
+
 function parseVendorListField(value) {
   const normalizeEntry = (entry) => {
     const trimmed = String(entry || "").trim();
@@ -331,6 +386,13 @@ function parseVendorListField(value) {
       }
     } catch {
       // Fallback to comma-separated values.
+    }
+
+    const postgresArray = parsePostgresArrayString(normalized);
+    if (postgresArray.length > 0) {
+      return postgresArray
+        .map((item) => normalizeEntry(item))
+        .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
     }
 
     return normalized
@@ -1521,7 +1583,7 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
 
   const { data: vendor, error: vendorError } = await supabase
     .from("vendors")
-    .select("id, service_id, service_ids, is_active, approval_status")
+    .select("id, service_id, service_ids, selected_service_names, is_active, approval_status")
     .eq("auth_user_id", auth_id)
     .single();
 
@@ -1541,6 +1603,14 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
     )
   );
 
+  const offeredServiceNameKeys = Array.from(
+    new Set(
+      parseVendorListField(vendor.selected_service_names)
+        .map((name) => getVendorServiceKey(name))
+        .filter(Boolean)
+    )
+  );
+
   const { data: assignedBookings, error: assignedBookingsError } = await supabase
     .from("bookings")
     .select("*, services(id, name, category), vendors(id, name, phone)")
@@ -1553,15 +1623,18 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
   }
 
   let pendingBookings = [];
-  if (offeredServiceIds.length > 0) {
+  if (offeredServiceIds.length > 0 || offeredServiceNameKeys.length > 0) {
     let pendingQuery = supabase
       .from("bookings")
       .select("*, services(id, name, category), vendors(id, name, phone)")
       .eq("status", "pending")
       .is("vendor_id", null)
-      .in("service_id", offeredServiceIds)
       .order("created_at", { ascending: false })
       .limit(limit);
+
+    if (offeredServiceIds.length > 0) {
+      pendingQuery = pendingQuery.in("service_id", offeredServiceIds);
+    }
 
     const { data: pendingRows, error: pendingError } = await pendingQuery;
 
@@ -1569,7 +1642,16 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
       return res.status(500).json(pendingError);
     }
 
-    pendingBookings = pendingRows || [];
+    pendingBookings = (pendingRows || []).filter((booking) => {
+      const bookingServiceId = String(booking?.service_id || "").trim();
+      const bookingServiceName = String(booking?.services?.name || booking?.service_name || "").trim();
+      const bookingServiceKey = bookingServiceName ? getVendorServiceKey(bookingServiceName) : "";
+
+      const serviceIdMatch = offeredServiceIds.length > 0 && offeredServiceIds.includes(bookingServiceId);
+      const serviceNameMatch = bookingServiceKey && offeredServiceNameKeys.includes(bookingServiceKey);
+
+      return serviceIdMatch || serviceNameMatch;
+    });
   }
 
   const bookings = [...(assignedBookings || []), ...pendingBookings];
