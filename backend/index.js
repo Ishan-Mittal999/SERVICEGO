@@ -739,7 +739,7 @@ app.put("/booking/:id/accept", async (req, res) => {
 
     const { data: vendor, error: vendorError } = await supabase
       .from("vendors")
-      .select("id, auth_user_id, service_id, is_active, approval_status, servicemen_details")
+      .select("id, auth_user_id, service_id, service_ids, is_active, approval_status, servicemen_details")
       .eq("auth_user_id", vendor_auth_id)
       .single();
 
@@ -777,7 +777,15 @@ app.put("/booking/:id/accept", async (req, res) => {
       return res.status(404).json({ error: "Booking not found" });
     }
 
-    if (booking.service_id !== vendor.service_id) {
+    const vendorServiceIds = Array.from(
+      new Set(
+        [vendor.service_id, ...parseVendorListField(vendor.service_ids)]
+          .map((value) => String(value || "").trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (!vendorServiceIds.includes(String(booking.service_id || "").trim())) {
       return res.status(400).json({ error: "This booking is not in your service category" });
     }
 
@@ -1631,10 +1639,6 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
       .is("vendor_id", null)
       .order("created_at", { ascending: false })
       .limit(limit);
-
-    if (offeredServiceIds.length > 0) {
-      pendingQuery = pendingQuery.in("service_id", offeredServiceIds);
-    }
 
     const { data: pendingRows, error: pendingError } = await pendingQuery;
 
