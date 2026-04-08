@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { apiUrl } from "@/lib/env";
 import { mergeBookingDraft } from "@/lib/booking-flow";
-import { writeClientCache } from "@/lib/client-cache";
+import { readClientCache, writeClientCache } from "@/lib/client-cache";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -46,6 +46,9 @@ const SERVICE_IMAGE_LIBRARY: Array<{ image: string; label: string; terms: string
   { image: "/service_microwave.webp", label: "Microwave", terms: ["microwave", "oven", "otg"] },
   { image: "/service_ro.webp", label: "RO", terms: ["ro", "water purifier", "purifier", "aquaguard", "water filter"] },
 ];
+
+const SERVICES_CACHE_KEY = "home:services";
+const SERVICES_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const REQUIRES_SUBSERVICE_SERVICE_KEYS = new Set([
   "ac",
@@ -279,10 +282,17 @@ export default function HomePage() {
 
   /* ================= FETCH SERVICES ================= */
   useEffect(() => {
+    const cachedServices = readClientCache<Service[]>(SERVICES_CACHE_KEY, SERVICES_CACHE_TTL_MS);
+    if (cachedServices && cachedServices.length > 0) {
+      setServices(cachedServices);
+      setServicesError(null);
+      setLoading(false);
+    }
+
     
     const fetchServices = async () => {
       try {
-        const servicesRes = await fetch(apiUrl("/services"));
+        const servicesRes = await fetch(apiUrl("/services"), { cache: "force-cache" });
 
         if (!servicesRes.ok) {
           throw new Error(`Services API failed with ${servicesRes.status}`);
@@ -294,11 +304,16 @@ export default function HomePage() {
 
         setServices(servicesData);
         setServicesError(null);
+        writeClientCache(SERVICES_CACHE_KEY, servicesData);
       } catch (err) {
         console.error("Failed to fetch services", err);
-        setServicesError("Unable to load services right now. Please refresh in a minute.");
+        if (!cachedServices || cachedServices.length === 0) {
+          setServicesError("Unable to load services right now. Please refresh in a minute.");
+        }
       } finally {
-        setLoading(false);
+        if (!cachedServices || cachedServices.length === 0) {
+          setLoading(false);
+        }
       }
     };
     
