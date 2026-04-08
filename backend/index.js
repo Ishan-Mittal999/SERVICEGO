@@ -1595,7 +1595,7 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
 
   const { data: vendor, error: vendorError } = await supabase
     .from("vendors")
-    .select("id, auth_user_id, service_id, service_ids, selected_service_names, is_active, approval_status")
+    .select("id, auth_user_id, service_id, service_ids, is_active, approval_status")
     .or(`auth_user_id.eq.${vendorIdentifier},id.eq.${vendorIdentifier}`)
     .single();
 

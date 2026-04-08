@@ -2990,7 +2990,7 @@ export default function VendorDashboard() {
         try {
           const { data: vendorRow, error: vendorError } = await supabase
             .from("vendors")
-            .select("service_id, service_ids, selected_service_names, approval_status")
+            .select("service_id, service_ids, approval_status")
             .eq("auth_user_id", user.id)
             .single();
 
@@ -3016,7 +3016,6 @@ export default function VendorDashboard() {
           const serviceNameKeys = Array.from(
             new Set(
               [
-                ...parseVendorListField((vendorRow as Record<string, unknown>).selected_service_names),
                 ...parseVendorListField((vendor as Record<string, unknown> | null)?.selected_service_names),
               ]
                 .map((entry) => toServiceMatchKey(entry))
