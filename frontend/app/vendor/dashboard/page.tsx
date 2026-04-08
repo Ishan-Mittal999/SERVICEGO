@@ -2970,6 +2970,23 @@ export default function VendorDashboard() {
         };
 
         try {
+          const vendorRouteResponse = await fetch(apiUrl(`/vendors/${user.id}/bookings`), { cache: "no-store" });
+          if (vendorRouteResponse.ok) {
+            const vendorRoutePayload = await vendorRouteResponse.json().catch(() => null);
+            const vendorRouteRows = Array.isArray(vendorRoutePayload)
+              ? vendorRoutePayload
+              : Array.isArray(vendorRoutePayload?.data)
+                ? vendorRoutePayload.data
+                : [];
+
+            setBookings(normalizeBookingRows(vendorRouteRows));
+            return;
+          }
+        } catch (vendorRouteError) {
+          console.error("Vendor bookings API load failed, falling back to Supabase", vendorRouteError);
+        }
+
+        try {
           const { data: vendorRow, error: vendorError } = await supabase
             .from("vendors")
             .select("service_id, service_ids, selected_service_names, approval_status")
