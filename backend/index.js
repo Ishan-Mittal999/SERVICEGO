@@ -1627,7 +1627,7 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
 
   const { data: assignedBookings, error: assignedBookingsError } = await supabase
     .from("bookings")
-    .select("*, services(id, name, category), vendors(id, name, phone)")
+    .select("*")
     .or(
       resolvedVendorAuthId
         ? `vendor_auth_id.eq.${resolvedVendorAuthId},vendor_id.eq.${vendor.id}`
@@ -1644,7 +1644,7 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
   if (offeredServiceIds.length > 0 || offeredServiceNameKeys.length > 0) {
     let pendingQuery = supabase
       .from("bookings")
-      .select("*, services(id, name, category), vendors(id, name, phone)")
+      .select("*")
       .eq("status", "pending")
       .is("vendor_id", null)
       .order("created_at", { ascending: false })
