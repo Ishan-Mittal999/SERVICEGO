@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
-import { mergeBookingDraft } from "@/lib/booking-flow";
+import { formatPrice, mergeBookingDraft } from "@/lib/booking-flow";
 import { readClientCache, writeClientCache } from "@/lib/client-cache";
 import { SubserviceDetail } from "@/components/SubserviceDetail";
 
@@ -20,6 +20,7 @@ type Vendor = {
   service_ids?: Array<string | number> | unknown;
   selected_service_names?: string[] | unknown;
   sub_services?: unknown;
+  sub_service_prices?: unknown;
 };
 
 type SubserviceItem = {
@@ -37,6 +38,12 @@ type SubserviceCard = {
   isDetailed: boolean;
   details?: SubserviceItem;
   imageSrc?: string;
+  startingPrice?: number | null;
+};
+
+type PricedSubservice = {
+  name: string;
+  price: number | null;
 };
 
 type SubservicesCachePayload = {
@@ -397,6 +404,35 @@ const getSubserviceVisual = (itemId: string) => {
   return palette[score % palette.length];
 };
 
+const parseVendorRawListField = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (!normalized) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(normalized);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+      }
+    } catch {
+      // Fallback to comma separated values.
+    }
+
+    return normalized
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
 const parseVendorListField = (value: unknown): string[] => {
   const normalizeEntry = (entry: string) => {
     const trimmed = entry.trim();
@@ -411,36 +447,141 @@ const parseVendorListField = (value: unknown): string[] => {
     return trimmed;
   };
 
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => normalizeEntry(String(item || "")))
-      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
+  return parseVendorRawListField(value)
+    .map((item) => normalizeEntry(item))
+    .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
+};
+
+const parsePositivePrice = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.round(value);
   }
 
   if (typeof value === "string") {
-    const normalized = value.trim();
-    if (!normalized) {
-      return [];
+    const cleaned = value.replace(/[^0-9.]/g, "").trim();
+    if (!cleaned) {
+      return null;
     }
 
-    try {
-      const parsed = JSON.parse(normalized);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((item) => normalizeEntry(String(item || "")))
-          .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
-      }
-    } catch {
-      // Fallback to comma separated values.
+    const numeric = Number(cleaned);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      return Math.round(numeric);
     }
-
-    return normalized
-      .split(",")
-      .map((item) => normalizeEntry(item))
-      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
   }
 
-  return [];
+  return null;
+};
+
+const normalizeSubserviceMatchKey = (value: string) =>
+  normalizeSubserviceText(value)
+    .replace(/\bchimeny\b/g, "chimney")
+    .replace(/\buninstall(?:ation|ing|ed)?\b/g, " uninstall ")
+    .replace(/\binstall(?:ation|ing|ed)?\b/g, " install ")
+    .replace(/check\s*-\s*up/g, "checkup")
+    .replace(/\bwm\b/g, "washing machine")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b(ac|air conditioner|washing machine|machine)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const detectSubserviceFamily = (value: string): string | null => {
+  const normalized = normalizeSubserviceText(value).replace(/\bchimeny\b/g, "chimney");
+
+  if (/\bac\b|air conditioner|air conditioning/.test(normalized)) return "ac";
+  if (normalized.includes("chimney")) return "chimney";
+  if (normalized.includes("geyser")) return "geyser";
+  if (normalized.includes("washing machine") || normalized.includes("washing")) return "washing_machine";
+  if (normalized.includes("fridge") || normalized.includes("refrigerator")) return "refrigerator";
+  if (normalized.includes("ro") || normalized.includes("purifier")) return "ro";
+  if (normalized.includes("microwave")) return "microwave";
+
+  return null;
+};
+
+const isSubserviceNameMatch = (selectedName: string, vendorName: string, serviceContextName?: string) => {
+  const selectedFamily = detectSubserviceFamily(selectedName) || detectSubserviceFamily(serviceContextName || "");
+  const vendorFamily = detectSubserviceFamily(vendorName);
+
+  if (selectedFamily && vendorFamily && selectedFamily !== vendorFamily) {
+    return false;
+  }
+
+  const normalizedSelected = normalizeSubserviceMatchKey(selectedName);
+  const normalizedVendor = normalizeSubserviceMatchKey(vendorName);
+
+  if (!normalizedSelected || !normalizedVendor) {
+    return false;
+  }
+
+  if (normalizedSelected === normalizedVendor) {
+    return true;
+  }
+
+  const selectedTokens = normalizedSelected.split(" ").filter(Boolean);
+  const vendorTokens = normalizedVendor.split(" ").filter(Boolean);
+  const vendorTokenSet = new Set(vendorTokens);
+  const selectedTokenSet = new Set(selectedTokens);
+
+  const selectedHasUninstall = selectedTokenSet.has("uninstall");
+  const vendorHasUninstall = vendorTokenSet.has("uninstall");
+  if (selectedHasUninstall !== vendorHasUninstall) {
+    return false;
+  }
+
+  const selectedHasInstall = selectedTokenSet.has("install");
+  const vendorHasInstall = vendorTokenSet.has("install");
+  if (selectedHasInstall !== vendorHasInstall) {
+    return false;
+  }
+
+  return selectedTokens.every((token) => vendorTokenSet.has(token));
+};
+
+const parseVendorSubservicePricing = (vendor: Vendor): PricedSubservice[] => {
+  const rawEntries = parseVendorRawListField((vendor as Record<string, unknown>).sub_services);
+  const fallbackPriceMap = vendor.sub_service_prices;
+
+  const exactPriceMap = new Map<string, number>();
+  if (fallbackPriceMap && typeof fallbackPriceMap === "object" && !Array.isArray(fallbackPriceMap)) {
+    Object.entries(fallbackPriceMap as Record<string, unknown>).forEach(([name, value]) => {
+      const trimmedName = String(name || "").trim();
+      const numericPrice = parsePositivePrice(value);
+      if (trimmedName && numericPrice !== null) {
+        exactPriceMap.set(trimmedName, numericPrice);
+      }
+    });
+  }
+
+  const deduped = new Map<string, PricedSubservice>();
+
+  rawEntries.forEach((entry) => {
+    const trimmedEntry = entry.trim();
+    if (!trimmedEntry) {
+      return;
+    }
+
+    let name = trimmedEntry;
+    let parsedPrice: number | null = null;
+
+    if (trimmedEntry.includes("::")) {
+      const [rawName, rawPrice] = trimmedEntry.split("::");
+      name = String(rawName || "").trim();
+      parsedPrice = parsePositivePrice(rawPrice);
+    }
+
+    if (!name) {
+      return;
+    }
+
+    const fallbackPrice = exactPriceMap.get(name) ?? null;
+
+    deduped.set(name, {
+      name,
+      price: parsedPrice ?? fallbackPrice,
+    });
+  });
+
+  return Array.from(deduped.values());
 };
 
 const parseServiceSubservices = (value: unknown): SubserviceItem[] => {
@@ -778,8 +919,56 @@ function SubservicesPageContent() {
       isDetailed: Boolean(item.included || item.notIncluded || item.note),
       details: item,
       imageSrc: getSubserviceImagePath(item.name, selectedService?.name || ""),
+      startingPrice: null,
     })),
     [subserviceOptions, selectedService]
+  );
+
+  const subserviceMinPriceMap = useMemo(() => {
+    const priceMap: Record<string, number> = {};
+
+    if (!selectedService) {
+      return priceMap;
+    }
+
+    const relatedVendors = vendors.filter((vendor) => vendorHasService(vendor, selectedService));
+    if (relatedVendors.length === 0) {
+      return priceMap;
+    }
+
+    subserviceOptions.forEach((subservice) => {
+      let minPrice: number | null = null;
+
+      relatedVendors.forEach((vendor) => {
+        const pricedEntries = parseVendorSubservicePricing(vendor);
+        const match = pricedEntries.find((entry) =>
+          isSubserviceNameMatch(subservice.name, entry.name, selectedService.name || "")
+        );
+
+        if (!match || match.price === null) {
+          return;
+        }
+
+        if (minPrice === null || match.price < minPrice) {
+          minPrice = match.price;
+        }
+      });
+
+      if (minPrice !== null) {
+        priceMap[normalizeSubserviceText(subservice.name)] = minPrice;
+      }
+    });
+
+    return priceMap;
+  }, [subserviceOptions, selectedService, vendors]);
+
+  const subserviceCardsWithPrice = useMemo(
+    () =>
+      subserviceCards.map((item) => ({
+        ...item,
+        startingPrice: subserviceMinPriceMap[normalizeSubserviceText(item.name)] ?? null,
+      })),
+    [subserviceCards, subserviceMinPriceMap]
   );
 
   const openShopsForSubservice = (subService: string) => {
@@ -818,15 +1007,16 @@ function SubservicesPageContent() {
         <section className="service-menu-section">
           {loading ? <p style={{ color: "var(--gray-500)" }}>Loading service options...</p> : null}
 
-          {!loading && subserviceCards.length > 0 ? (
+          {!loading && subserviceCardsWithPrice.length > 0 ? (
             <>
               <h2 className="service-menu-section-title">Best Service Plans</h2>
-              {subserviceCards.map((item) => {
+              {subserviceCardsWithPrice.map((item) => {
                 if (item.isDetailed && item.details) {
                   return (
                     <SubserviceDetail
                       key={item.id}
                       item={item.details}
+                      startingPrice={item.startingPrice}
                       onSelect={() => openShopsForSubservice(item.name)}
                       visualGradient={getSubserviceVisual(item.id)}
                       imageSrc={item.imageSrc}
@@ -852,6 +1042,11 @@ function SubservicesPageContent() {
                     <div className="service-item-content">
                       <span className="service-item-badge">Verified</span>
                       <h3>{item.name}</h3>
+                      {item.startingPrice !== null ? (
+                        <p style={{ margin: "0.2rem 0 0.35rem", fontWeight: 700, color: "#111827" }}>
+                          Starting from {formatPrice(item.startingPrice)}
+                        </p>
+                      ) : null}
                       <p>{getSubserviceDescription(item.name)}</p>
                       <div className="service-item-note">Ideal for quick and reliable fixes.</div>
                     </div>
@@ -891,7 +1086,7 @@ function SubservicesPageContent() {
             </>
           ) : null}
 
-          {!loading && subserviceCards.length === 0 ? (
+          {!loading && subserviceCardsWithPrice.length === 0 ? (
             <div className="service-menu-empty">
               No sub-services found for this service right now.
             </div>

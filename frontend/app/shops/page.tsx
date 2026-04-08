@@ -289,6 +289,7 @@ const getShopServiceKey = (serviceName: string) => {
 
 const normalizeSubserviceMatchKey = (value: string) =>
   normalizeShopText(value)
+    .replace(/\bchimeny\b/g, "chimney")
     .replace(/\buninstall(?:ation|ing|ed)?\b/g, " uninstall ")
     .replace(/\binstall(?:ation|ing|ed)?\b/g, " install ")
     .replace(/check\s*-\s*up/g, "checkup")
@@ -298,7 +299,29 @@ const normalizeSubserviceMatchKey = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const isSubserviceNameMatch = (selectedName: string, vendorName: string) => {
+const detectSubserviceFamily = (value: string): string | null => {
+  const normalized = normalizeShopText(value).replace(/\bchimeny\b/g, "chimney");
+
+  if (/\bac\b|air conditioner|air conditioning/.test(normalized)) return "ac";
+  if (normalized.includes("chimney")) return "chimney";
+  if (normalized.includes("geyser")) return "geyser";
+  if (normalized.includes("washing machine") || normalized.includes("washing")) return "washing_machine";
+  if (normalized.includes("fridge") || normalized.includes("refrigerator")) return "refrigerator";
+  if (normalized.includes("ro") || normalized.includes("purifier")) return "ro";
+  if (normalized.includes("microwave")) return "microwave";
+
+  return null;
+};
+
+const isSubserviceNameMatch = (selectedName: string, vendorName: string, serviceContextName?: string) => {
+  const selectedFamily = detectSubserviceFamily(selectedName) || detectSubserviceFamily(serviceContextName || "");
+  const vendorFamily = detectSubserviceFamily(vendorName);
+
+  // If both subservice names identify a service family, do not allow cross-service matching.
+  if (selectedFamily && vendorFamily && selectedFamily !== vendorFamily) {
+    return false;
+  }
+
   const normalizedSelected = normalizeSubserviceMatchKey(selectedName);
   const normalizedVendor = normalizeSubserviceMatchKey(vendorName);
 
@@ -328,8 +351,7 @@ const isSubserviceNameMatch = (selectedName: string, vendorName: string) => {
   }
 
   const selectedCoveredByVendor = selectedTokens.every((token) => vendorTokenSet.has(token));
-  const vendorCoveredBySelected = vendorTokens.every((token) => selectedTokenSet.has(token));
-  return selectedCoveredByVendor || vendorCoveredBySelected;
+  return selectedCoveredByVendor;
 };
 
 const vendorHasService = (vendor: Vendor, service: Service | null) => {
@@ -584,7 +606,11 @@ function ShopsPageContent() {
     const subServiceFilteredStrict = selectedSubService
       ? safeServiceFiltered.filter((vendor) =>
           parseVendorListField((vendor as Record<string, unknown>).sub_services).some((item) =>
-            isSubserviceNameMatch(selectedSubServiceLabel || selectedSubService, item)
+            isSubserviceNameMatch(
+              selectedSubServiceLabel || selectedSubService,
+              item,
+              selectedService?.name || serviceName
+            )
           )
         )
       : safeServiceFiltered;
@@ -623,7 +649,12 @@ function ShopsPageContent() {
 
     if (selectedSubService) {
       const match = parsedSubservices.find(
-        (entry) => isSubserviceNameMatch(selectedSubServiceLabel || selectedSubService, entry.name)
+        (entry) =>
+          isSubserviceNameMatch(
+            selectedSubServiceLabel || selectedSubService,
+            entry.name,
+            selectedService?.name || serviceName
+          )
       );
 
       if (match?.price) {

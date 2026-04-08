@@ -46,6 +46,13 @@
   word-break: break-word;
 }
 
+.startingPrice {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111827;
+}
+
 .note {
   font-size: 0.875rem;
   color: #6b7280;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatPrice } from "@/lib/booking-flow";
 import styles from "./SubserviceDetail.module.css";
 
 interface DetailItem {
@@ -15,6 +16,7 @@ interface SubserviceDetailProps {
   onSelect: () => void;
   visualGradient?: string;
   imageSrc?: string;
+  startingPrice?: number | null;
 }
 
 const parseArray = (value: unknown): string[] => {
@@ -41,7 +43,7 @@ const parseArray = (value: unknown): string[] => {
   return [];
 };
 
-export function SubserviceDetail({ item, onSelect, visualGradient, imageSrc }: SubserviceDetailProps) {
+export function SubserviceDetail({ item, onSelect, visualGradient, imageSrc, startingPrice }: SubserviceDetailProps) {
   const [expandedSection, setExpandedSection] = useState<"included" | "notIncluded" | null>(null);
 
   const included = parseArray(item.included || []);
@@ -62,6 +64,9 @@ export function SubserviceDetail({ item, onSelect, visualGradient, imageSrc }: S
         <div className={styles.headerContent}>
           <span className={styles.badge}>Verified</span>
           <h3>{item.name}</h3>
+          {startingPrice !== null && startingPrice !== undefined ? (
+            <p className={styles.startingPrice}>Starting from {formatPrice(startingPrice)}</p>
+          ) : null}
           {item.note && <p className={styles.note}>{item.note}</p>}
         </div>
 
