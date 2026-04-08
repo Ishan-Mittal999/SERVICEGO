@@ -2924,6 +2924,14 @@ export default function VendorDashboard() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        const toServiceMatchKey = (value: unknown) =>
+          String(value || "")
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+
         const normalizeBookingRows = (rows: any[]) => {
           const seenIds = new Set<string>();
 
@@ -2950,18 +2958,21 @@ export default function VendorDashboard() {
           return normalized;
         };
 
-        const isPendingForVendor = (booking: any, serviceIds: string[]) => {
+        const isPendingForVendor = (booking: any, serviceIds: string[], serviceNameKeys: string[]) => {
           const status = String(booking?.status || "").trim().toLowerCase();
           const bookingServiceId = String(booking?.service_id || "").trim();
+          const bookingServiceNameKey = toServiceMatchKey(booking?.services?.name || booking?.service_name || "");
           const vendorIdValue = booking?.vendor_id;
           const isUnassigned = vendorIdValue === null || vendorIdValue === undefined || String(vendorIdValue).trim() === "";
-          return status === "pending" && isUnassigned && serviceIds.includes(bookingServiceId);
+          const serviceIdMatch = serviceIds.includes(bookingServiceId);
+          const serviceNameMatch = bookingServiceNameKey ? serviceNameKeys.includes(bookingServiceNameKey) : false;
+          return status === "pending" && isUnassigned && (serviceIdMatch || serviceNameMatch);
         };
 
         try {
           const { data: vendorRow, error: vendorError } = await supabase
             .from("vendors")
-            .select("service_id, service_ids, approval_status")
+            .select("service_id, service_ids, selected_service_names, approval_status")
             .eq("auth_user_id", user.id)
             .single();
 
@@ -2984,6 +2995,17 @@ export default function VendorDashboard() {
             )
           );
 
+          const serviceNameKeys = Array.from(
+            new Set(
+              [
+                ...parseVendorListField((vendorRow as Record<string, unknown>).selected_service_names),
+                ...parseVendorListField((vendor as Record<string, unknown> | null)?.selected_service_names),
+              ]
+                .map((entry) => toServiceMatchKey(entry))
+                .filter(Boolean)
+            )
+          );
+
           const { data: assignedRows, error: assignedError } = await supabase
             .from("bookings")
             .select("*, services(id, name, category), vendors(id, name, phone)")
@@ -2996,13 +3018,12 @@ export default function VendorDashboard() {
           }
 
           let pendingRows: any[] = [];
-          if (serviceIds.length > 0) {
+          if (serviceIds.length > 0 || serviceNameKeys.length > 0) {
             const { data: pendingData, error: pendingError } = await supabase
               .from("bookings")
               .select("*, services(id, name, category), vendors(id, name, phone)")
               .eq("status", "pending")
               .is("vendor_id", null)
-              .in("service_id", serviceIds)
               .order("created_at", { ascending: false })
               .limit(200);
 
@@ -3010,7 +3031,9 @@ export default function VendorDashboard() {
               throw new Error(pendingError.message);
             }
 
-            pendingRows = pendingData || [];
+            pendingRows = (pendingData || []).filter((booking: any) =>
+              isPendingForVendor(booking, serviceIds, serviceNameKeys)
+            );
           }
 
           const combinedRows = [...(assignedRows || []), ...pendingRows];
@@ -3039,13 +3062,26 @@ export default function VendorDashboard() {
             )
           );
 
+          const serviceNameKeys = Array.from(
+            new Set(
+              [
+                ...parseVendorListField(vendorData?.selected_service_names),
+                ...parseVendorListField((vendor as Record<string, unknown> | null)?.selected_service_names),
+              ]
+                .map((entry) => toServiceMatchKey(entry))
+                .filter(Boolean)
+            )
+          );
+
           const pendingRows = Array.isArray(pendingPayload)
             ? pendingPayload
             : Array.isArray(pendingPayload?.data)
               ? pendingPayload.data
               : [];
 
-          const matchedPending = pendingRows.filter((booking: any) => isPendingForVendor(booking, serviceIds));
+          const matchedPending = pendingRows.filter((booking: any) =>
+            isPendingForVendor(booking, serviceIds, serviceNameKeys)
+          );
 
           const vendorRouteResponse = await fetch(apiUrl(`/vendors/${user.id}/bookings`), { cache: "no-store" });
           const vendorRoutePayload = await vendorRouteResponse.json().catch(() => null);
