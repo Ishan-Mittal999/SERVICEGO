@@ -213,13 +213,15 @@ const parseVendorSubservicePricing = (vendor: Vendor): PricedSubService[] => {
   const rawEntries = parseVendorListField((vendor as Record<string, unknown>).sub_services);
   const fallbackPriceMap = (vendor as Record<string, unknown>).sub_service_prices;
 
-  const normalizedPriceMap = new Map<string, number>();
+  // Build a map that ensures exact name matching to avoid collisions
+  const exactPriceMap = new Map<string, number>();
   if (fallbackPriceMap && typeof fallbackPriceMap === "object" && !Array.isArray(fallbackPriceMap)) {
     Object.entries(fallbackPriceMap as Record<string, unknown>).forEach(([name, value]) => {
-      const normalizedName = normalizeShopText(name);
+      const trimmedName = String(name || "").trim();
       const numericPrice = parsePositivePrice(value);
-      if (normalizedName && numericPrice !== null) {
-        normalizedPriceMap.set(normalizedName, numericPrice);
+      if (trimmedName && numericPrice !== null) {
+        // Use exact name as key first
+        exactPriceMap.set(trimmedName, numericPrice);
       }
     });
   }
@@ -246,8 +248,13 @@ const parseVendorSubservicePricing = (vendor: Vendor): PricedSubService[] => {
       return;
     }
 
-    const fallbackPrice = normalizedPriceMap.get(normalizedName) ?? null;
-    deduped.set(normalizedName, {
+    // Try exact match first, then fallback to normalized match
+    let fallbackPrice = exactPriceMap.get(name) ?? null;
+    if (fallbackPrice === null) {
+      fallbackPrice = exactPriceMap.get(normalizedName) ?? null;
+    }
+
+    deduped.set(name, {
       name,
       price: parsedPrice ?? fallbackPrice,
     });
