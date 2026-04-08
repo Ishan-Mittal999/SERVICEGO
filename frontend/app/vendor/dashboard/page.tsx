@@ -2923,14 +2923,93 @@ export default function VendorDashboard() {
     const loadBookings = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
+
+        try {
+          const { data: vendorRow, error: vendorError } = await supabase
+            .from("vendors")
+            .select("service_id, service_ids, approval_status")
+            .eq("auth_user_id", user.id)
+            .single();
+
+          if (vendorError || !vendorRow) {
+            throw new Error(vendorError?.message || "Vendor not found");
+          }
+
+          const approvalStatus = String((vendorRow as Record<string, unknown>).approval_status || "approved").toLowerCase();
+          if (approvalStatus && approvalStatus !== "approved") {
+            setBookings([]);
+            return;
+          }
+
+          const serviceIds = Array.from(
+            new Set(
+              [
+                String((vendorRow as Record<string, unknown>).service_id || "").trim(),
+                ...parseVendorListField((vendorRow as Record<string, unknown>).service_ids),
+              ].filter(Boolean)
+            )
+          );
+
+          const { data: assignedRows, error: assignedError } = await supabase
+            .from("bookings")
+            .select("*, services(id, name, category), vendors(id, name, phone)")
+            .eq("vendor_auth_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(200);
+
+          if (assignedError) {
+            throw new Error(assignedError.message);
+          }
+
+          let pendingRows: any[] = [];
+          if (serviceIds.length > 0) {
+            const { data: pendingData, error: pendingError } = await supabase
+              .from("bookings")
+              .select("*, services(id, name, category), vendors(id, name, phone)")
+              .eq("status", "pending")
+              .is("vendor_id", null)
+              .in("service_id", serviceIds)
+              .order("created_at", { ascending: false })
+              .limit(200);
+
+            if (pendingError) {
+              throw new Error(pendingError.message);
+            }
+
+            pendingRows = pendingData || [];
+          }
+
+          const combinedRows = [...(assignedRows || []), ...pendingRows];
+          const seenIds = new Set<string>();
+          const deduped = combinedRows.filter((booking: any) => {
+            const id = String(booking?.id || "");
+            if (!id || seenIds.has(id)) {
+              return false;
+            }
+            seenIds.add(id);
+            return true;
+          });
+
+          deduped.sort((left: any, right: any) => {
+            const leftTs = new Date(left?.created_at || 0).getTime();
+            const rightTs = new Date(right?.created_at || 0).getTime();
+            return rightTs - leftTs;
+          });
+
+          setBookings(deduped);
+          return;
+        } catch (supabaseLoadError) {
+          console.error("Supabase booking load failed, falling back to API", supabaseLoadError);
+        }
+
         const res = await fetch(apiUrl(`/vendors/${user.id}/bookings`));
-      const payload = await res.json();
-      const bookingRows = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.data)
-          ? payload.data
-          : [];
-      setBookings(bookingRows);
+        const payload = await res.json().catch(() => null);
+        const bookingRows = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
+        setBookings(bookingRows);
     };
 
     const loadServiceCatalog = async () => {
