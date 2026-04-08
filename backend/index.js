@@ -1521,7 +1521,7 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
 
   const { data: vendor, error: vendorError } = await supabase
     .from("vendors")
-    .select("id, service_id, is_active, approval_status")
+    .select("id, service_id, service_ids, is_active, approval_status")
     .eq("auth_user_id", auth_id)
     .single();
 
@@ -1533,20 +1533,48 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
     return res.json({ data: [], pagination: { total: 0, hasMore: false } });
   }
 
-  // Optimized single query: Get both assigned and open bookings with limit
-  // This replaces the old N+1 pattern of two separate queries + client-side deduplication
-  const { data: bookings, error: bookingsError } = await supabase
+  const offeredServiceIds = Array.from(
+    new Set(
+      [vendor.service_id, ...parseVendorListField(vendor.service_ids)]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  const { data: assignedBookings, error: assignedBookingsError } = await supabase
     .from("bookings")
     .select("*, services(id, name, category), vendors(id, name, phone)")
-    .or(`and(vendor_auth_id.eq.${auth_id}),and(service_id.eq.${vendor.service_id},status.eq.pending,vendor_id.is.null)`)
+    .eq("vendor_auth_id", auth_id)
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (bookingsError) {
-    return res.status(500).json(bookingsError);
+  if (assignedBookingsError) {
+    return res.status(500).json(assignedBookingsError);
   }
 
-  // Deduplicate in case of any overlaps
+  let pendingBookings = [];
+  if (offeredServiceIds.length > 0) {
+    let pendingQuery = supabase
+      .from("bookings")
+      .select("*, services(id, name, category), vendors(id, name, phone)")
+      .eq("status", "pending")
+      .is("vendor_id", null)
+      .in("service_id", offeredServiceIds)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    const { data: pendingRows, error: pendingError } = await pendingQuery;
+
+    if (pendingError) {
+      return res.status(500).json(pendingError);
+    }
+
+    pendingBookings = pendingRows || [];
+  }
+
+  const bookings = [...(assignedBookings || []), ...pendingBookings];
+
+  // Deduplicate in case of overlaps
   const seenIds = new Set();
   const dedupedBookings = (bookings || []).filter(booking => {
     if (seenIds.has(booking.id)) {

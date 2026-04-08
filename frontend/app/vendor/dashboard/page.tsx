@@ -2924,8 +2924,13 @@ export default function VendorDashboard() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
         const res = await fetch(apiUrl(`/vendors/${user.id}/bookings`));
-      const data = await res.json();
-      setBookings(Array.isArray(data) ? data : []);
+      const payload = await res.json();
+      const bookingRows = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+      setBookings(bookingRows);
     };
 
     const loadServiceCatalog = async () => {
