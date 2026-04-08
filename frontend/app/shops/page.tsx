@@ -23,7 +23,17 @@ type Service = {
   name: string;
   description?: string;
   icon?: string;
+  sub_services?: unknown;
 };
+
+type SubserviceItem = {
+  name: string;
+  included?: string[] | string;
+  notIncluded?: string[] | string;
+  note?: string;
+};
+
+type PredefinedSubservice = string | SubserviceItem;
 
 type Vendor = {
   id: string | number;
@@ -53,6 +63,144 @@ type ShopsCachePayload = {
 };
 
 const SHOPS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+const SHOP_PREDEFINED_SUBSERVICE_MAP: Record<string, PredefinedSubservice[]> = {
+  washing_machine: [
+    {
+      name: "Semi-Auto WM Check-up",
+      note: "Check-up fee waived if you choose repair through ServiceGo immediately",
+      included: [
+        "Dual-Motor Performance Test",
+        "Mechanical Timer Audit",
+        "Belt & Pulley Tension Check",
+        "Capacitor Health Check",
+        "Drainage System Inspection",
+        "Wiring & Rodent Damage Scan",
+      ],
+      notIncluded: [
+        "Actual Repair Work",
+        "Spare Parts Cost",
+        "Washing Machine Cleaning",
+        "Lifting/Moving Machine",
+        "Rat-Proofing Mesh",
+      ],
+    },
+    {
+      name: "Top Load WM Check-up",
+      note: "Top Load error codes (E1, dE, PE) decoded and explained",
+      included: [
+        "Digital Controller Audit",
+        "Sensor Calibration Check",
+        "Inlet & Drain Valve Test",
+        "Drum Balance & Suspension Scan",
+        "Motor & Capacitor Health",
+        "Agitator/Pulsator Inspection",
+      ],
+      notIncluded: [
+        "Repair or Part Replacement",
+        "PCB Repair/Recoding",
+        "Internal Tub Descaling",
+        "Rat-Mesh Installation",
+        "Plumbing/Tap Fixes",
+      ],
+    },
+    {
+      name: "Front Load WM Check-up",
+      note: "Expert verifies machine leveling to prevent future vibration damage",
+      included: [
+        "Error Code Diagnosis",
+        "Inverter Motor & Carbon Brush Check",
+        "Door Bellow Inspection",
+        "Heating Element & NTC Test",
+        "Suspension & Bearing Audit",
+        "Drain Pump & Filter Scan",
+      ],
+      notIncluded: [
+        "Actual Repair or Part Cost",
+        "Drum/Bearing Replacement",
+        "PCB Motherboard Repair",
+        "Door Gasket Replacement",
+        "Internal Descaling",
+      ],
+    },
+    {
+      name: "Top Load Normal Cleaning",
+      note: "Single normal cleaning may not remove 100% crust if heavily scaled",
+      included: [
+        "Lint Filter Deep Clean",
+        "Detergent Drawer Sanitization",
+        "Pulsator Surface Cleaning",
+        "Inner Drum Scrubbing",
+        "Eco-Tub Wash Cycle",
+        "Outer Body Wipe-down",
+      ],
+      notIncluded: [
+        "Full Drum Dismantling",
+        "Repair of Mechanical Parts",
+        "Inlet/Drain Pipe Replacement",
+        "Rat-Mesh Installation",
+        "Major Descaling",
+      ],
+    },
+    {
+      name: "Top Load Deep Cleaning",
+      note: "Takes 90-120 minutes. Ensure continuous water supply and floor drain",
+      included: [
+        "Full Drum Dismantling",
+        "High-Pressure Jet Wash",
+        "Pulsator Deep Scrub",
+        "Tub-in-Tub Sanitization",
+        "Drain Pump & Filter Clear-out",
+        "Re-balancing & Calibration",
+      ],
+      notIncluded: [
+        "Mechanical Repairs",
+        "Replacement of Rusted Parts",
+        "Inlet/Outlet Pipe Material",
+        "Body Dent/Paint Repair",
+        "Rat-Mesh Installation",
+      ],
+    },
+    {
+      name: "Front Load Normal Cleaning",
+      note: "Does not involve pulling heavy drum out of machine",
+      included: [
+        "Rubber Gasket Sanitization",
+        "Drain Pump Filter Clear-out",
+        "Detergent Drawer Deep Clean",
+        "Inner Drum Surface Polish",
+        "High-Temp Descaling Cycle",
+        "Glass Door & Panel Wipe",
+      ],
+      notIncluded: [
+        "Full Drum Extraction",
+        "Gasket/Seal Replacement",
+        "Bearing or Motor Repair",
+        "Inlet Water Filter Cleaning",
+        "Plumbing/Drainage Fixes",
+      ],
+    },
+    {
+      name: "Front Load Deep Cleaning",
+      note: "Takes 2-3 hours. Ensure dedicated workspace and water supply",
+      included: [
+        "Major Teardown Service",
+        "Complete Drum Extraction",
+        "High-Pressure Chemical Wash",
+        "Bellow Deep Scrub",
+        "Drain Pump & Manifold Cleaning",
+        "Re-assembly & Leveling",
+      ],
+      notIncluded: [
+        "Bearing or Spider Replacement",
+        "Repair of Mechanical/Electronic Faults",
+        "Gasket/Seal Replacement",
+        "Body Rust/Paint Restoration",
+        "Plumbing/Tap Fixes",
+      ],
+    },
+  ],
+};
 
 const SHOP_CARD_BACKGROUNDS = [
   "linear-gradient(135deg, #f43f5e 0%, #ef4444 42%, #b91c1c 100%)",
@@ -261,6 +409,32 @@ const parseVendorSubservicePricing = (vendor: Vendor): PricedSubService[] => {
   });
 
   return Array.from(deduped.values());
+};
+
+const parseSubserviceArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (!normalized) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(normalized);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+      }
+    } catch {
+      // Fallback to comma-separated values.
+    }
+
+    return normalized.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+
+  return [];
 };
 
 const normalizeShopText = (value: string) => value.trim().toLowerCase();
@@ -577,6 +751,28 @@ function ShopsPageContent() {
     return best && best.score > 0 ? best.service : null;
   }, [services, serviceId, serviceQuery]);
 
+  const selectedSubserviceDetails = useMemo(() => {
+    if (!selectedSubServiceLabel) {
+      return null;
+    }
+
+    const serviceKey = getShopServiceKey(selectedService?.name || serviceName);
+    const predefined = SHOP_PREDEFINED_SUBSERVICE_MAP[serviceKey] || [];
+    const detailedEntries = predefined
+      .map((item) => (typeof item === "string" ? null : item))
+      .filter((item): item is SubserviceItem => Boolean(item));
+
+    if (detailedEntries.length === 0) {
+      return null;
+    }
+
+    return (
+      detailedEntries.find((item) =>
+        isSubserviceNameMatch(selectedSubServiceLabel, item.name, selectedService?.name || serviceName)
+      ) || null
+    );
+  }, [selectedSubServiceLabel, selectedService, serviceName]);
+
   const vendorDistances = useMemo(() => {
     if (!userLocation) {
       return {} as Record<string, number>;
@@ -822,6 +1018,46 @@ function ShopsPageContent() {
         {loading ? (
           <p style={{ marginTop: "1rem", color: "var(--gray-500)" }}>Loading shops...</p>
         ) : (
+          <>
+            {selectedSubserviceDetails ? (
+              <section
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid var(--gray-200)",
+                  borderRadius: 14,
+                  padding: "0.95rem",
+                  marginBottom: "0.8rem",
+                }}
+              >
+                <h3 style={{ margin: "0 0 0.45rem", fontSize: "1rem", color: "#111827" }}>
+                  {selectedSubserviceDetails.name}
+                </h3>
+                {selectedSubserviceDetails.note ? (
+                  <p style={{ margin: "0 0 0.65rem", fontSize: "0.88rem", color: "#6b7280" }}>
+                    {selectedSubserviceDetails.note}
+                  </p>
+                ) : null}
+
+                {parseSubserviceArray(selectedSubserviceDetails.included).length > 0 ? (
+                  <div style={{ marginBottom: "0.5rem" }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: "0.88rem", color: "#065f46" }}>What's Included</p>
+                    <p style={{ margin: "0.2rem 0 0", color: "#1f2937", fontSize: "0.84rem", lineHeight: 1.45 }}>
+                      {parseSubserviceArray(selectedSubserviceDetails.included).join(" • ")}
+                    </p>
+                  </div>
+                ) : null}
+
+                {parseSubserviceArray(selectedSubserviceDetails.notIncluded).length > 0 ? (
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: "0.88rem", color: "#991b1b" }}>What's NOT Included</p>
+                    <p style={{ margin: "0.2rem 0 0", color: "#4b5563", fontSize: "0.84rem", lineHeight: 1.45 }}>
+                      {parseSubserviceArray(selectedSubserviceDetails.notIncluded).join(" • ")}
+                    </p>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
           <section className="shop-feed-grid">
             {visibleVendors.length === 0 ? (
               <div
@@ -935,6 +1171,7 @@ function ShopsPageContent() {
               })
             )}
           </section>
+          </>
         )}
       </div>
 

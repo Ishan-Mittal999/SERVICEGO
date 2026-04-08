@@ -689,6 +689,36 @@ const findBestServiceForQuery = (serviceList: Service[], query: string) => {
 const getPredefinedSubserviceName = (entry: PredefinedSubservice) =>
   typeof entry === "string" ? entry : entry.name;
 
+const mergeSubserviceDetails = (
+  serviceDefinedSubservices: SubserviceItem[],
+  predefinedSubservices: PredefinedSubservice[]
+) => {
+  const detailedPredefined = predefinedSubservices
+    .map((item) => (typeof item === "string" ? null : item))
+    .filter((item): item is SubserviceItem => Boolean(item));
+
+  if (serviceDefinedSubservices.length === 0 || detailedPredefined.length === 0) {
+    return serviceDefinedSubservices;
+  }
+
+  return serviceDefinedSubservices.map((serviceItem) => {
+    const matchedDetail = detailedPredefined.find((predefinedItem) =>
+      isSubserviceNameMatch(serviceItem.name, predefinedItem.name)
+    );
+
+    if (!matchedDetail) {
+      return serviceItem;
+    }
+
+    return {
+      ...serviceItem,
+      included: serviceItem.included ?? matchedDetail.included,
+      notIncluded: serviceItem.notIncluded ?? matchedDetail.notIncluded,
+      note: serviceItem.note ?? matchedDetail.note,
+    };
+  });
+};
+
 const isSubserviceRelevantToService = (
   subserviceName: string,
   service: Service,
@@ -881,12 +911,12 @@ function SubservicesPageContent() {
     }
 
     const serviceDefinedSubservices = parseServiceSubservices(selectedService.sub_services);
+    const predefined = PREDEFINED_SUBSERVICE_MAP[getServiceKey(selectedService.name || "")] || [];
     const hasServiceDefinedSubservices = (selectedService as Record<string, unknown>).sub_services !== undefined;
     if (hasServiceDefinedSubservices && serviceDefinedSubservices.length > 0) {
-      return serviceDefinedSubservices;
+      return mergeSubserviceDetails(serviceDefinedSubservices, predefined);
     }
 
-    const predefined = PREDEFINED_SUBSERVICE_MAP[getServiceKey(selectedService.name || "")] || [];
     const relatedVendors = vendors.filter((vendor) => vendorHasService(vendor, selectedService));
     const seen = new Set<string>();
     const options: SubserviceItem[] = predefined.map((item) =>
