@@ -1622,7 +1622,7 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
   const { data: assignedBookings, error: assignedBookingsError } = await supabase
     .from("bookings")
     .select("*, services(id, name, category), vendors(id, name, phone)")
-    .eq("vendor_auth_id", auth_id)
+    .or(`vendor_auth_id.eq.${auth_id},vendor_id.eq.${vendor.id}`)
     .order("created_at", { ascending: false })
     .limit(limit);
 
