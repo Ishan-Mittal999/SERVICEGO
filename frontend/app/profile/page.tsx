@@ -14,6 +14,7 @@ import {
 } from "@/lib/address-book";
 import { readUserLocation } from "@/lib/location";
 import { apiUrl } from "@/lib/env";
+import { isValidIndianMobile, sanitizeIndianPhoneInput } from "@/lib/phone";
 
 type UserBooking = {
   id: string | number;
@@ -36,6 +37,7 @@ export default function ProfilePage() {
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editAddress, setEditAddress] = useState("");
+  const [profileErrorMessage, setProfileErrorMessage] = useState<string | null>(null);
   
   // Location selector modal state
   const [locationModalOpen, setLocationModalOpen] = useState(false);
@@ -89,7 +91,7 @@ export default function ProfilePage() {
         setUser(currentUser);
         setEditName(currentUser.user_metadata?.name || "");
         setEditEmail(currentUser.email || "");
-        setEditPhone(currentUser.user_metadata?.phone || "");
+        setEditPhone(sanitizeIndianPhoneInput(currentUser.user_metadata?.phone || ""));
         setEditAddress(currentUser.user_metadata?.address || "");
         setIsVendor(vendorAccount);
         setLoading(false);
@@ -119,20 +121,27 @@ export default function ProfilePage() {
 
   const handleSaveProfile = async () => {
     if (!user) return;
+
+    if (editPhone.trim() && !isValidIndianMobile(editPhone)) {
+      setProfileErrorMessage("Enter a valid 10-digit mobile number.");
+      return;
+    }
     
     try {
+      setProfileErrorMessage(null);
       await supabase.auth.updateUser({
         data: {
           name: editName,
-          phone: editPhone,
+          phone: sanitizeIndianPhoneInput(editPhone),
           address: editAddress,
         },
       });
       
-      setUser({ ...user, user_metadata: { ...user.user_metadata, name: editName, phone: editPhone, address: editAddress } });
+      setUser({ ...user, user_metadata: { ...user.user_metadata, name: editName, phone: sanitizeIndianPhoneInput(editPhone), address: editAddress } });
       setEditModalOpen(false);
     } catch (err) {
       console.error("Failed to save profile:", err);
+      setProfileErrorMessage("Could not save profile. Please try again.");
     }
   };
 
@@ -357,11 +366,19 @@ export default function ProfilePage() {
                 <input
                   type="tel"
                   value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
+                  onChange={(e) => setEditPhone(sanitizeIndianPhoneInput(e.target.value))}
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  pattern="[0-9]*"
+                  maxLength={10}
                   placeholder="Your phone"
                   className="form-input"
                 />
               </div>
+              {editPhone && !isValidIndianMobile(editPhone) ? (
+                <p className="auth-feedback auth-feedback--error">Enter a valid 10-digit mobile number.</p>
+              ) : null}
+              {profileErrorMessage ? <p className="auth-feedback auth-feedback--error">{profileErrorMessage}</p> : null}
 
               <div className="form-group">
                 <label>Address</label>
@@ -385,6 +402,7 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={handleSaveProfile}
+                  disabled={Boolean(editPhone) && !isValidIndianMobile(editPhone)}
                   className="btn-save"
                 >
                   Save Changes

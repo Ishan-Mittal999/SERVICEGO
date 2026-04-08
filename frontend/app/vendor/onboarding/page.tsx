@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/env";
 import { detectUserLocation } from "@/lib/location";
+import { isValidIndianMobile, normalizeIndianPhone, sanitizeIndianPhoneInput } from "@/lib/phone";
 
 type Service = {
   id: string;
@@ -220,7 +221,7 @@ export default function VendorOnboardingPage() {
     const phoneParam = params.get("phone");
 
     if (name) setShopName(name);
-    if (phoneParam) setPhone(phoneParam);
+    if (phoneParam) setPhone(sanitizeIndianPhoneInput(phoneParam));
 
     const loadServices = async () => {
       try {
@@ -476,7 +477,8 @@ export default function VendorOnboardingPage() {
   const updateServicemanField = (index: number, field: keyof Omit<ServicemanForm, "photo" | "aadharPhoto">, value: string) => {
     setServicemen((current) => {
       const next = [...current];
-      next[index] = { ...next[index], [field]: value };
+      const normalizedValue = field === "phone" ? sanitizeIndianPhoneInput(value) : value;
+      next[index] = { ...next[index], [field]: normalizedValue };
       return next;
     });
   };
@@ -484,6 +486,19 @@ export default function VendorOnboardingPage() {
   const saveVendorProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    const normalizedShopPhone = normalizeIndianPhone(phone);
+
+    if (!isValidIndianMobile(normalizedShopPhone)) {
+      setErrorMessage("Enter a valid shop phone number (10 digits).");
+      return;
+    }
+
+    const invalidServiceman = servicemen.find((person) => person.phone.trim() && !isValidIndianMobile(person.phone));
+    if (invalidServiceman) {
+      setErrorMessage("Each serviceman phone must be a valid 10-digit mobile number.");
+      return;
+    }
 
     if (selectedServices.length === 0) {
       setErrorMessage("Please select at least one service category.");
@@ -619,7 +634,7 @@ export default function VendorOnboardingPage() {
       .map((person, index) => ({
         id: String((person as Record<string, unknown>).id || `serviceman-${index + 1}`),
         name: person.name.trim(),
-        phone: person.phone.trim(),
+        phone: normalizeIndianPhone(person.phone.trim()),
         aadharNumber: person.aadharNumber.trim(),
         serviceCategory: person.serviceCategory.trim(),
         photo: person.photo,
@@ -648,7 +663,7 @@ export default function VendorOnboardingPage() {
     const payload = {
       auth_user_id: user.id,
       name: shopName,
-      phone,
+      phone: normalizedShopPhone,
       service_id: primaryServiceId,
       service_ids: selectedApiServiceIds,
       selected_service_names: selectedServices.map((service) => service.name),
@@ -710,11 +725,19 @@ export default function VendorOnboardingPage() {
           </label>
           <input
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(sanitizeIndianPhoneInput(e.target.value))}
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel-national"
+            pattern="[0-9]*"
+            maxLength={10}
             placeholder="Phone number (XXXXXXXXXX)"
             required
             className="auth-input auth-input--spaced"
           />
+          {phone && !isValidIndianMobile(phone) ? (
+            <p className="auth-feedback auth-feedback--error">Shop phone must be a valid 10-digit mobile number.</p>
+          ) : null}
 
           <label className="auth-label">
             Owner Name
@@ -1026,9 +1049,18 @@ export default function VendorOnboardingPage() {
                 <input
                   value={person.phone}
                   onChange={(e) => updateServicemanField(index, "phone", e.target.value)}
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={10}
                   placeholder="Serviceman phone (XXXXXXXXXX)"
                   className="auth-input"
                 />
+                {person.phone && !isValidIndianMobile(person.phone) ? (
+                  <p className="auth-feedback auth-feedback--error" style={{ margin: 0 }}>
+                    Enter a valid 10-digit mobile number.
+                  </p>
+                ) : null}
                 <input
                   value={person.aadharNumber}
                   onChange={(e) => updateServicemanField(index, "aadharNumber", e.target.value)}

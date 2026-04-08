@@ -1010,79 +1010,81 @@ function SubservicesPageContent() {
           {!loading && subserviceCardsWithPrice.length > 0 ? (
             <>
               <h2 className="service-menu-section-title">Best Service Plans</h2>
-              {subserviceCardsWithPrice.map((item) => {
-                if (item.isDetailed && item.details) {
+              <div className="service-plan-grid">
+                {subserviceCardsWithPrice.map((item) => {
+                  if (item.isDetailed && item.details) {
+                    return (
+                      <SubserviceDetail
+                        key={item.id}
+                        item={item.details}
+                        startingPrice={item.startingPrice}
+                        onSelect={() => openShopsForSubservice(item.name)}
+                        visualGradient={getSubserviceVisual(item.id)}
+                        imageSrc={item.imageSrc}
+                      />
+                    );
+                  }
+
+                  // Fallback to simple card for non-detailed subservices
                   return (
-                    <SubserviceDetail
+                    <article
+                      className="service-item-card"
                       key={item.id}
-                      item={item.details}
-                      startingPrice={item.startingPrice}
-                      onSelect={() => openShopsForSubservice(item.name)}
-                      visualGradient={getSubserviceVisual(item.id)}
-                      imageSrc={item.imageSrc}
-                    />
-                  );
-                }
-
-                // Fallback to simple card for non-detailed subservices
-                return (
-                  <article
-                    className="service-item-card"
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openShopsForSubservice(item.name)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        openShopsForSubservice(item.name);
-                      }
-                    }}
-                  >
-                    <div className="service-item-content">
-                      <span className="service-item-badge">Verified</span>
-                      <h3>{item.name}</h3>
-                      {item.startingPrice !== null ? (
-                        <p style={{ margin: "0.2rem 0 0.35rem", fontWeight: 700, color: "#111827" }}>
-                          Starting from {formatPrice(item.startingPrice)}
-                        </p>
-                      ) : null}
-                      <p>{getSubserviceDescription(item.name)}</p>
-                      <div className="service-item-note">Ideal for quick and reliable fixes.</div>
-                    </div>
-
-                    <div className="service-item-visual-wrap">
-                      <div className="service-item-visual" style={{ background: getSubserviceVisual(item.id) }}>
-                        {item.imageSrc ? (
-                          <img
-                            src={item.imageSrc}
-                            alt={item.name}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                              borderRadius: "12px",
-                            }}
-                          />
-                        ) : (
-                          <span>Service plan</span>
-                        )}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openShopsForSubservice(item.name)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openShopsForSubservice(item.name);
+                        }
+                      }}
+                    >
+                      <div className="service-item-content">
+                        <span className="service-item-badge">Verified</span>
+                        <h3>{item.name}</h3>
+                        {item.startingPrice !== null ? (
+                          <p style={{ margin: "0.2rem 0 0.35rem", fontWeight: 700, color: "#111827" }}>
+                            Starting from {formatPrice(item.startingPrice)}
+                          </p>
+                        ) : null}
+                        <p>{getSubserviceDescription(item.name)}</p>
+                        <div className="service-item-note">Ideal for quick and reliable fixes.</div>
                       </div>
 
-                      <button
-                        type="button"
-                        className="service-item-add-btn"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openShopsForSubservice(item.name);
-                        }}
-                      >
-                        Select
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
+                      <div className="service-item-visual-wrap">
+                        <div className="service-item-visual" style={{ background: getSubserviceVisual(item.id) }}>
+                          {item.imageSrc ? (
+                            <img
+                              src={item.imageSrc}
+                              alt={item.name}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                                borderRadius: "12px",
+                              }}
+                            />
+                          ) : (
+                            <span>Service plan</span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          className="service-item-add-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openShopsForSubservice(item.name);
+                          }}
+                        >
+                          Select
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             </>
           ) : null}
 

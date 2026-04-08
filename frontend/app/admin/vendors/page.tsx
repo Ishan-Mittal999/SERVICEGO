@@ -7,6 +7,7 @@ import Link from "next/link";
 import { apiUrl } from "@/lib/env";
 import { useRouter } from "next/navigation";
 import { requireAdminOrRedirect } from "@/lib/admin-access";
+import { isValidIndianMobile, sanitizeIndianPhoneInput } from "@/lib/phone";
 
 type AdminVendor = {
   id: string;
@@ -207,6 +208,12 @@ export default function AdminVendorsPage() {
       return;
     }
 
+    const normalizedPhone = sanitizeIndianPhoneInput(formPhone);
+    if (normalizedPhone && !isValidIndianMobile(normalizedPhone)) {
+      setErrorMessage("Vendor phone must be a valid 10-digit mobile number.");
+      return;
+    }
+
     setSaving(true);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -222,7 +229,7 @@ export default function AdminVendorsPage() {
 
     const payload = {
       name: formName,
-      phone: formPhone,
+      phone: normalizedPhone,
       owner_name: formOwnerName || null,
       business_address: formBusinessAddress || null,
       city: formCity || null,
@@ -492,7 +499,22 @@ export default function AdminVendorsPage() {
                   </label>
 
                   <Field label="Shop name" value={formName} onChange={setFormName} />
-                  <Field label="Phone" value={formPhone} onChange={setFormPhone} />
+                  <label className="grid gap-1 text-sm text-gray-700">
+                    <span className="font-semibold">Phone</span>
+                    <input
+                      value={formPhone}
+                      onChange={(event) => setFormPhone(sanitizeIndianPhoneInput(event.target.value))}
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel-national"
+                      pattern="[0-9]*"
+                      maxLength={10}
+                      className="rounded-lg border border-gray-300 px-3 py-2"
+                    />
+                    {formPhone && !isValidIndianMobile(formPhone) ? (
+                      <span className="text-xs text-red-600">Enter a valid 10-digit mobile number.</span>
+                    ) : null}
+                  </label>
                   <Field label="Owner name" value={formOwnerName} onChange={setFormOwnerName} />
                   <Field label="Business address" value={formBusinessAddress} onChange={setFormBusinessAddress} />
                   <Field label="City" value={formCity} onChange={setFormCity} />
@@ -590,7 +612,7 @@ export default function AdminVendorsPage() {
                   <button
                     type="button"
                     onClick={saveStructured}
-                    disabled={saving}
+                    disabled={saving || Boolean(formPhone) && !isValidIndianMobile(formPhone)}
                     className="px-4 py-2 rounded-lg text-white text-sm font-semibold"
                     style={{ background: "linear-gradient(135deg, #7A6A00, #8B7500)", opacity: saving ? 0.8 : 1 }}
                   >

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/env";
 import { supabase } from "@/lib/supabase";
+import { isValidIndianMobile, normalizeIndianPhone, sanitizeIndianPhoneInput } from "@/lib/phone";
 import { isVendorUser } from "@/lib/user-role";
 import {
   formatPrice,
@@ -31,14 +32,12 @@ function getInitials(value: string) {
 
   return words.slice(0, 2).map((word) => word[0]?.toUpperCase() ?? "").join("") || "SV";
 }
-
 function getServiceVisual(serviceName: string, fallbackIcon?: string) {
   const normalizedName = serviceName.toLowerCase();
 
   if (normalizedName.includes("plumb")) {
     return { kind: "plumbing", icon: fallbackIcon || "🔧", label: "Pipe care" };
   }
-
   if (normalizedName.includes("electric")) {
     return { kind: "electrical", icon: fallbackIcon || "⚡", label: "Power fix" };
   }
@@ -193,7 +192,7 @@ function BookingChargesPageContent() {
     }
 
     if (currentDraft.customerPhone) {
-      setCustomerPhone(currentDraft.customerPhone);
+      setCustomerPhone(normalizeIndianPhone(currentDraft.customerPhone));
     }
 
     if (currentDraft.preferredTime) {
@@ -253,6 +252,8 @@ function BookingChargesPageContent() {
   const totalPrice = (selectedPackage?.price ?? 0) + addonsTotal;
   const selectedSlotLabel = slotOptions.find((slot) => slot.value === preferredTime)?.label ?? "Just now (assign ASAP)";
   const serviceVisual = getServiceVisual(service?.name ?? "Service", service?.icon);
+  const normalizedCustomerPhone = normalizeIndianPhone(customerPhone);
+  const isCustomerPhoneValid = isValidIndianMobile(normalizedCustomerPhone);
 
   const toggleAddon = (addonId: string) => {
     setSelectedAddonIds((currentAddons) =>
@@ -265,6 +266,11 @@ function BookingChargesPageContent() {
   const handleBooking = async () => {
     if (!service || !selectedPackage) {
       setErrorMessage("Choose a package to continue.");
+      return;
+    }
+
+    if (!isCustomerPhoneValid) {
+      setErrorMessage("Enter a valid 10-digit mobile number.");
       return;
     }
 
@@ -305,7 +311,7 @@ function BookingChargesPageContent() {
         body: JSON.stringify({
           service_id: service.id,
           customer_name: customerName.trim(),
-          customer_phone: customerPhone.trim(),
+          customer_phone: normalizedCustomerPhone,
           address: bookingAddress,
           preferred_time: preferredTimestamp,
           user_id: session.user.id,
@@ -334,7 +340,7 @@ function BookingChargesPageContent() {
         addonNames,
         addonTotal: addonsTotal,
         customerName: customerName.trim(),
-        customerPhone: customerPhone.trim(),
+        customerPhone: normalizedCustomerPhone,
         preferredTime,
         bookingId,
       });
@@ -467,8 +473,20 @@ function BookingChargesPageContent() {
 
               <label className="booking-field">
                 <span>Phone number</span>
-                <input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} placeholder="Enter your phone number" />
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  pattern="[0-9]*"
+                  maxLength={10}
+                  value={customerPhone}
+                  onChange={(event) => setCustomerPhone(sanitizeIndianPhoneInput(event.target.value))}
+                  placeholder="Enter your phone number"
+                />
               </label>
+              {customerPhone && !isCustomerPhoneValid ? (
+                <p className="booking-error">Phone number must be a valid 10-digit mobile number.</p>
+              ) : null}
 
               <label className="booking-field">
                 <span>Preferred slot</span>
@@ -525,7 +543,7 @@ function BookingChargesPageContent() {
           <button
             className="booking-primary-btn booking-primary-btn--sticky"
             type="button"
-            disabled={submitting || !authReady || !selectedPackage || !customerName.trim() || !customerPhone.trim()}
+            disabled={submitting || !authReady || !selectedPackage || !customerName.trim() || !isCustomerPhoneValid}
             onClick={handleBooking}
           >
             {submitting ? "Confirming booking..." : `Book ${selectedPackage?.name ?? "service"}`}

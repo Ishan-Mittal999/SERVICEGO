@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { isValidIndianMobile, sanitizeIndianPhoneInput } from "@/lib/phone";
 
 export default function VendorSignup() {
 	const router = useRouter();
@@ -15,6 +16,7 @@ export default function VendorSignup() {
 	const [isVerificationPending, setIsVerificationPending] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const isPhoneValid = isValidIndianMobile(phone);
 
 	const emailRedirectTo =
 		typeof window !== "undefined"
@@ -62,6 +64,13 @@ export default function VendorSignup() {
 
 		setErrorMessage(null);
 		setInfoMessage(null);
+
+		if (!isPhoneValid) {
+			setErrorMessage("Enter a valid 10-digit mobile number.");
+			setIsSubmitting(false);
+			return;
+		}
+
 		setIsSubmitting(true);
 
 		const { data, error } = await supabase.auth.signUp({
@@ -71,7 +80,7 @@ export default function VendorSignup() {
 				emailRedirectTo,
 				data: {
 					full_name: name,
-					phone,
+					phone: sanitizeIndianPhoneInput(phone),
 					role: "vendor",
 				},
 			},
@@ -97,7 +106,7 @@ export default function VendorSignup() {
 		}
 
 		router.push(
-			`/vendor/onboarding?name=${encodeURIComponent(name)}&phone=${encodeURIComponent(phone)}`
+			`/vendor/onboarding?name=${encodeURIComponent(name)}&phone=${encodeURIComponent(sanitizeIndianPhoneInput(phone))}`
 		);
 	};
 
@@ -160,12 +169,20 @@ export default function VendorSignup() {
 						Phone
 					</label>
 					<input
+						type="tel"
+						inputMode="numeric"
+						autoComplete="tel-national"
+						pattern="[0-9]*"
+						maxLength={10}
 						placeholder="Phone number"
 						value={phone}
-						onChange={(e) => setPhone(e.target.value)}
+						onChange={(e) => setPhone(sanitizeIndianPhoneInput(e.target.value))}
 						required
 						className="auth-input auth-input--spaced"
 					/>
+					{phone && !isPhoneValid ? (
+						<p className="auth-feedback auth-feedback--error">Enter a valid 10-digit mobile number.</p>
+					) : null}
 
 					<label className="auth-label">
 						Email
@@ -196,7 +213,7 @@ export default function VendorSignup() {
 
 					<button
 						type="submit"
-						disabled={isSubmitting}
+						disabled={isSubmitting || !isPhoneValid}
 						className="auth-primary-btn"
 						style={{ opacity: isSubmitting ? 0.8 : 1 }}
 					>

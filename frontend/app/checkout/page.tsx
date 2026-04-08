@@ -43,6 +43,24 @@ const normalizeVisibleAddress = (value: string) => {
     .trim();
 };
 
+const getDigitsOnly = (value: string) => value.replace(/\D/g, "");
+
+const normalizeIndianPhone = (value: string) => {
+  const digits = getDigitsOnly(value);
+
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return digits.slice(2);
+  }
+
+  if (digits.length === 11 && digits.startsWith("0")) {
+    return digits.slice(1);
+  }
+
+  return digits;
+};
+
+const isValidIndianMobile = (value: string) => /^\d{10}$/.test(normalizeIndianPhone(value));
+
 const PAYMENT_METHODS: Array<{
   id: PaymentMethod;
   label: string;
@@ -114,7 +132,7 @@ export default function CheckoutPage() {
       setSelectedAddressId(defaultAddress.id);
       setManualCity(defaultAddress.city);
       setManualAddress(normalizeVisibleAddress(defaultAddress.addressLine));
-      setManualPhone(defaultAddress.phone || "");
+      setManualPhone(normalizeIndianPhone(defaultAddress.phone || ""));
       setReceiverName(defaultAddress.label || "");
     } else if (currentCart) {
       setManualCity(currentCart.city || "");
@@ -148,8 +166,9 @@ export default function CheckoutPage() {
       setCustomerName(user.email?.split("@")[0] || "");
       const metadataPhone = String((user.user_metadata as { phone?: string } | null)?.phone || "");
       if (metadataPhone) {
-        setProfilePhone(metadataPhone);
-        setManualPhone((current) => current || metadataPhone);
+        const normalizedMetadataPhone = normalizeIndianPhone(metadataPhone);
+        setProfilePhone(normalizedMetadataPhone);
+        setManualPhone((current) => current || normalizedMetadataPhone);
       }
     };
 
@@ -251,7 +270,22 @@ export default function CheckoutPage() {
 
   const resolvedCity = selectedAddress?.city || manualCity.trim();
   const resolvedAddress = normalizeVisibleAddress(selectedAddress?.addressLine || manualAddress.trim());
-  const resolvedPhone = (selectedAddress?.phone || "").trim() || manualPhone.trim() || profilePhone.trim();
+  const resolvedPhone = normalizeIndianPhone((selectedAddress?.phone || "").trim() || manualPhone.trim() || profilePhone.trim());
+  const hasTypedPhone = manualPhone.trim().length > 0;
+  const showPhoneValidationError = hasTypedPhone && !isValidIndianMobile(manualPhone);
+  const canSaveAddress = Boolean(
+    manualCity.trim()
+    && normalizeVisibleAddress(manualAddress.trim())
+    && receiverName.trim()
+    && isValidIndianMobile(manualPhone)
+  );
+  const canPlaceOrder = Boolean(
+    !placingOrder
+    && resolvedCity
+    && resolvedAddress
+    && customerName.trim()
+    && isValidIndianMobile(resolvedPhone)
+  );
 
   const cartItems = cart?.items || [];
 
@@ -278,7 +312,7 @@ export default function CheckoutPage() {
     setDefaultAddress(address.id);
     setManualCity(address.city);
     setManualAddress(normalizeVisibleAddress(address.addressLine));
-    setManualPhone(address.phone || profilePhone);
+    setManualPhone(normalizeIndianPhone(address.phone || profilePhone));
     setReceiverName(address.label || receiverName);
     patchCartAddress(address.city, normalizeVisibleAddress(address.addressLine));
     setAddressSheetOpen(false);
@@ -295,7 +329,8 @@ export default function CheckoutPage() {
   const saveAddressFromEditor = () => {
     const city = manualCity.trim();
     const addressLine = normalizeVisibleAddress(manualAddress.trim());
-    const phone = manualPhone.trim() || profilePhone.trim();
+    const phone = normalizeIndianPhone(manualPhone.trim() || profilePhone.trim());
+    const name = receiverName.trim();
 
     if (!city || !addressLine) {
       setErrorMessage("Please add complete city and address details.");
@@ -304,6 +339,16 @@ export default function CheckoutPage() {
 
     if (!phone) {
       setErrorMessage("Please add phone number in receiver details.");
+      return;
+    }
+
+    if (!isValidIndianMobile(phone)) {
+      setErrorMessage("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+
+    if (!name) {
+      setErrorMessage("Please add receiver name.");
       return;
     }
 
@@ -324,6 +369,7 @@ export default function CheckoutPage() {
       patchCartAddress(nextDefault.city, nextDefault.addressLine);
     }
 
+    setManualPhone(phone);
     setAddressEditorOpen(false);
     setStep("payment");
     setErrorMessage(null);
@@ -355,6 +401,11 @@ export default function CheckoutPage() {
 
     if (!finalPhone) {
       setErrorMessage("Please add phone number in address details.");
+      return;
+    }
+
+    if (!isValidIndianMobile(finalPhone)) {
+      setErrorMessage("Please enter a valid 10-digit mobile number before placing order.");
       return;
     }
 
@@ -496,6 +547,11 @@ export default function CheckoutPage() {
                   : "No address selected yet. Select address to continue."}
               </p>
               {resolvedPhone ? <span className="checkout-address-meta">Contact: {resolvedPhone}</span> : null}
+              {resolvedPhone && !isValidIndianMobile(resolvedPhone) ? (
+                <span className="checkout-address-meta" style={{ color: "#b91c1c" }}>
+                  Update contact number to a valid 10-digit Indian mobile number.
+                </span>
+              ) : null}
             </section>
 
             <section className="checkout-block checkout-items-card">
@@ -598,7 +654,7 @@ export default function CheckoutPage() {
                 {selectedPayment?.label || "Cash on Delivery"}
               </strong>
             </div>
-            <button type="button" onClick={placeOrder} disabled={placingOrder}>
+            <button type="button" onClick={placeOrder} disabled={!canPlaceOrder}>
               {placingOrder ? `Processing ${formatPrice(totalAmount)}` : `Place Order ${formatPrice(totalAmount)}`}
             </button>
           </div>
@@ -691,10 +747,21 @@ export default function CheckoutPage() {
                 Receiver details
                 <input
                   value={manualPhone}
-                  onChange={(event) => setManualPhone(event.target.value)}
+                  onChange={(event) => setManualPhone(normalizeIndianPhone(event.target.value).slice(0, 10))}
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  pattern="[0-9]*"
+                  maxLength={10}
                   placeholder="Phone number"
                 />
               </label>
+
+              <p className={showPhoneValidationError ? "checkout-geocode-hint active" : "checkout-geocode-hint"} aria-live="polite">
+                {showPhoneValidationError
+                  ? "Enter a valid 10-digit mobile number."
+                  : "Phone number must be 10 digits."}
+              </p>
 
               <label>
                 Receiver name
@@ -723,7 +790,7 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            <button type="button" className="checkout-primary-cta" onClick={saveAddressFromEditor}>
+            <button type="button" className="checkout-primary-cta" onClick={saveAddressFromEditor} disabled={!canSaveAddress || isResolvingPin}>
               Save address
             </button>
           </section>

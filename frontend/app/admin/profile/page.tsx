@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { isAllowedAdminEmail } from "@/lib/admin-access";
+import { isValidIndianMobile, sanitizeIndianPhoneInput } from "@/lib/phone";
 
 export default function AdminProfilePage() {
   const router = useRouter();
@@ -74,7 +75,7 @@ export default function AdminProfilePage() {
         setAdminId(String(user.id || ""));
         setEmail(String(user.email || ""));
         setFullName(String(user.user_metadata?.full_name || user.user_metadata?.name || ""));
-        setPhone(String(user.user_metadata?.phone || ""));
+        setPhone(sanitizeIndianPhoneInput(String(user.user_metadata?.phone || "")));
       } catch (error) {
         if (!isActive) {
           return;
@@ -119,11 +120,16 @@ export default function AdminProfilePage() {
         return;
       }
 
+      if (phone.trim() && !isValidIndianMobile(phone)) {
+        setErrorMessage("Enter a valid 10-digit mobile number.");
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({
         data: {
           full_name: fullName.trim(),
           name: fullName.trim(),
-          phone: phone.trim(),
+          phone: sanitizeIndianPhoneInput(phone),
         },
       });
 
@@ -219,10 +225,18 @@ export default function AdminProfilePage() {
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Phone</label>
               <input
                 value={phone}
-                onChange={(event) => setPhone(event.target.value)}
+                onChange={(event) => setPhone(sanitizeIndianPhoneInput(event.target.value))}
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                pattern="[0-9]*"
+                maxLength={10}
                 placeholder="Phone number"
                 className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800"
               />
+              {phone && !isValidIndianMobile(phone) ? (
+                <p className="mt-1 text-xs text-red-600">Enter a valid 10-digit mobile number.</p>
+              ) : null}
             </div>
           </div>
 
@@ -230,7 +244,7 @@ export default function AdminProfilePage() {
             <button
               type="button"
               onClick={saveProfile}
-              disabled={saving}
+              disabled={saving || (Boolean(phone) && !isValidIndianMobile(phone))}
               className="rounded-full px-4 py-2 text-sm font-semibold text-white"
               style={{ background: "linear-gradient(135deg, #7A6A00, #8B7500)", opacity: saving ? 0.8 : 1 }}
             >

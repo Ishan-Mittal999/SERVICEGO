@@ -822,7 +822,7 @@ function ShopsPageContent() {
         {loading ? (
           <p style={{ marginTop: "1rem", color: "var(--gray-500)" }}>Loading shops...</p>
         ) : (
-          <section style={{ marginTop: "1rem", display: "grid", gap: "0.8rem" }}>
+          <section className="shop-feed-grid">
             {visibleVendors.length === 0 ? (
               <div
                 style={{

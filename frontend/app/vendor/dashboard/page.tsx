@@ -8,6 +8,7 @@ import { apiUrl, WEB_PUSH_PUBLIC_KEY } from "@/lib/env";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { detectUserLocation } from "@/lib/location";
+import { isValidIndianMobile, normalizeIndianPhone, sanitizeIndianPhoneInput } from "@/lib/phone";
 
 const LOGO_SRC = "/icon.webp";
 
@@ -1615,7 +1616,7 @@ function parseVendorServicemen(value: unknown, fallbackCount = 0): VendorService
 
       const person = entry as Record<string, unknown>;
       const name = String(person.name || "").trim();
-      const phone = String(person.phone || "").trim();
+      const phone = sanitizeIndianPhoneInput(String(person.phone || ""));
       const id = String(person.id || `serviceman-${index + 1}`).trim();
 
       if (!id) {
@@ -2129,7 +2130,7 @@ function ProfilePage({
     const filledFields = [vendor?.name, vendor?.phone, vendor?.service_id, vendor?.area, vendor?.experience].filter(Boolean).length;
     const completion = Math.round((filledFields / 5) * 100);
     const [name, setName] = useState(vendor?.name || "");
-    const [phone, setPhone] = useState(vendor?.phone || "");
+    const [phone, setPhone] = useState(sanitizeIndianPhoneInput(vendor?.phone || ""));
     const [area, setArea] = useState(vendor?.area || "");
     const [experience, setExperience] = useState(String(vendor?.experience || 0));
     const [aboutShop, setAboutShop] = useState(String(vendor?.about_shop || ""));
@@ -2176,7 +2177,7 @@ function ProfilePage({
 
     useEffect(() => {
       setName(vendor?.name || "");
-      setPhone(vendor?.phone || "");
+      setPhone(sanitizeIndianPhoneInput(vendor?.phone || ""));
       setArea(vendor?.area || "");
       setExperience(String(vendor?.experience || 0));
       setAboutShop(String(vendor?.about_shop || ""));
@@ -2214,9 +2215,10 @@ function ProfilePage({
     const updateServiceman = (index: number, field: keyof VendorServiceman, value: string) => {
       setServicemen((current) => {
         const next = [...current];
+        const normalizedValue = field === "phone" ? sanitizeIndianPhoneInput(value) : value;
         next[index] = {
           ...next[index],
-          [field]: value,
+          [field]: normalizedValue,
         };
         return next;
       });
@@ -2326,6 +2328,18 @@ function ProfilePage({
     };
 
     const submitProfile = async () => {
+      const normalizedPhone = normalizeIndianPhone(phone);
+      if (!isValidIndianMobile(normalizedPhone)) {
+        alert("Enter a valid 10-digit mobile number.");
+        return;
+      }
+
+      const hasInvalidServicemanPhone = servicemen.some((person) => person.phone.trim() && !isValidIndianMobile(person.phone));
+      if (hasInvalidServicemanPhone) {
+        alert("Each serviceman phone must be a valid 10-digit mobile number.");
+        return;
+      }
+
       const subServicesPayload = subServiceRows
         .map((row) => {
           const name = row.name.trim();
@@ -2344,7 +2358,7 @@ function ProfilePage({
 
       await onSaveProfile({
         name: name.trim(),
-        phone: phone.trim(),
+        phone: normalizedPhone,
         area: area.trim(),
         experience: Number(experience) || 0,
         aboutShop: aboutShop.trim(),
@@ -2356,7 +2370,7 @@ function ProfilePage({
           .map((person, index) => ({
             id: String(person.id || `serviceman-${index + 1}`),
             name: String(person.name || "").trim(),
-            phone: String(person.phone || "").trim(),
+            phone: normalizeIndianPhone(String(person.phone || "").trim()),
             aadharNumber: String(person.aadharNumber || "").trim(),
             serviceCategory: String(person.serviceCategory || "").trim(),
             photo: String(person.photo || "").trim(),
@@ -2427,10 +2441,17 @@ function ProfilePage({
                             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>{f.label}</label>
                             <input
                               value={f.value}
-                              onChange={(event) => f.setter(event.target.value)}
+                              onChange={(event) => f.label === "Phone Number" ? f.setter(sanitizeIndianPhoneInput(event.target.value)) : f.setter(event.target.value)}
                               type={f.type}
+                              inputMode={f.label === "Phone Number" ? "numeric" : undefined}
+                              autoComplete={f.label === "Phone Number" ? "tel-national" : undefined}
+                              pattern={f.label === "Phone Number" ? "[0-9]*" : undefined}
+                              maxLength={f.label === "Phone Number" ? 10 : undefined}
                               style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark }}
                             />
+                            {f.label === "Phone Number" && f.value && !isValidIndianMobile(f.value) ? (
+                              <p style={{ marginTop: 6, fontSize: 12, color: "#b42318" }}>Enter a valid 10-digit mobile number.</p>
+                            ) : null}
                         </div>
                     ))}
 
@@ -2549,9 +2570,16 @@ function ProfilePage({
                                 <input
                                   value={person.phone}
                                   onChange={(event) => updateServiceman(index, "phone", event.target.value)}
+                                  type="tel"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  maxLength={10}
                                   placeholder="Phone (XXXXXXXXXX)"
                                   style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #EDEBE4", borderRadius: 10, fontSize: 14, background: "#fff", color: theme.dark }}
                                 />
+                                {person.phone && !isValidIndianMobile(person.phone) ? (
+                                  <p style={{ marginTop: 2, fontSize: 12, color: "#b42318" }}>Use a valid 10-digit mobile number.</p>
+                                ) : null}
                                 <input
                                   value={person.serviceCategory || ""}
                                   onChange={(event) => updateServiceman(index, "serviceCategory", event.target.value)}
@@ -2640,7 +2668,7 @@ function ProfilePage({
                     <button
                       type="button"
                       onClick={submitProfile}
-                      disabled={isSavingProfile}
+                      disabled={isSavingProfile || !isValidIndianMobile(phone)}
                       className="action-btn accept"
                       style={{ marginTop: 12, width: "100%", justifyContent: "center", opacity: isSavingProfile ? 0.8 : 1 }}
                     >
@@ -3079,6 +3107,11 @@ export default function VendorDashboard() {
       try {
         setIsSavingProfile(true);
 
+        const normalizedVendorPhone = normalizeIndianPhone(payload.phone);
+        if (!isValidIndianMobile(normalizedVendorPhone)) {
+          throw new Error("Vendor phone must be a valid 10-digit mobile number.");
+        }
+
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -3092,7 +3125,7 @@ export default function VendorDashboard() {
           .map((person, index) => ({
             id: String(person.id || `serviceman-${index + 1}`),
             name: String(person.name || "").trim(),
-            phone: String(person.phone || "").trim(),
+            phone: normalizeIndianPhone(String(person.phone || "").trim()),
             aadharNumber: String(person.aadharNumber || "").trim(),
             serviceCategory: String(person.serviceCategory || "").trim(),
             photo: String(person.photo || "").trim(),
@@ -3104,9 +3137,14 @@ export default function VendorDashboard() {
             name: person.name || `Serviceman ${index + 1}`,
           }));
 
+        const invalidServiceman = normalizedServicemen.find((person) => person.phone && !isValidIndianMobile(person.phone));
+        if (invalidServiceman) {
+          throw new Error("Each serviceman phone must be a valid 10-digit mobile number.");
+        }
+
         const extendedPayload = {
           name: payload.name,
-          phone: payload.phone,
+          phone: normalizedVendorPhone,
           area: payload.area,
           experience: payload.experience,
           about_shop: payload.aboutShop || null,
@@ -3129,7 +3167,7 @@ export default function VendorDashboard() {
         setVendor((current: VendorProfile | null) => ({
           ...(current || {}),
           name: payload.name,
-          phone: payload.phone,
+          phone: normalizedVendorPhone,
           area: payload.area,
           experience: payload.experience,
           about_shop: payload.aboutShop,
