@@ -289,6 +289,8 @@ const getShopServiceKey = (serviceName: string) => {
 
 const normalizeSubserviceMatchKey = (value: string) =>
   normalizeShopText(value)
+    .replace(/\buninstall(?:ation|ing|ed)?\b/g, " uninstall ")
+    .replace(/\binstall(?:ation|ing|ed)?\b/g, " install ")
     .replace(/check\s*-\s*up/g, "checkup")
     .replace(/\bwm\b/g, "washing machine")
     .replace(/[^a-z0-9\s]/g, " ")
@@ -304,9 +306,30 @@ const isSubserviceNameMatch = (selectedName: string, vendorName: string) => {
     return false;
   }
 
-  return normalizedSelected === normalizedVendor
-    || normalizedSelected.includes(normalizedVendor)
-    || normalizedVendor.includes(normalizedSelected);
+  if (normalizedSelected === normalizedVendor) {
+    return true;
+  }
+
+  const selectedTokens = normalizedSelected.split(" ").filter(Boolean);
+  const vendorTokens = normalizedVendor.split(" ").filter(Boolean);
+  const selectedTokenSet = new Set(selectedTokens);
+  const vendorTokenSet = new Set(vendorTokens);
+
+  const selectedHasUninstall = selectedTokenSet.has("uninstall");
+  const vendorHasUninstall = vendorTokenSet.has("uninstall");
+  if (selectedHasUninstall !== vendorHasUninstall) {
+    return false;
+  }
+
+  const selectedHasInstall = selectedTokenSet.has("install");
+  const vendorHasInstall = vendorTokenSet.has("install");
+  if (selectedHasInstall !== vendorHasInstall) {
+    return false;
+  }
+
+  const selectedCoveredByVendor = selectedTokens.every((token) => vendorTokenSet.has(token));
+  const vendorCoveredBySelected = vendorTokens.every((token) => selectedTokenSet.has(token));
+  return selectedCoveredByVendor || vendorCoveredBySelected;
 };
 
 const vendorHasService = (vendor: Vendor, service: Service | null) => {
@@ -561,7 +584,7 @@ function ShopsPageContent() {
     const subServiceFilteredStrict = selectedSubService
       ? safeServiceFiltered.filter((vendor) =>
           parseVendorListField((vendor as Record<string, unknown>).sub_services).some((item) =>
-            normalizeShopText(item).includes(selectedSubService)
+            isSubserviceNameMatch(selectedSubServiceLabel || selectedSubService, item)
           )
         )
       : safeServiceFiltered;

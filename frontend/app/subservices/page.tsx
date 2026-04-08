@@ -578,8 +578,8 @@ const isSubserviceRelevantToService = (
 
 const getSubserviceDescription = (name: string) => {
   const normalized = normalizeSubserviceText(name);
-  if (normalized.includes("install")) return "Ideal for safe installation with complete setup checks.";
   if (normalized.includes("uninstall")) return "Best for clean removal and site-safe disconnection.";
+  if (normalized.includes("install")) return "Ideal for safe installation with complete setup checks.";
   if (normalized.includes("repair") || normalized.includes("check")) return "Covers diagnosis and reliable issue resolution.";
   return "Trusted option for quick and reliable doorstep support.";
 };
