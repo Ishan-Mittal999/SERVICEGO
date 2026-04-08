@@ -1586,13 +1586,17 @@ app.delete("/services/:id", async (req, res) => {
 
 app.get("/vendors/:auth_id/bookings", async (req, res) => {
 
-  const { auth_id } = req.params;
+  const vendorIdentifier = String(req.params.auth_id || "").trim();
+  if (!vendorIdentifier) {
+    return res.status(400).json({ error: "Vendor identifier is required" });
+  }
+
   const limit = Math.min(parseInt(req.query.limit) || 100, 200);
 
   const { data: vendor, error: vendorError } = await supabase
     .from("vendors")
-    .select("id, service_id, service_ids, selected_service_names, is_active, approval_status")
-    .eq("auth_user_id", auth_id)
+    .select("id, auth_user_id, service_id, service_ids, selected_service_names, is_active, approval_status")
+    .or(`auth_user_id.eq.${vendorIdentifier},id.eq.${vendorIdentifier}`)
     .single();
 
   if (vendorError || !vendor) {
@@ -1619,10 +1623,16 @@ app.get("/vendors/:auth_id/bookings", async (req, res) => {
     )
   );
 
+  const resolvedVendorAuthId = String(vendor.auth_user_id || "").trim();
+
   const { data: assignedBookings, error: assignedBookingsError } = await supabase
     .from("bookings")
     .select("*, services(id, name, category), vendors(id, name, phone)")
-    .or(`vendor_auth_id.eq.${auth_id},vendor_id.eq.${vendor.id}`)
+    .or(
+      resolvedVendorAuthId
+        ? `vendor_auth_id.eq.${resolvedVendorAuthId},vendor_id.eq.${vendor.id}`
+        : `vendor_id.eq.${vendor.id}`
+    )
     .order("created_at", { ascending: false })
     .limit(limit);
 

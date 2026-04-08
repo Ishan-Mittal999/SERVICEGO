@@ -2923,6 +2923,7 @@ export default function VendorDashboard() {
     const loadBookings = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
+      const vendorIdentifier = String((vendor as Record<string, unknown> | null)?.id || user.id || "").trim();
 
         const toServiceMatchKey = (value: unknown) =>
           String(value || "")
@@ -2970,7 +2971,7 @@ export default function VendorDashboard() {
         };
 
         try {
-          const vendorRouteResponse = await fetch(apiUrl(`/vendors/${user.id}/bookings`), { cache: "no-store" });
+          const vendorRouteResponse = await fetch(apiUrl(`/vendors/${vendorIdentifier}/bookings`), { cache: "no-store" });
           if (vendorRouteResponse.ok) {
             const vendorRoutePayload = await vendorRouteResponse.json().catch(() => null);
             const vendorRouteRows = Array.isArray(vendorRoutePayload)
@@ -3100,7 +3101,7 @@ export default function VendorDashboard() {
             isPendingForVendor(booking, serviceIds, serviceNameKeys)
           );
 
-          const vendorRouteResponse = await fetch(apiUrl(`/vendors/${user.id}/bookings`), { cache: "no-store" });
+          const vendorRouteResponse = await fetch(apiUrl(`/vendors/${vendorIdentifier}/bookings`), { cache: "no-store" });
           const vendorRoutePayload = await vendorRouteResponse.json().catch(() => null);
           const vendorRouteRows = Array.isArray(vendorRoutePayload)
             ? vendorRoutePayload
