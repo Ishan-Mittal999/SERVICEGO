@@ -2924,6 +2924,40 @@ export default function VendorDashboard() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        const normalizeBookingRows = (rows: any[]) => {
+          const seenIds = new Set<string>();
+
+          const normalized = (rows || [])
+            .map((booking: any) => ({
+              ...booking,
+              status: String(booking?.status || "pending").trim().toLowerCase(),
+            }))
+            .filter((booking: any) => {
+              const id = String(booking?.id || "").trim();
+              if (!id || seenIds.has(id)) {
+                return false;
+              }
+              seenIds.add(id);
+              return true;
+            });
+
+          normalized.sort((left: any, right: any) => {
+            const leftTs = new Date(left?.created_at || 0).getTime();
+            const rightTs = new Date(right?.created_at || 0).getTime();
+            return rightTs - leftTs;
+          });
+
+          return normalized;
+        };
+
+        const isPendingForVendor = (booking: any, serviceIds: string[]) => {
+          const status = String(booking?.status || "").trim().toLowerCase();
+          const bookingServiceId = String(booking?.service_id || "").trim();
+          const vendorIdValue = booking?.vendor_id;
+          const isUnassigned = vendorIdValue === null || vendorIdValue === undefined || String(vendorIdValue).trim() === "";
+          return status === "pending" && isUnassigned && serviceIds.includes(bookingServiceId);
+        };
+
         try {
           const { data: vendorRow, error: vendorError } = await supabase
             .from("vendors")
@@ -2980,36 +3014,56 @@ export default function VendorDashboard() {
           }
 
           const combinedRows = [...(assignedRows || []), ...pendingRows];
-          const seenIds = new Set<string>();
-          const deduped = combinedRows.filter((booking: any) => {
-            const id = String(booking?.id || "");
-            if (!id || seenIds.has(id)) {
-              return false;
-            }
-            seenIds.add(id);
-            return true;
-          });
-
-          deduped.sort((left: any, right: any) => {
-            const leftTs = new Date(left?.created_at || 0).getTime();
-            const rightTs = new Date(right?.created_at || 0).getTime();
-            return rightTs - leftTs;
-          });
-
-          setBookings(deduped);
+          setBookings(normalizeBookingRows(combinedRows));
           return;
         } catch (supabaseLoadError) {
           console.error("Supabase booking load failed, falling back to API", supabaseLoadError);
         }
 
-        const res = await fetch(apiUrl(`/vendors/${user.id}/bookings`));
-        const payload = await res.json().catch(() => null);
-        const bookingRows = Array.isArray(payload)
-          ? payload
-          : Array.isArray(payload?.data)
-            ? payload.data
-            : [];
-        setBookings(bookingRows);
+        try {
+          const [vendorResponse, bookingsResponse] = await Promise.all([
+            fetch(apiUrl(`/vendors/${user.id}`), { cache: "no-store" }),
+            fetch(apiUrl("/bookings?status=pending&limit=200&offset=0"), { cache: "no-store" }),
+          ]);
+
+          const vendorPayload = await vendorResponse.json().catch(() => null);
+          const pendingPayload = await bookingsResponse.json().catch(() => null);
+
+          const vendorData = vendorPayload?.data || vendorPayload;
+          const serviceIds = Array.from(
+            new Set(
+              [
+                String(vendorData?.service_id || "").trim(),
+                ...parseVendorListField(vendorData?.service_ids),
+              ].filter(Boolean)
+            )
+          );
+
+          const pendingRows = Array.isArray(pendingPayload)
+            ? pendingPayload
+            : Array.isArray(pendingPayload?.data)
+              ? pendingPayload.data
+              : [];
+
+          const matchedPending = pendingRows.filter((booking: any) => isPendingForVendor(booking, serviceIds));
+
+          const vendorRouteResponse = await fetch(apiUrl(`/vendors/${user.id}/bookings`), { cache: "no-store" });
+          const vendorRoutePayload = await vendorRouteResponse.json().catch(() => null);
+          const vendorRouteRows = Array.isArray(vendorRoutePayload)
+            ? vendorRoutePayload
+            : Array.isArray(vendorRoutePayload?.data)
+              ? vendorRoutePayload.data
+              : [];
+
+          const combined = [...vendorRouteRows, ...matchedPending];
+          setBookings(normalizeBookingRows(combined));
+          return;
+        } catch (apiFallbackError) {
+          console.error("API fallback booking load failed", apiFallbackError);
+        }
+
+        setBookings([]);
+        setDashboardMessage("Could not load booking requests right now. Please refresh in a few seconds.");
     };
 
     const loadServiceCatalog = async () => {
