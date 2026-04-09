@@ -5,8 +5,10 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { readShopCart } from "@/lib/shop-cart";
 import { readUserLocation } from "@/lib/location";
+import { isVendorUser } from "@/lib/user-role";
 
 export default function GlobalHeader() {
   const router = useRouter();
@@ -16,10 +18,49 @@ export default function GlobalHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [locationLabel, setLocationLabel] = useState("Select location");
+  const [isVendorAccount, setIsVendorAccount] = useState<boolean | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (pathname?.startsWith("/vendor/")) {
+      return;
+    }
+
+    let active = true;
+
+    const syncVendorAccount = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!active) {
+        return;
+      }
+
+      if (!user) {
+        setIsVendorAccount(false);
+        return;
+      }
+
+      const vendor = await isVendorUser(user.id);
+
+      if (active) {
+        setIsVendorAccount(vendor);
+      }
+    };
+
+    void syncVendorAccount();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      void syncVendorAccount();
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [pathname]);
 
   useEffect(() => {
     const syncCartCount = () => {
@@ -81,6 +122,10 @@ export default function GlobalHeader() {
     router.push(`/#${sectionId}`);
   };
 
+  if (pathname?.startsWith("/vendor/")) {
+    return null;
+  }
+
   return (
     <header className="global-app-header">
       <div className="global-app-header-inner">
@@ -106,6 +151,7 @@ export default function GlobalHeader() {
           <button type="button" onClick={() => openSection("services")}>Services</button>
           <button type="button" onClick={() => openSection("how")}>How It Works</button>
           <button type="button" onClick={() => router.push("/profile")}>Profile</button>
+          {isVendorAccount ? <button type="button" onClick={() => router.push("/vendor/dashboard")}>Vendor Dashboard</button> : null}
           <button type="button" onClick={() => router.push("/bookings")}>My Bookings</button>
         </nav>
 
@@ -154,6 +200,7 @@ export default function GlobalHeader() {
                   <button type="button" onClick={() => openSection("services")}>Services</button>
                   <button type="button" onClick={() => openSection("how")}>How It Works</button>
                   <button type="button" onClick={() => router.push("/profile")}>Profile</button>
+                  {isVendorAccount ? <button type="button" onClick={() => router.push("/vendor/dashboard")}>Vendor Dashboard</button> : null}
                   <button type="button" onClick={() => router.push("/bookings")}>My Bookings</button>
                   <button type="button" onClick={() => router.push("/faqs")}>FAQs</button>
                   <button type="button" onClick={() => router.push("/privacy")}>Privacy Policy</button>
