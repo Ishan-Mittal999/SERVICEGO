@@ -540,8 +540,8 @@ export default function CheckoutPage() {
     <main className="landing checkout-mobile-shell">
       <div className="checkout-mobile-wrap">
         <section className="checkout-block" style={{ marginTop: "0.8rem" }}>
-          <h2 style={{ margin: 0, color: "#0f172a", fontSize: "1.05rem" }}>Secure Checkout</h2>
-          <p style={{ margin: "0.25rem 0 0", color: "#64748b", fontSize: "0.85rem" }}>
+          <h2 style={{ margin: 0, color: "var(--gray-900)", fontSize: "1.05rem" }}>Secure Checkout</h2>
+          <p style={{ margin: "0.25rem 0 0", color: "var(--gray-600)", fontSize: "0.85rem" }}>
             {step === "review" ? "Review service order" : "Select payment and place order"}
           </p>
         </section>
@@ -577,7 +577,7 @@ export default function CheckoutPage() {
               </p>
               {resolvedPhone ? <span className="checkout-address-meta">Contact: {resolvedPhone}</span> : null}
               {resolvedPhone && !isValidIndianMobile(resolvedPhone) ? (
-                <span className="checkout-address-meta" style={{ color: "#b91c1c" }}>
+                <span className="checkout-address-meta" style={{ color: "#b42318" }}>
                   Update contact number to a valid 10-digit Indian mobile number.
                 </span>
               ) : null}
