@@ -302,9 +302,24 @@ const parsePostgresArrayString = (raw: string): string[] => {
   return items.filter(Boolean);
 };
 
+const normalizeEntry = (entry: unknown) => {
+  const trimmed = String(entry || "").trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (trimmed.includes("::")) {
+    return String(trimmed.split("::")[0] || "").trim();
+  }
+
+  return trimmed;
+};
+
 const parseVendorListField = (value: unknown): string[] => {
   if (Array.isArray(value)) {
-    return value.map((item) => String(item || "").trim()).filter(Boolean);
+    return value
+      .map((item) => normalizeEntry(item))
+      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
   }
 
   if (typeof value === "string") {
@@ -316,7 +331,9 @@ const parseVendorListField = (value: unknown): string[] => {
     try {
       const parsed = JSON.parse(normalized);
       if (Array.isArray(parsed)) {
-        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+        return parsed
+          .map((item) => normalizeEntry(item))
+          .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
       }
     } catch {
       // Fallback to structured string formats.
@@ -324,14 +341,19 @@ const parseVendorListField = (value: unknown): string[] => {
 
     const postgresArray = parsePostgresArrayString(normalized);
     if (postgresArray.length > 0) {
-      return postgresArray;
+      return postgresArray
+        .map((item) => normalizeEntry(item))
+        .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
     }
 
     if (normalized.startsWith("data:image/")) {
       return [normalized];
     }
 
-    return normalized.split(",").map((item) => item.trim()).filter(Boolean);
+    return normalized
+      .split(",")
+      .map((item) => normalizeEntry(item))
+      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
   }
 
   return [];
@@ -425,13 +447,25 @@ const parseSubserviceArray = (value: unknown): string[] => {
     try {
       const parsed = JSON.parse(normalized);
       if (Array.isArray(parsed)) {
-        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+        return parsed
+          .map((item) => normalizeEntry(item))
+          .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
       }
     } catch {
       // Fallback to comma-separated values.
     }
 
-    return normalized.split(",").map((item) => item.trim()).filter(Boolean);
+    const postgresArray = parsePostgresArrayString(normalized);
+    if (postgresArray.length > 0) {
+      return postgresArray
+        .map((item) => normalizeEntry(item))
+        .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
+    }
+
+    return normalized
+      .split(",")
+      .map((item) => normalizeEntry(item))
+      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
   }
 
   return [];
@@ -533,16 +567,16 @@ const vendorHasService = (vendor: Vendor, service: Service | null) => {
     return true;
   }
 
-  const targetServiceId = String(service.id);
+  const targetServiceId = String(service.id).trim();
   const targetServiceName = normalizeShopText(service.name || "");
   const targetServiceKey = getShopServiceKey(service.name || "");
 
-  if (String(vendor.service_id || "") === targetServiceId) {
+  if (String(vendor.service_id || "").trim() === targetServiceId) {
     return true;
   }
 
   const vendorServiceIds = parseVendorListField((vendor as Record<string, unknown>).service_ids);
-  if (vendorServiceIds.some((id) => String(id) === targetServiceId)) {
+  if (vendorServiceIds.some((id) => String(id || "").trim() === targetServiceId)) {
     return true;
   }
 
