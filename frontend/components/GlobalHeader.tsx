@@ -130,18 +130,6 @@ export default function GlobalHeader() {
           >
             {mobileMenuOpen ? "×" : "☰"}
           </button>
-
-          {cartCount > 0 ? (
-            <button
-              type="button"
-              className="global-cart-btn"
-              onClick={() => router.push("/cart")}
-              aria-label="Open cart"
-            >
-              Cart
-              <span className="global-cart-badge">{cartCount}</span>
-            </button>
-          ) : null}
         </div>
       </div>
 

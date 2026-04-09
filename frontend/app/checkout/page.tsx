@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/env";
-import { formatPrice } from "@/lib/booking-flow";
+import { clearBookingDraft, formatPrice } from "@/lib/booking-flow";
 import {
   getCartTotal,
+  clearShopCart,
   readShopCart,
   updateCartItemQuantity,
   writeShopCart,
@@ -485,6 +486,10 @@ export default function CheckoutPage() {
       if (!bookingId) {
         throw new Error("Booking completed but booking id was not returned.");
       }
+
+      clearShopCart();
+      clearBookingDraft();
+      setCart(null);
 
       router.push(`/booking/status?bookingId=${encodeURIComponent(bookingId)}`);
     } catch (error) {
