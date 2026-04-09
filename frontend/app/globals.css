@@ -234,8 +234,8 @@
   min-height: calc(100vh - 74px);
   padding: 1.4rem 0.85rem 2.5rem;
   background:
-    radial-gradient(circle at 8% 6%, rgba(122, 106, 0, 0.12), transparent 24%),
-    radial-gradient(circle at 92% 0%, rgba(30, 144, 255, 0.08), transparent 22%),
+    radial-gradient(circle at 8% 6%, rgba(122, 106, 0, 0.09), transparent 22%),
+    radial-gradient(circle at 92% 0%, rgba(15, 23, 42, 0.04), transparent 20%),
     linear-gradient(180deg, #f8f6ef 0%, #fbfaf6 34%, #ffffff 100%);
 }
 
@@ -251,8 +251,8 @@
   overflow: hidden;
   border: 1px solid rgba(122, 106, 0, 0.16);
   background:
-    radial-gradient(circle at top right, rgba(139, 117, 0, 0.12), transparent 32%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(248, 244, 230, 0.92));
+    radial-gradient(circle at top right, rgba(139, 117, 0, 0.08), transparent 32%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(249, 245, 234, 0.94));
   border-radius: 24px;
   padding: 1.15rem 1.2rem;
   display: grid;
@@ -280,40 +280,28 @@
   max-width: 720px;
 }
 
+.cart-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cart-hero-meta span {
+  border-radius: 999px;
+  border: 1px solid rgba(122, 106, 0, 0.14);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--gray-700);
+  padding: 0.38rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
 .cart-eyebrow {
   color: var(--gold-dark);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 0.72rem;
   font-weight: 800;
-}
-
-.cart-hero-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.cart-hero-stats > div {
-  border: 1px solid rgba(122, 106, 0, 0.14);
-  background: rgba(255, 255, 255, 0.72);
-  border-radius: 18px;
-  padding: 0.8rem 0.85rem;
-  display: grid;
-  gap: 0.25rem;
-}
-
-.cart-hero-stats span {
-  color: var(--gray-500);
-  font-size: 0.76rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.cart-hero-stats strong {
-  color: var(--gray-900);
-  font-family: var(--font-display);
-  font-size: 1.15rem;
 }
 
 .cart-hero-actions {
@@ -392,9 +380,9 @@
 .cart-item-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(122, 106, 0, 0.14);
+  border: 1px solid rgba(122, 106, 0, 0.12);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(251, 248, 239, 0.98));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(252, 250, 244, 0.98));
   padding: 1rem 1.05rem;
   display: grid;
   gap: 0.65rem;
@@ -450,9 +438,9 @@
 .cart-summary-card {
   position: sticky;
   top: 5.4rem;
-  border: 1px solid rgba(122, 106, 0, 0.14);
+  border: 1px solid rgba(122, 106, 0, 0.12);
   border-radius: 24px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 242, 227, 0.96));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 246, 236, 0.96));
   padding: 1rem 1.05rem;
   display: grid;
   gap: 0.8rem;
@@ -461,6 +449,12 @@
 
 .cart-summary-card h3 {
   font-size: 1.2rem;
+}
+
+.cart-summary-subtitle {
+  margin: -0.25rem 0 0;
+  color: var(--gray-600);
+  line-height: 1.6;
 }
 
 .cart-summary-panel {
@@ -597,35 +591,6 @@
   margin-top: 0.25rem;
 }
 
-.cart-footnote {
-  border: 1px solid rgba(122, 106, 0, 0.12);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.72);
-  padding: 0.95rem 1rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.cart-footnote-badge {
-  border-radius: 999px;
-  background: rgba(122, 106, 0, 0.12);
-  color: var(--gold-dark);
-  font-size: 0.75rem;
-  font-weight: 800;
-  padding: 0.45rem 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.cart-footnote p {
-  margin: 0;
-  color: var(--gray-600);
-  line-height: 1.65;
-  flex: 1;
-}
-
 .cart-empty-secondary {
   color: var(--gold-dark);
 }
@@ -709,12 +674,9 @@
   .cart-summary-card,
   .cart-item-card,
   .cart-empty-card,
-  .cart-footnote {
+  .cart-summary-panel,
+  .cart-summary-note {
     border-radius: 18px;
-  }
-
-  .cart-hero-stats {
-    grid-template-columns: 1fr;
   }
 
   .cart-hero-actions,

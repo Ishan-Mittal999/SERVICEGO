@@ -65,22 +65,13 @@ export default function CartPage() {
         <section className="cart-hero">
           <div className="cart-hero-copy">
             <span className="cart-eyebrow">ServiceGo cart</span>
-            <h1>Your booking, ready to confirm</h1>
-            <p>{itemCount} service{itemCount === 1 ? "" : "s"} selected from {cart.vendorName}.</p>
-          </div>
-
-          <div className="cart-hero-stats">
-            <div>
-              <span>Items</span>
-              <strong>{uniqueItemCount}</strong>
-            </div>
-            <div>
-              <span>Total quantity</span>
-              <strong>{itemCount}</strong>
-            </div>
-            <div>
-              <span>Subtotal</span>
-              <strong>{formatPrice(total)}</strong>
+            <h1>Review your booking</h1>
+            <p>
+              {itemCount} service{itemCount === 1 ? "" : "s"} from {cart.vendorName}. Check the list below, then continue to checkout.
+            </p>
+            <div className="cart-hero-meta">
+              <span>{uniqueItemCount} item{uniqueItemCount === 1 ? "" : "s"}</span>
+              <span>{formatPrice(total)} subtotal</span>
             </div>
           </div>
 
@@ -122,6 +113,7 @@ export default function CartPage() {
           <section className="cart-summary-card">
             <span className="cart-eyebrow">Order summary</span>
             <h3>Review before checkout</h3>
+            <p className="cart-summary-subtitle">A simple breakdown of what you’ll pay before placing the booking.</p>
 
             <div className="cart-summary-panel">
               <div className="cart-summary-row">
@@ -138,25 +130,12 @@ export default function CartPage() {
               </div>
             </div>
 
-            <div className="cart-summary-note">
-              <span aria-hidden="true">✓</span>
-              <p>We keep your selected shop and items together until you place the booking.</p>
-            </div>
-
             <div className="cart-cta-row">
               <button type="button" className="cart-secondary-btn" onClick={() => router.push("/shops")}>Continue exploring</button>
               <button type="button" className="cart-primary-btn" onClick={() => router.push("/checkout?step=review")}>Checkout</button>
             </div>
           </section>
         </div>
-
-        <section className="cart-footnote">
-          <span className="cart-footnote-badge">Booking ready</span>
-          <p>
-            Cart updates are synced live across the app, so adding or removing services updates this page, the header badge,
-            and checkout immediately.
-          </p>
-        </section>
       </div>
     </main>
   );
