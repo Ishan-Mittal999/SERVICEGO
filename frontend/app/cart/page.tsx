@@ -44,99 +44,81 @@ export default function CartPage() {
 
   if (!cart || cart.items.length === 0) {
     return (
-      <main className="landing cart-shell">
-        <section className="cart-empty-card">
-          <div className="cart-empty-icon" aria-hidden="true">🛒</div>
-          <span className="cart-eyebrow">Ready when you are</span>
-          <h1>Your service cart is empty</h1>
-          <p>Add a plan from a shop to build your booking and checkout in one flow.</p>
-          <div className="cart-empty-actions">
-            <button type="button" onClick={() => router.push("/")}>Browse services</button>
-            <button type="button" className="cart-empty-secondary" onClick={() => router.push("/shops")}>Find shops</button>
-          </div>
-        </section>
+      <main className="landing checkout-mobile-shell">
+        <div className="checkout-mobile-wrap">
+          <section className="checkout-empty-state">
+            <h1>Your service cart is empty</h1>
+            <p>Add a service from shops to continue with checkout.</p>
+            <button type="button" className="checkout-primary-cta" onClick={() => router.push("/shops")}>Find shops</button>
+          </section>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="landing cart-shell">
-      <div className="cart-page-wrap">
-        <section className="cart-hero">
-          <div className="cart-hero-copy">
-            <span className="cart-eyebrow">ServiceGo cart</span>
-            <h1>Review your booking</h1>
-            <p>
-              {itemCount} service{itemCount === 1 ? "" : "s"} from {cart.vendorName}. Check the list below, then continue to checkout.
-            </p>
-            <div className="cart-hero-meta">
-              <span>{uniqueItemCount} item{uniqueItemCount === 1 ? "" : "s"}</span>
-              <span>{formatPrice(total)} subtotal</span>
-            </div>
-          </div>
-
-          <div className="cart-hero-actions">
-            <button type="button" onClick={() => router.push("/shops")}>Add more</button>
-            <button type="button" className="cart-hero-clear" onClick={handleClear}>Clear cart</button>
-          </div>
+    <main className="landing checkout-mobile-shell">
+      <div className="checkout-mobile-wrap">
+        <section className="checkout-block" style={{ marginTop: "0.8rem" }}>
+          <h2 style={{ margin: 0, color: "var(--gray-900)", fontSize: "1.05rem" }}>Your Cart</h2>
+          <p style={{ margin: "0.25rem 0 0", color: "var(--gray-600)", fontSize: "0.85rem" }}>
+            {itemCount} service{itemCount === 1 ? "" : "s"} selected from {cart.vendorName}
+          </p>
         </section>
 
-        <div className="cart-content-grid">
-          <section className="cart-items-list">
-            <div className="cart-section-heading">
-              <div>
-                <span className="cart-eyebrow">Selected plan</span>
-                <h2>{cart.serviceName}</h2>
-              </div>
-              <span className="cart-vendor-pill">{cart.vendorName}</span>
-            </div>
+        <section className="checkout-saved-banner">
+          {uniqueItemCount} item{uniqueItemCount === 1 ? "" : "s"} • Subtotal {formatPrice(total)}
+        </section>
 
-            {cart.items.map((item) => (
-              <article key={item.id} className="cart-item-card">
-                <div className="cart-item-head">
+        <div className="checkout-layout-grid">
+          <section className="checkout-main-column">
+            <section className="checkout-block checkout-items-card">
+              <div className="checkout-section-head">
+                <h3>{cart.serviceName}</h3>
+                <button type="button" className="checkout-add-more" onClick={() => router.push("/shops")}>Add more</button>
+              </div>
+
+              {cart.items.map((item) => (
+                <div key={item.id} className="checkout-item-row">
                   <div>
-                    <span className="cart-item-kicker">Chosen service</span>
-                    <h3>{item.name}</h3>
+                    <strong>{item.name}</strong>
+                    <p>Line total {formatPrice(item.price * item.quantity)}</p>
                   </div>
-                  <span className="cart-item-price">{formatPrice(item.price)}</span>
+                  <span className="checkout-security-pill">Qty {item.quantity}</span>
                 </div>
-
-                <div className="cart-item-meta-row">
-                  <span className="cart-item-meta">Qty {item.quantity}</span>
-                  <span className="cart-item-dot" aria-hidden="true">•</span>
-                  <span className="cart-item-meta">Line total {formatPrice(item.price * item.quantity)}</span>
-                </div>
-              </article>
-            ))}
+              ))}
+            </section>
           </section>
 
-          <section className="cart-summary-card">
-            <span className="cart-eyebrow">Order summary</span>
-            <h3>Review before checkout</h3>
-            <p className="cart-summary-subtitle">A simple breakdown of what you’ll pay before placing the booking.</p>
-
-            <div className="cart-summary-panel">
-              <div className="cart-summary-row">
-                <span>Subtotal</span>
+          <aside className="checkout-side-column">
+            <section className="checkout-block checkout-bill-card">
+              <div className="checkout-bill-row">
+                <span>Order value</span>
                 <strong>{formatPrice(total)}</strong>
               </div>
-              <div className="cart-summary-row">
-                <span>Taxes</span>
-                <strong>{formatPrice(0)}</strong>
-              </div>
-              <div className="cart-summary-row total">
-                <span>Total</span>
-                <strong>{formatPrice(total)}</strong>
-              </div>
-            </div>
+              <p>Taxes and final charges are shown at checkout.</p>
+            </section>
 
-            <div className="cart-cta-row">
-              <button type="button" className="cart-secondary-btn" onClick={() => router.push("/shops")}>Continue exploring</button>
-              <button type="button" className="cart-primary-btn" onClick={() => router.push("/checkout?step=review")}>Checkout</button>
-            </div>
-          </section>
+            <section className="checkout-policy-text">
+              <h4>CART ACTIONS</h4>
+              <p>
+                Clear this cart if you want to switch vendor or start a fresh booking flow.
+              </p>
+              <button type="button" className="checkout-add-more" onClick={handleClear}>Clear cart</button>
+            </section>
+          </aside>
         </div>
       </div>
+
+      <footer className="checkout-sticky-bar">
+        <div className="checkout-pay-bar">
+          <div>
+            <span>PAYABLE</span>
+            <strong>{formatPrice(total)}</strong>
+          </div>
+          <button type="button" onClick={() => router.push("/checkout?step=review")}>Checkout</button>
+        </div>
+      </footer>
     </main>
   );
 }
