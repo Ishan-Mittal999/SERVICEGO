@@ -635,6 +635,97 @@ const styles = `
 
   .action-btn.view:hover { background: ${theme.gold}; color: white; }
 
+  .booking-details-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 2000;
+  }
+
+  .booking-details-modal {
+    width: min(520px, 100%);
+    border-radius: 16px;
+    border: 1px solid #EDEBE4;
+    background: white;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+    overflow: hidden;
+  }
+
+  .booking-details-head {
+    padding: 14px 16px;
+    border-bottom: 1px solid #F1EEE5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .booking-details-head h3 {
+    margin: 0;
+    font-family: var(--font-display), serif;
+    font-size: 20px;
+    color: ${theme.dark};
+  }
+
+  .booking-details-close {
+    border: 1px solid #EDEBE4;
+    background: white;
+    color: ${theme.muted};
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  .booking-details-body {
+    padding: 14px 16px 16px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .booking-detail-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 150px) 1fr;
+    gap: 8px;
+    align-items: start;
+    font-size: 13px;
+  }
+
+  .booking-detail-row span {
+    color: ${theme.muted};
+    font-weight: 600;
+  }
+
+  .booking-detail-row strong {
+    color: ${theme.dark};
+    font-weight: 700;
+    word-break: break-word;
+  }
+
+  .booking-detail-link {
+    color: ${theme.blue};
+    text-decoration: underline;
+    font-weight: 700;
+    width: fit-content;
+  }
+
+  .booking-detail-note {
+    white-space: pre-wrap;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 640px) {
+    .booking-detail-row {
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+  }
+
   /* EARNINGS CHART */
   .earnings-bar-container {
     display: flex;
@@ -1752,6 +1843,7 @@ function DashboardHome({
   bookings,
   acceptBooking,
   completeBooking,
+  onViewBooking,
   vendor,
   pendingCount,
   openProfile,
@@ -1762,6 +1854,7 @@ function DashboardHome({
   bookings: any[];
   acceptBooking: (id: string, servicemanId: string) => Promise<void>;
   completeBooking: (id: string) => Promise<void>;
+  onViewBooking: (booking: any) => void;
   vendor: any;
   pendingCount: number;
   openProfile: () => void;
@@ -1913,7 +2006,7 @@ function DashboardHome({
                                                 Complete Job
                                               </button>
                                             </div>
-                                          ) : <button className="action-btn view">View</button>}
+                                            ) : <button className="action-btn view" onClick={() => onViewBooking(b)}>View</button>}
                                         </td>
                                     </tr>
                                 ))}
@@ -1959,6 +2052,7 @@ function DashboardHome({
                 bookings,
                 acceptBooking,
                 completeBooking,
+                onViewBooking,
                 servicemen,
                 bookingServicemanSelection,
                 onSelectServiceman,
@@ -1966,6 +2060,7 @@ function DashboardHome({
                 bookings: any[];
                 acceptBooking: (id: string, servicemanId: string) => Promise<void>;
                 completeBooking: (id: string) => Promise<void>;
+                onViewBooking: (booking: any) => void;
                 servicemen: VendorServiceman[];
                 bookingServicemanSelection: Record<string, string>;
                 onSelectServiceman: (bookingId: string, servicemanId: string) => void;
@@ -2020,7 +2115,7 @@ function DashboardHome({
         );
       }
 
-      return <button className="action-btn view">View</button>;
+      return <button className="action-btn view" onClick={() => onViewBooking(booking)}>View</button>;
     };
 
     return (
@@ -2718,6 +2813,8 @@ export default function VendorDashboard() {
     const [vendor, setVendor] = useState<any>(null);
   const [vendorEmail, setVendorEmail] = useState("");
     const [bookings, setBookings] = useState<any[]>([]);
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+  const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
     const [profileChecked, setProfileChecked] = useState(false);
   const [dashboardMessage, setDashboardMessage] = useState<string | null>(null);
   const [isUpdatingVendorLocation, setIsUpdatingVendorLocation] = useState(false);
@@ -3195,6 +3292,110 @@ export default function VendorDashboard() {
         loadBookings(); // refresh table
     };
 
+    const openBookingDetails = (booking: any) => {
+      setSelectedBooking(booking);
+      setIsBookingDetailsOpen(true);
+    };
+
+    const closeBookingDetails = () => {
+      setIsBookingDetailsOpen(false);
+    };
+
+    const formatBookingDate = (booking: any) => {
+      if (booking?.preferred_time) {
+        return String(booking.preferred_time);
+      }
+
+      if (booking?.created_at) {
+        const date = new Date(booking.created_at);
+        if (!Number.isNaN(date.getTime())) {
+          return date.toLocaleString();
+        }
+      }
+
+      return "Not available";
+    };
+
+    const getBookingAmount = (booking: any) => {
+      const candidates = [
+        booking?.total_amount,
+        booking?.final_amount,
+        booking?.amount,
+        booking?.payable_amount,
+        booking?.service_charge,
+        booking?.price,
+      ];
+
+      for (const value of candidates) {
+        const numeric = Number(value);
+        if (Number.isFinite(numeric) && numeric > 0) {
+          return `Rs ${numeric.toFixed(2)}`;
+        }
+      }
+
+      return null;
+    };
+
+    const getBookingNotes = (booking: any) => {
+      const candidates = [
+        booking?.notes,
+        booking?.booking_note,
+        booking?.customer_note,
+        booking?.description,
+      ];
+
+      for (const value of candidates) {
+        const normalized = String(value || "").trim();
+        if (normalized) {
+          return normalized;
+        }
+      }
+
+      return null;
+    };
+
+    const getBookingCoordinates = (booking: any) => {
+      const latCandidates = [booking?.latitude, booking?.lat, booking?.customer_latitude];
+      const lngCandidates = [booking?.longitude, booking?.lng, booking?.customer_longitude];
+
+      let lat: number | null = null;
+      let lng: number | null = null;
+
+      for (const value of latCandidates) {
+        const numeric = Number(value);
+        if (Number.isFinite(numeric)) {
+          lat = numeric;
+          break;
+        }
+      }
+
+      for (const value of lngCandidates) {
+        const numeric = Number(value);
+        if (Number.isFinite(numeric)) {
+          lng = numeric;
+          break;
+        }
+      }
+
+      if (lat === null || lng === null) {
+        return null;
+      }
+
+      return { lat, lng };
+    };
+
+    const getBookingPaymentMethod = (booking: any) => {
+      const value = String(booking?.payment_method || booking?.payment_mode || "").trim();
+      if (!value) {
+        return null;
+      }
+
+      return value
+        .split("_")
+        .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+    };
+
     const updateVendorLocation = async () => {
       try {
         setIsUpdatingVendorLocation(true);
@@ -3386,8 +3587,8 @@ export default function VendorDashboard() {
           Number(vendor?.servicemen_count ?? vendor?.serviceman_count ?? 0)
         );
         switch (activePage) {
-            case "home": return <DashboardHome bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} vendor={vendor} pendingCount={bookings.filter((b: any) => b.status === "pending").length} openProfile={() => setActivePage("profile")} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;
-            case "bookings": return <BookingsPage bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;
+            case "home": return <DashboardHome bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} onViewBooking={openBookingDetails} vendor={vendor} pendingCount={bookings.filter((b: any) => b.status === "pending").length} openProfile={() => setActivePage("profile")} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;
+            case "bookings": return <BookingsPage bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} onViewBooking={openBookingDetails} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;
             case "profile":
               return (
                 <ProfilePage
@@ -3500,6 +3701,121 @@ export default function VendorDashboard() {
                       ) : null}
                         {renderPage()}
                     </div>
+
+                    {isBookingDetailsOpen && selectedBooking ? (
+                      <div className="booking-details-overlay" onClick={closeBookingDetails}>
+                        <section className="booking-details-modal" onClick={(event) => event.stopPropagation()}>
+                          <div className="booking-details-head">
+                            <h3>Booking Details</h3>
+                            <button type="button" className="booking-details-close" onClick={closeBookingDetails} aria-label="Close booking details">×</button>
+                          </div>
+                          <div className="booking-details-body">
+                            {(() => {
+                              const amount = getBookingAmount(selectedBooking);
+                              const notes = getBookingNotes(selectedBooking);
+                              const coordinates = getBookingCoordinates(selectedBooking);
+                              const paymentMethod = getBookingPaymentMethod(selectedBooking);
+                              const preferredSlot = String(selectedBooking?.preferred_time || "").trim();
+                              const addressText = String(
+                                selectedBooking.address
+                                || selectedBooking.address_line
+                                || selectedBooking.area
+                                || ""
+                              ).trim();
+                              const addressMapUrl = addressText
+                                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressText)}`
+                                : null;
+                              const latLngMapUrl = coordinates
+                                ? `https://www.google.com/maps?q=${encodeURIComponent(`${coordinates.lat},${coordinates.lng}`)}`
+                                : null;
+
+                              return (
+                                <>
+                            <div className="booking-detail-row">
+                              <span>Booking ID</span>
+                              <strong>#{String(selectedBooking.id || "-")}</strong>
+                            </div>
+                            <div className="booking-detail-row">
+                              <span>Status</span>
+                              <strong>{String(selectedBooking.status || "-").toUpperCase()}</strong>
+                            </div>
+                            <div className="booking-detail-row">
+                              <span>Customer</span>
+                              <strong>{selectedBooking.customer_name || "Not available"}</strong>
+                            </div>
+                            <div className="booking-detail-row">
+                              <span>Phone</span>
+                              <strong>{selectedBooking.customer_phone || selectedBooking.phone || "Not available"}</strong>
+                            </div>
+                            <div className="booking-detail-row">
+                              <span>Service</span>
+                              <strong>{selectedBooking.services?.name || selectedBooking.service_name || "Service"}</strong>
+                            </div>
+                            <div className="booking-detail-row">
+                              <span>Date & Time</span>
+                              <strong>{formatBookingDate(selectedBooking)}</strong>
+                            </div>
+                            {preferredSlot ? (
+                              <div className="booking-detail-row">
+                                <span>Preferred Slot</span>
+                                <strong>{preferredSlot}</strong>
+                              </div>
+                            ) : null}
+                            {paymentMethod ? (
+                              <div className="booking-detail-row">
+                                <span>Payment</span>
+                                <strong>{paymentMethod}</strong>
+                              </div>
+                            ) : null}
+                            {amount ? (
+                              <div className="booking-detail-row">
+                                <span>Amount</span>
+                                <strong>{amount}</strong>
+                              </div>
+                            ) : null}
+                            <div className="booking-detail-row">
+                              <span>Address</span>
+                              <strong>{addressText || "Not available"}</strong>
+                            </div>
+                            {addressMapUrl ? (
+                              <div className="booking-detail-row">
+                                <span>Address Map</span>
+                                <a className="booking-detail-link" href={addressMapUrl} target="_blank" rel="noreferrer">
+                                  Open address in map
+                                </a>
+                              </div>
+                            ) : null}
+                            {coordinates ? (
+                              <div className="booking-detail-row">
+                                <span>Coordinates</span>
+                                <strong>{`${coordinates.lat.toFixed(6)}, ${coordinates.lng.toFixed(6)}`}</strong>
+                              </div>
+                            ) : null}
+                            {latLngMapUrl ? (
+                              <div className="booking-detail-row">
+                                <span>Coordinates Map</span>
+                                <a className="booking-detail-link" href={latLngMapUrl} target="_blank" rel="noreferrer">
+                                  Open exact pin
+                                </a>
+                              </div>
+                            ) : null}
+                            <div className="booking-detail-row">
+                              <span>Serviceman</span>
+                              <strong>{selectedBooking.assigned_serviceman_name || "Not assigned"}</strong>
+                            </div>
+                            {notes ? (
+                              <div className="booking-detail-row">
+                                <span>Notes</span>
+                                <strong className="booking-detail-note">{notes}</strong>
+                              </div>
+                            ) : null}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </section>
+                      </div>
+                    ) : null}
                 </main>
             </div>
             )}
