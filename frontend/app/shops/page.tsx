@@ -599,14 +599,38 @@ function ShopsPageContent() {
   const selectedSubService = normalizeShopText(selectedSubServiceLabel);
 
   useEffect(() => {
+    const syncCartCount = () => {
+      const existingCart = readShopCart();
+      const count = existingCart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
+      setCartCount(count);
+    };
+
     const storedLocation = readUserLocation();
     if (storedLocation) {
       setUserLocation(storedLocation);
     }
 
-    const existingCart = readShopCart();
-    const count = existingCart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
-    setCartCount(count);
+    syncCartCount();
+
+    const onCartUpdated = () => {
+      syncCartCount();
+    };
+
+    const onStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === "servicego-shop-cart") {
+        syncCartCount();
+      }
+    };
+
+    window.addEventListener("servicego-cart-updated", onCartUpdated as EventListener);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", syncCartCount);
+
+    return () => {
+      window.removeEventListener("servicego-cart-updated", onCartUpdated as EventListener);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", syncCartCount);
+    };
   }, []);
 
   useEffect(() => {

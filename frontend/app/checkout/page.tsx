@@ -123,7 +123,26 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     const currentCart = readShopCart();
-    setCart(currentCart);
+
+    const syncCart = () => {
+      setCart(readShopCart());
+    };
+
+    syncCart();
+
+    const onCartUpdated = () => {
+      syncCart();
+    };
+
+    const onStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === "servicego-shop-cart") {
+        syncCart();
+      }
+    };
+
+    window.addEventListener("servicego-cart-updated", onCartUpdated as EventListener);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", syncCart);
 
     const currentAddresses = readAddressBook();
     setAddresses(currentAddresses);
@@ -140,6 +159,11 @@ export default function CheckoutPage() {
       setManualAddress(normalizeVisibleAddress(currentCart.addressLine || ""));
       setAddressEditorOpen(true);
     }
+    return () => {
+      window.removeEventListener("servicego-cart-updated", onCartUpdated as EventListener);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", syncCart);
+    };
   }, []);
 
   useEffect(() => {

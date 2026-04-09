@@ -72,6 +72,26 @@ export default function ShopDetailPage() {
   const serviceId = searchParams.get("serviceId") || "";
 
   useEffect(() => {
+    const syncCart = () => {
+      setCart(readShopCart());
+    };
+
+    syncCart();
+
+    const onCartUpdated = () => {
+      syncCart();
+    };
+
+    const onStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === "servicego-shop-cart") {
+        syncCart();
+      }
+    };
+
+    window.addEventListener("servicego-cart-updated", onCartUpdated as EventListener);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", syncCart);
+
     const loadData = async () => {
       try {
         setLoading(true);
@@ -120,6 +140,12 @@ export default function ShopDetailPage() {
     };
 
     loadData();
+
+    return () => {
+      window.removeEventListener("servicego-cart-updated", onCartUpdated as EventListener);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", syncCart);
+    };
   }, [serviceId, vendorId]);
 
   const menuItems = useMemo(() => {
