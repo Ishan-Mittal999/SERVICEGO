@@ -119,18 +119,32 @@ export default function ShopDetailPage() {
         setVendor(matchedVendor ?? null);
 
         if (matchedService && matchedVendor) {
-          const draft = readBookingDraft();
-          const nextCart = initializeShopCart({
-            vendorId: String(matchedVendor.id),
-            vendorName: matchedVendor.name || "Vendor shop",
-            serviceId: String(matchedService.id),
-            serviceName: matchedService.name,
-            city: draft?.locationLabel || "",
-            addressLine: draft?.addressLine || "",
-            items: [],
-          });
+          const vendorCartId = String(matchedVendor.id);
+          const serviceCartId = String(matchedService.id);
+          const existingCart = readShopCart();
 
-          setCart(nextCart);
+          if (
+            existingCart
+            && existingCart.vendorId === vendorCartId
+            && existingCart.serviceId === serviceCartId
+          ) {
+            setCart(existingCart);
+          } else if (!existingCart || existingCart.items.length === 0) {
+            const draft = readBookingDraft();
+            const nextCart = initializeShopCart({
+              vendorId: vendorCartId,
+              vendorName: matchedVendor.name || "Vendor shop",
+              serviceId: serviceCartId,
+              serviceName: matchedService.name,
+              city: draft?.locationLabel || "",
+              addressLine: draft?.addressLine || "",
+              items: [],
+            });
+
+            setCart(nextCart);
+          } else {
+            setCart(existingCart);
+          }
         }
       } catch (error) {
         console.error("Failed to load shop detail", error);

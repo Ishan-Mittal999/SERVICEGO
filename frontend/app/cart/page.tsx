@@ -8,6 +8,11 @@ import { formatPrice } from "@/lib/booking-flow";
 export default function CartPage() {
   const router = useRouter();
   const [cart, setCart] = useState<ShopCart | null>(null);
+  const [lastCartContext, setLastCartContext] = useState<{
+    vendorId: string;
+    vendorName: string;
+    serviceId: string;
+  } | null>(null);
 
   useEffect(() => {
     const syncCart = () => {
@@ -38,9 +43,27 @@ export default function CartPage() {
   const uniqueItemCount = cart?.items.length ?? 0;
 
   const handleClear = () => {
+    if (cart) {
+      setLastCartContext({
+        vendorId: cart.vendorId,
+        vendorName: cart.vendorName,
+        serviceId: cart.serviceId,
+      });
+    }
+
     clearShopCart();
     setCart(null);
   };
+
+  const getVendorServicePath = (vendorId: string, serviceId: string) => {
+    return `/shops/${encodeURIComponent(vendorId)}?serviceId=${encodeURIComponent(serviceId)}`;
+  };
+
+  const vendorServicePath = cart?.vendorId && cart?.serviceId
+    ? getVendorServicePath(cart.vendorId, cart.serviceId)
+    : lastCartContext?.vendorId && lastCartContext?.serviceId
+      ? getVendorServicePath(lastCartContext.vendorId, lastCartContext.serviceId)
+      : "/shops";
 
   if (!cart || cart.items.length === 0) {
     return (
@@ -48,8 +71,14 @@ export default function CartPage() {
         <div className="checkout-mobile-wrap">
           <section className="checkout-empty-state">
             <h1>Your service cart is empty</h1>
-            <p>Add a service from shops to continue with checkout.</p>
-            <button type="button" className="checkout-primary-cta" onClick={() => router.push("/shops")}>Find shops</button>
+            <p>
+              {lastCartContext
+                ? `Continue with ${lastCartContext.vendorName} to add more subservices.`
+                : "Add subservices from a vendor to continue with checkout."}
+            </p>
+            <button type="button" className="checkout-primary-cta" onClick={() => router.push(vendorServicePath)}>
+              {lastCartContext ? `Back to ${lastCartContext.vendorName}` : "Select service"}
+            </button>
           </section>
         </div>
       </main>
@@ -75,7 +104,9 @@ export default function CartPage() {
             <section className="checkout-block checkout-items-card">
               <div className="checkout-section-head">
                 <h3>{cart.serviceName}</h3>
-                <button type="button" className="checkout-add-more" onClick={() => router.push("/shops")}>Add more</button>
+                <button type="button" className="checkout-add-more" onClick={() => router.push(vendorServicePath)}>
+                  Add more
+                </button>
               </div>
 
               {cart.items.map((item) => (
@@ -102,7 +133,7 @@ export default function CartPage() {
             <section className="checkout-policy-text">
               <h4>CART ACTIONS</h4>
               <p>
-                Clear this cart if you want to switch vendor or start a fresh booking flow.
+                One cart supports subservices from one vendor at a time.
               </p>
               <button type="button" className="checkout-add-more" onClick={handleClear}>Clear cart</button>
             </section>
