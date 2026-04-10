@@ -1946,7 +1946,7 @@ function DashboardHome({
                 ))}
             </div>
 
-            <div className="grid-3-1">
+            <div>
                 {/* BOOKINGS TABLE */}
                 <div className="card" ref={bookingsSectionRef}>
                     <div className="card-header">
@@ -2030,35 +2030,6 @@ function DashboardHome({
                                 ))}
                             </tbody>
                         </table>
-                    </div>
-                </div>
-
-                <div className="card">
-                    <div className="card-header">
-                        <span className="card-title">Profile Summary</span>
-                    </div>
-                    <div className="card-body">
-                        <div style={{ display: "grid", gap: 14 }}>
-                            <div>
-                                <div style={{ fontSize: 12, color: theme.muted, marginBottom: 4 }}>Business Name</div>
-                                <div style={{ fontWeight: 700, fontSize: 15 }}>{vendor?.name || "Vendor"}</div>
-                            </div>
-                            <div>
-                                <div style={{ fontSize: 12, color: theme.muted, marginBottom: 4 }}>Phone</div>
-                                <div style={{ fontWeight: 700, fontSize: 15 }}>{vendor?.phone || "Not added"}</div>
-                            </div>
-                            <div>
-                                <div style={{ fontSize: 12, color: theme.muted, marginBottom: 4 }}>Service Area</div>
-                                <div style={{ fontWeight: 700, fontSize: 15 }}>{vendor?.area || "Not added"}</div>
-                            </div>
-                            <div>
-                                <div style={{ fontSize: 12, color: theme.muted, marginBottom: 4 }}>Experience</div>
-                                <div style={{ fontWeight: 700, fontSize: 15 }}>{vendor?.experience || 0} year(s)</div>
-                            </div>
-                            <button className="action-btn view" style={{ width: "fit-content" }} onClick={openProfile}>
-                                Review Profile
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
