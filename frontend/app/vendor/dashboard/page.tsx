@@ -556,6 +556,27 @@ const styles = `
     word-break: break-word;
   }
 
+  .service-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .service-missing-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #FFE7E7;
+    color: #B42318;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
   .mobile-booking-action {
     border-top: 1px dashed #EDEBE4;
     padding-top: 8px;
@@ -1847,6 +1868,7 @@ function DashboardHome({
   vendor,
   pendingCount,
   openProfile,
+  serviceCatalog,
   servicemen,
   bookingServicemanSelection,
   onSelectServiceman,
@@ -1858,6 +1880,7 @@ function DashboardHome({
   vendor: any;
   pendingCount: number;
   openProfile: () => void;
+  serviceCatalog: Array<{ id: string; name: string; subServices: string[] }>;
   servicemen: VendorServiceman[];
   bookingServicemanSelection: Record<string, string>;
   onSelectServiceman: (bookingId: string, servicemanId: string) => void;
@@ -1894,6 +1917,38 @@ function DashboardHome({
     const assignedServicemenCount = servicemen.length - freeServicemenCount;
 
     const filtered = bookingTab === "all" ? bookings : bookings.filter((b: any) => b.status === bookingTab);
+
+    const getBookingServiceLabel = (booking: any) => {
+      const directName = String(booking?.services?.name || booking?.service_name || "").trim();
+      if (directName) {
+        return directName;
+      }
+
+      const serviceId = String(booking?.service_id || "").trim();
+      if (serviceId) {
+        const matched = serviceCatalog.find((serviceItem) => String(serviceItem.id) === serviceId)?.name;
+        if (matched) {
+          return matched;
+        }
+      }
+
+      return "Service";
+    };
+
+    const serviceIdSet = new Set(
+      serviceCatalog
+        .map((serviceItem) => String(serviceItem?.id || "").trim())
+        .filter(Boolean)
+    );
+
+    const isBookingServiceBroken = (booking: any) => {
+      const serviceId = String(booking?.service_id || "").trim();
+      if (!serviceId) {
+        return true;
+      }
+
+      return serviceIdSet.size > 0 ? !serviceIdSet.has(serviceId) : false;
+    };
 
     const handleStatCardSelect = (target: "all" | "pending" | "assigned" | "completed" | "profile") => {
       if (target === "profile") {
@@ -1985,7 +2040,14 @@ function DashboardHome({
                                                 {b.customer_name}
                                             </div>
                                         </td>
-                                        <td>{b.services?.name || "Service"}</td>
+                                        <td>
+                                          <span className="service-cell">
+                                            <span>{getBookingServiceLabel(b)}</span>
+                                            {isBookingServiceBroken(b) ? (
+                                              <span className="service-missing-badge" title="Missing or invalid service_id">Service missing</span>
+                                            ) : null}
+                                          </span>
+                                        </td>
                                         <td style={{ color: theme.muted, fontSize: 12 }}>{b.preferred_time || new Date(b.created_at).toLocaleDateString()}</td>
                                         <td style={{ fontWeight: 700 }}>—</td>
                                         <td><StatusPill status={b.status} /></td>
@@ -2042,6 +2104,7 @@ function DashboardHome({
                 acceptBooking,
                 completeBooking,
                 onViewBooking,
+                serviceCatalog,
                 servicemen,
                 bookingServicemanSelection,
                 onSelectServiceman,
@@ -2050,12 +2113,42 @@ function DashboardHome({
                 acceptBooking: (id: string, servicemanId: string) => Promise<void>;
                 completeBooking: (id: string) => Promise<void>;
                 onViewBooking: (booking: any) => void;
+                serviceCatalog: Array<{ id: string; name: string; subServices: string[] }>;
                 servicemen: VendorServiceman[];
                 bookingServicemanSelection: Record<string, string>;
                 onSelectServiceman: (bookingId: string, servicemanId: string) => void;
               }) {
     const [tab, setTab] = useState<string>("all");
     const filtered = tab === "all" ? bookings : bookings.filter((b: any) => b.status === tab);
+    const getBookingServiceLabel = (booking: any) => {
+      const directName = String(booking?.services?.name || booking?.service_name || "").trim();
+      if (directName) {
+        return directName;
+      }
+
+      const serviceId = String(booking?.service_id || "").trim();
+      if (serviceId) {
+        const matched = serviceCatalog.find((serviceItem) => String(serviceItem.id) === serviceId)?.name;
+        if (matched) {
+          return matched;
+        }
+      }
+
+      return "Service";
+    };
+    const serviceIdSet = new Set(
+      serviceCatalog
+        .map((serviceItem) => String(serviceItem?.id || "").trim())
+        .filter(Boolean)
+    );
+    const isBookingServiceBroken = (booking: any) => {
+      const serviceId = String(booking?.service_id || "").trim();
+      if (!serviceId) {
+        return true;
+      }
+
+      return serviceIdSet.size > 0 ? !serviceIdSet.has(serviceId) : false;
+    };
                   const bookingDisplayNumberById = (() => {
                     const sorted = [...bookings].sort((left: any, right: any) => {
                       const leftTime = new Date(left?.created_at || 0).getTime();
@@ -2154,7 +2247,14 @@ function DashboardHome({
                       </div>
                       <div className="mobile-booking-meta">
                         <span>Service</span>
-                        <strong>{b.services?.name || "Service"}</strong>
+                        <strong>
+                          <span className="service-cell">
+                            <span>{getBookingServiceLabel(b)}</span>
+                            {isBookingServiceBroken(b) ? (
+                              <span className="service-missing-badge" title="Missing or invalid service_id">Service missing</span>
+                            ) : null}
+                          </span>
+                        </strong>
                       </div>
                       <div className="mobile-booking-meta">
                         <span>Date</span>
@@ -2180,7 +2280,14 @@ function DashboardHome({
                             <tr key={i}>
                           <td><span className="booking-id">#{bookingDisplayNumberById.get(String(b.id)) ?? i + 1}</span></td>
                                 <td><div className="customer-cell"><div className="customer-avatar">{(b.customer_name || "?")[0]}</div>{b.customer_name}</div></td>
-                                <td>{b.services?.name || "Service"}</td>
+                                <td>
+                                  <span className="service-cell">
+                                    <span>{getBookingServiceLabel(b)}</span>
+                                    {isBookingServiceBroken(b) ? (
+                                      <span className="service-missing-badge" title="Missing or invalid service_id">Service missing</span>
+                                    ) : null}
+                                  </span>
+                                </td>
                                 <td style={{ color: theme.muted, fontSize: 12 }}>{b.preferred_time || new Date(b.created_at).toLocaleDateString()}</td>
                                 <td style={{ fontWeight: 700 }}>—</td>
                                 <td><StatusPill status={b.status} /></td>
@@ -3594,8 +3701,8 @@ export default function VendorDashboard() {
           Number(vendor?.servicemen_count ?? vendor?.serviceman_count ?? 0)
         );
         switch (activePage) {
-            case "home": return <DashboardHome bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} onViewBooking={openBookingDetails} vendor={vendor} pendingCount={bookings.filter((b: any) => b.status === "pending").length} openProfile={() => setActivePage("profile")} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;
-            case "bookings": return <BookingsPage bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} onViewBooking={openBookingDetails} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;
+            case "home": return <DashboardHome bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} onViewBooking={openBookingDetails} vendor={vendor} pendingCount={bookings.filter((b: any) => b.status === "pending").length} openProfile={() => setActivePage("profile")} serviceCatalog={serviceCatalog} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;
+            case "bookings": return <BookingsPage bookings={bookings} acceptBooking={acceptBooking} completeBooking={completeBooking} onViewBooking={openBookingDetails} serviceCatalog={serviceCatalog} servicemen={parsedServicemen} bookingServicemanSelection={bookingServicemanSelection} onSelectServiceman={selectServicemanForBooking} />;
             case "profile":
               return (
                 <ProfilePage
@@ -3713,7 +3820,24 @@ export default function VendorDashboard() {
                       <div className="booking-details-overlay" onClick={closeBookingDetails}>
                         <section className="booking-details-modal" onClick={(event) => event.stopPropagation()}>
                           <div className="booking-details-head">
-                            <h3>Booking Details</h3>
+                            <h3>
+                              Booking Details
+                              {(() => {
+                                const sorted = [...bookings].sort((left: any, right: any) => {
+                                  const leftTime = new Date(left?.created_at || 0).getTime();
+                                  const rightTime = new Date(right?.created_at || 0).getTime();
+
+                                  if (leftTime !== rightTime) {
+                                    return leftTime - rightTime;
+                                  }
+
+                                  return String(left?.id || "").localeCompare(String(right?.id || ""));
+                                });
+
+                                const index = sorted.findIndex((item: any) => String(item.id) === String(selectedBooking.id));
+                                return index >= 0 ? ` #${index + 1}` : "";
+                              })()}
+                            </h3>
                             <button type="button" className="booking-details-close" onClick={closeBookingDetails} aria-label="Close booking details">×</button>
                           </div>
                           <div className="booking-details-body">
@@ -3735,12 +3859,7 @@ export default function VendorDashboard() {
                               const latLngMapUrl = coordinates
                                 ? `https://www.google.com/maps?q=${encodeURIComponent(`${coordinates.lat},${coordinates.lng}`)}`
                                 : null;
-
-                              return (
-                                <>
-                            <div className="booking-detail-row">
-                              <span>Booking ID</span>
-                              <strong>#{(() => {
+                              const bookingDisplayNumber = (() => {
                                 const sorted = [...bookings].sort((left: any, right: any) => {
                                   const leftTime = new Date(left?.created_at || 0).getTime();
                                   const rightTime = new Date(right?.created_at || 0).getTime();
@@ -3754,7 +3873,13 @@ export default function VendorDashboard() {
 
                                 const index = sorted.findIndex((item: any) => String(item.id) === String(selectedBooking.id));
                                 return index >= 0 ? index + 1 : "-";
-                              })()}</strong>
+                              })();
+
+                              return (
+                                <>
+                            <div className="booking-detail-row">
+                              <span>Booking ID</span>
+                              <strong>#{bookingDisplayNumber}</strong>
                             </div>
                             <div className="booking-detail-row">
                               <span>Status</span>

@@ -31,10 +31,16 @@ type AdminVendor = {
   is_active?: boolean;
 };
 
+type AdminService = {
+  id: string | number;
+  name?: string;
+};
+
 export default function AdminPage() {
   const router = useRouter();
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
   const [vendors, setVendors] = useState<AdminVendor[]>([]);
+  const [services, setServices] = useState<AdminService[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -72,10 +78,21 @@ export default function AdminPage() {
     return extractDataArray<AdminVendor>(data);
   };
 
+  const fetchServices = async () => {
+    const res = await fetch(apiUrl("/services?limit=300&offset=0"), { cache: "no-store" });
+    if (!res.ok) {
+      throw new Error(`Services API failed with ${res.status}`);
+    }
+
+    const data = await res.json();
+    return extractDataArray<AdminService>(data);
+  };
+
   const refreshDashboardData = async () => {
-    const [nextBookings, nextVendors] = await Promise.all([fetchBookings(), fetchVendors()]);
+    const [nextBookings, nextVendors, nextServices] = await Promise.all([fetchBookings(), fetchVendors(), fetchServices()]);
     setBookings(nextBookings);
     setVendors(nextVendors);
+    setServices(nextServices);
   };
 
   useEffect(() => {
@@ -161,6 +178,21 @@ export default function AdminPage() {
     });
     return map;
   })();
+
+  const serviceIdSet = new Set(
+    services
+      .map((service) => String(service.id || "").trim())
+      .filter(Boolean)
+  );
+
+  const isBookingServiceBroken = (booking: AdminBooking) => {
+    const serviceId = String(booking.service_id || "").trim();
+    if (!serviceId) {
+      return true;
+    }
+
+    return serviceIdSet.size > 0 ? !serviceIdSet.has(serviceId) : false;
+  };
 
   const assignVendor = async (bookingId: string, vendorId: string) => {
     const response = await fetch(apiUrl(`/booking/${bookingId}/assign`), {
@@ -342,7 +374,14 @@ export default function AdminPage() {
                     </td>
 
                     <td className="p-4">
-                      {booking.services?.name}
+                      <div className="flex items-center gap-2">
+                        <span>{booking.services?.name || "Service"}</span>
+                        {isBookingServiceBroken(booking) ? (
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-700" title="Missing or invalid service_id">
+                            Service missing
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
 
                     <td className="p-4">
