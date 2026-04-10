@@ -1960,7 +1960,7 @@ function DashboardHome({
                                     <tr><td colSpan={7}><div className="empty-state"><span className="empty-icon">📭</span>No bookings found</div></td></tr>
                                 ) : filtered.map((b: any, i: number) => (
                                     <tr key={i}>
-                                        <td><span className="booking-id">#{(b.id || "").slice(0, 8)}</span></td>
+                                    <td><span className="booking-id">#{i + 1}</span></td>
                                         <td>
                                             <div className="customer-cell">
                                                 <div className="customer-avatar">{(b.customer_name || "?")[0]}</div>
@@ -2138,7 +2138,7 @@ function DashboardHome({
                   ) : filtered.map((b: any, i: number) => (
                     <article key={`mobile-${i}-${b.id}`} className="mobile-booking-card">
                       <div className="mobile-booking-head">
-                        <span className="booking-id">#{(b.id || "").slice(0, 8)}</span>
+                        <span className="booking-id">#{i + 1}</span>
                         <StatusPill status={b.status} />
                       </div>
                       <div className="mobile-booking-meta">
@@ -2171,7 +2171,7 @@ function DashboardHome({
                           <tr><td colSpan={7}><div className="empty-state"><span className="empty-icon">📭</span>No bookings in this section</div></td></tr>
                         ) : filtered.map((b: any, i: number) => (
                             <tr key={i}>
-                                <td><span className="booking-id">#{(b.id || "").slice(0, 8)}</span></td>
+                            <td><span className="booking-id">#{i + 1}</span></td>
                                 <td><div className="customer-cell"><div className="customer-avatar">{(b.customer_name || "?")[0]}</div>{b.customer_name}</div></td>
                                 <td>{b.services?.name || "Service"}</td>
                                 <td style={{ color: theme.muted, fontSize: 12 }}>{b.preferred_time || new Date(b.created_at).toLocaleDateString()}</td>
@@ -3733,7 +3733,7 @@ export default function VendorDashboard() {
                                 <>
                             <div className="booking-detail-row">
                               <span>Booking ID</span>
-                              <strong>#{String(selectedBooking.id || "-")}</strong>
+                              <strong>#{Math.max(1, bookings.findIndex((item: any) => String(item.id) === String(selectedBooking.id)) + 1)}</strong>
                             </div>
                             <div className="booking-detail-row">
                               <span>Status</span>

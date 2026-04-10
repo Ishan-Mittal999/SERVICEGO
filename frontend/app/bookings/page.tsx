@@ -181,12 +181,12 @@ export default function MyBookingsPage() {
           </div>
         ) : (
           <div className="booking-package-grid">
-            {bookings.map((booking) => (
+            {bookings.map((booking, index) => (
               <article key={String(booking.id)} className="booking-package-card">
                 <div className="booking-package-row">
                   <div>
                     <div className="booking-package-name">{booking.services?.name ?? "Service booking"}</div>
-                    <div className="booking-package-eta">Booking ID: {booking.id}</div>
+                    <div className="booking-package-eta">Booking ID: #{index + 1}</div>
                   </div>
                   <span className="booking-badge">{formatStatus(booking.status)}</span>
                 </div>

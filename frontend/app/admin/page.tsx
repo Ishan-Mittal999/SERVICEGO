@@ -293,6 +293,7 @@ export default function AdminPage() {
           <table className="min-w-full">
             <thead className="text-white" style={{ background: "linear-gradient(135deg, #0f3f72, #1670CC)" }}>
               <tr>
+                <th className="p-4 text-left">Booking ID</th>
                 <th className="p-4 text-left">Customer</th>
                 <th className="p-4 text-left">Service</th>
                 <th className="p-4 text-left">Status</th>
@@ -301,13 +302,16 @@ export default function AdminPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredBookings.map((booking) => {
+              {filteredBookings.map((booking, index) => {
                 const matchingVendors = vendors.filter(
                   (vendor) => vendor.service_id === booking.service_id && vendor.is_active
                 );
 
                 return (
                   <tr key={booking.id} className="border-t hover:bg-amber-50/60 transition text-gray-800">
+                    <td className="p-4 font-semibold" style={{ color: "#7A6A00" }}>
+                      #{index + 1}
+                    </td>
                     <td className="p-4">
                       <div className="font-medium">
                         {booking.customer_name}
