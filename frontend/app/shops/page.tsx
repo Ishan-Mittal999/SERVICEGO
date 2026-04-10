@@ -1158,8 +1158,6 @@ function ShopsPageContent() {
             ) : (
               visibleVendors.map((vendor) => {
                 const shopImages = parseVendorListField((vendor as Record<string, unknown>).shop_image_urls);
-                const subserviceEntries = vendorSubserviceMap[String(vendor.id)] || [];
-                const subServices = subserviceEntries.map((entry) => entry.name);
                 const primaryImage = shopImages[0] || "";
                 const isOffline = vendor.is_active === false;
                 const finalPrice = getVendorFinalPrice(vendor);
@@ -1246,12 +1244,11 @@ function ShopsPageContent() {
                           : toEtaMinutes()}
                       </p>
 
-                      <p className={`shop-feed-submeta ${subServices.length === 0 ? "shop-feed-submeta-empty" : ""}`}>
-                        {(subServices.length > 0 ? subServices.slice(0, 3).join(" • ") : "Sub-services not added yet")}
-                      </p>
-
                       <div className="shop-feed-footer">
-                        <span className="shop-feed-price-chip shop-feed-price-chip--final">Final price ₹{finalPrice}</span>
+                        <div className="shop-feed-price-hero" aria-label={`Final price rupees ${finalPrice}`}>
+                          <span className="shop-feed-price-kicker">Final Price</span>
+                          <strong className="shop-feed-price-value">₹{finalPrice}</strong>
+                        </div>
                         <span className="shop-feed-cta">Continue</span>
                       </div>
                     </div>
