@@ -39,24 +39,42 @@ export default function AdminPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeAssignId, setActiveAssignId] = useState<string | null>(null);
 
+  const extractDataArray = <T,>(payload: unknown): T[] => {
+    if (Array.isArray(payload)) {
+      return payload as T[];
+    }
+
+    if (payload && typeof payload === "object" && Array.isArray((payload as { data?: unknown[] }).data)) {
+      return (payload as { data: T[] }).data;
+    }
+
+    return [];
+  };
+
   const fetchBookings = async () => {
-    const res = await fetch(apiUrl("/bookings"));
+    const res = await fetch(apiUrl("/bookings?limit=200&offset=0"), { cache: "no-store" });
     if (!res.ok) {
       throw new Error(`Bookings API failed with ${res.status}`);
     }
 
     const data = await res.json();
-    setBookings(Array.isArray(data) ? data : []);
+    return extractDataArray<AdminBooking>(data);
   };
 
   const fetchVendors = async () => {
-    const res = await fetch(apiUrl("/vendors"));
+    const res = await fetch(apiUrl("/vendors?limit=200&offset=0&includeAll=true"), { cache: "no-store" });
     if (!res.ok) {
       throw new Error(`Vendors API failed with ${res.status}`);
     }
 
     const data = await res.json();
-    setVendors(Array.isArray(data) ? data : []);
+    return extractDataArray<AdminVendor>(data);
+  };
+
+  const refreshDashboardData = async () => {
+    const [nextBookings, nextVendors] = await Promise.all([fetchBookings(), fetchVendors()]);
+    setBookings(nextBookings);
+    setVendors(nextVendors);
   };
 
   useEffect(() => {
@@ -69,37 +87,14 @@ export default function AdminPage() {
           setLoading(true);
         }
 
-        setErrorMessage(null);
-        // Fetch pending bookings only (not all bookings) to reduce load
-        // Add pagination: limit 50 items per request
-        const [bookingsResponse, vendorsResponse] = await Promise.all([
-          fetch(apiUrl("/bookings?status=pending&limit=50&offset=0"), { cache: "no-store" }),
-          fetch(apiUrl("/vendors?limit=50&offset=0&includeAll=true"), { cache: "no-store" }),
-        ]);
-
-        if (!bookingsResponse.ok) {
-          throw new Error(`Bookings API failed with ${bookingsResponse.status}`);
-        }
-
-        if (!vendorsResponse.ok) {
-          throw new Error(`Vendors API failed with ${vendorsResponse.status}`);
-        }
-
-        const [bookingsData, vendorsData] = await Promise.all([
-          bookingsResponse.json(),
-          vendorsResponse.json(),
-        ]);
-
         if (!isActive) {
           return;
         }
 
-        // Handle both old format (array) and new format (object with data/pagination)
-        const bookingsArray = bookingsData.data || (Array.isArray(bookingsData) ? bookingsData : []);
-        const vendorsArray = vendorsData.data || (Array.isArray(vendorsData) ? vendorsData : []);
-
-        setBookings(bookingsArray);
-        setVendors(vendorsArray);
+        await refreshDashboardData();
+        if (isActive) {
+          setErrorMessage(null);
+        }
       } catch (error) {
         console.error("Failed to load admin dashboard", error);
         if (isActive) {
@@ -160,7 +155,7 @@ export default function AdminPage() {
     }
 
     setActiveAssignId(null);
-    await fetchBookings();
+    await refreshDashboardData();
   };
 
   const unassignVendor = async (bookingId: string) => {
@@ -173,7 +168,7 @@ export default function AdminPage() {
       throw new Error(data?.error || "Could not move booking back to pending");
     }
 
-    await fetchBookings();
+    await refreshDashboardData();
   };
 
   const completeBooking = async (bookingId: string) => {
@@ -186,7 +181,7 @@ export default function AdminPage() {
       throw new Error(data?.error || "Could not complete booking");
     }
 
-    await fetchBookings();
+    await refreshDashboardData();
   };
 
   const reopenBooking = async (bookingId: string) => {
@@ -199,7 +194,7 @@ export default function AdminPage() {
       throw new Error(data?.error || "Could not reopen booking");
     }
 
-    await fetchBookings();
+    await refreshDashboardData();
   };
 
   const deleteBooking = async (bookingId: string) => {
@@ -216,7 +211,8 @@ export default function AdminPage() {
       setActiveAssignId(null);
     }
 
-    await fetchBookings();
+    // Optimistic local update prevents temporary empty list flicker if refresh call fails.
+    setBookings((current) => current.filter((booking) => booking.id !== bookingId));
   };
 
   return (

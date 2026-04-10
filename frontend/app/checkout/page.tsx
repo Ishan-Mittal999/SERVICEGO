@@ -589,7 +589,7 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   className="checkout-add-more"
-                  onClick={() => router.push(`/shops/${encodeURIComponent(cart.vendorId)}?serviceId=${encodeURIComponent(cart.serviceId)}`)}
+                  onClick={() => router.push("/#services")}
                 >
                   Add more
                 </button>
