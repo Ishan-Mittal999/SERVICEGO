@@ -8,6 +8,7 @@ import { requireAdminOrRedirect } from "@/lib/admin-access";
 
 type AdminBooking = {
   id: string;
+  created_at?: string;
   customer_name?: string;
   customer_phone?: string;
   service_id?: string | number;
@@ -141,6 +142,25 @@ export default function AdminPage() {
     statusFilter === "all"
       ? bookings
       : bookings.filter((booking) => booking.status === statusFilter);
+
+  const bookingDisplayNumberById = (() => {
+    const sorted = [...bookings].sort((left, right) => {
+      const leftTime = new Date(left.created_at || 0).getTime();
+      const rightTime = new Date(right.created_at || 0).getTime();
+
+      if (leftTime !== rightTime) {
+        return leftTime - rightTime;
+      }
+
+      return String(left.id || "").localeCompare(String(right.id || ""));
+    });
+
+    const map = new Map<string, number>();
+    sorted.forEach((booking, index) => {
+      map.set(String(booking.id || ""), index + 1);
+    });
+    return map;
+  })();
 
   const assignVendor = async (bookingId: string, vendorId: string) => {
     const response = await fetch(apiUrl(`/booking/${bookingId}/assign`), {
@@ -310,7 +330,7 @@ export default function AdminPage() {
                 return (
                   <tr key={booking.id} className="border-t hover:bg-amber-50/60 transition text-gray-800">
                     <td className="p-4 font-semibold" style={{ color: "#7A6A00" }}>
-                      #{index + 1}
+                      #{bookingDisplayNumberById.get(String(booking.id)) ?? index + 1}
                     </td>
                     <td className="p-4">
                       <div className="font-medium">

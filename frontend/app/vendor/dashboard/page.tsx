@@ -1864,6 +1864,24 @@ function DashboardHome({
 }) {
     const [bookingTab, setBookingTab] = useState<string>("all");
   const bookingsSectionRef = useRef<HTMLDivElement | null>(null);
+    const bookingDisplayNumberById = (() => {
+      const sorted = [...bookings].sort((left: any, right: any) => {
+        const leftTime = new Date(left?.created_at || 0).getTime();
+        const rightTime = new Date(right?.created_at || 0).getTime();
+
+        if (leftTime !== rightTime) {
+          return leftTime - rightTime;
+        }
+
+        return String(left?.id || "").localeCompare(String(right?.id || ""));
+      });
+
+      const map = new Map<string, number>();
+      sorted.forEach((booking: any, index: number) => {
+        map.set(String(booking?.id || ""), index + 1);
+      });
+      return map;
+    })();
     const completedCount = bookings.filter((b: any) => b.status === "completed").length;
     const inProgressCount = bookings.filter((b: any) => b.status === "assigned").length;
     const busyServicemanIds = new Set(
@@ -1960,7 +1978,7 @@ function DashboardHome({
                                     <tr><td colSpan={7}><div className="empty-state"><span className="empty-icon">📭</span>No bookings found</div></td></tr>
                                 ) : filtered.map((b: any, i: number) => (
                                     <tr key={i}>
-                                    <td><span className="booking-id">#{i + 1}</span></td>
+                                  <td><span className="booking-id">#{bookingDisplayNumberById.get(String(b.id)) ?? i + 1}</span></td>
                                         <td>
                                             <div className="customer-cell">
                                                 <div className="customer-avatar">{(b.customer_name || "?")[0]}</div>
@@ -2067,6 +2085,24 @@ function DashboardHome({
               }) {
     const [tab, setTab] = useState<string>("all");
     const filtered = tab === "all" ? bookings : bookings.filter((b: any) => b.status === tab);
+                  const bookingDisplayNumberById = (() => {
+                    const sorted = [...bookings].sort((left: any, right: any) => {
+                      const leftTime = new Date(left?.created_at || 0).getTime();
+                      const rightTime = new Date(right?.created_at || 0).getTime();
+
+                      if (leftTime !== rightTime) {
+                        return leftTime - rightTime;
+                      }
+
+                      return String(left?.id || "").localeCompare(String(right?.id || ""));
+                    });
+
+                    const map = new Map<string, number>();
+                    sorted.forEach((booking: any, index: number) => {
+                      map.set(String(booking?.id || ""), index + 1);
+                    });
+                    return map;
+                  })();
                   const busyServicemanIds = new Set(
                     bookings
                       .filter((b: any) => b.status === "assigned")
@@ -2138,7 +2174,7 @@ function DashboardHome({
                   ) : filtered.map((b: any, i: number) => (
                     <article key={`mobile-${i}-${b.id}`} className="mobile-booking-card">
                       <div className="mobile-booking-head">
-                        <span className="booking-id">#{i + 1}</span>
+                        <span className="booking-id">#{bookingDisplayNumberById.get(String(b.id)) ?? i + 1}</span>
                         <StatusPill status={b.status} />
                       </div>
                       <div className="mobile-booking-meta">
@@ -2171,7 +2207,7 @@ function DashboardHome({
                           <tr><td colSpan={7}><div className="empty-state"><span className="empty-icon">📭</span>No bookings in this section</div></td></tr>
                         ) : filtered.map((b: any, i: number) => (
                             <tr key={i}>
-                            <td><span className="booking-id">#{i + 1}</span></td>
+                          <td><span className="booking-id">#{bookingDisplayNumberById.get(String(b.id)) ?? i + 1}</span></td>
                                 <td><div className="customer-cell"><div className="customer-avatar">{(b.customer_name || "?")[0]}</div>{b.customer_name}</div></td>
                                 <td>{b.services?.name || "Service"}</td>
                                 <td style={{ color: theme.muted, fontSize: 12 }}>{b.preferred_time || new Date(b.created_at).toLocaleDateString()}</td>
@@ -3733,7 +3769,21 @@ export default function VendorDashboard() {
                                 <>
                             <div className="booking-detail-row">
                               <span>Booking ID</span>
-                              <strong>#{Math.max(1, bookings.findIndex((item: any) => String(item.id) === String(selectedBooking.id)) + 1)}</strong>
+                              <strong>#{(() => {
+                                const sorted = [...bookings].sort((left: any, right: any) => {
+                                  const leftTime = new Date(left?.created_at || 0).getTime();
+                                  const rightTime = new Date(right?.created_at || 0).getTime();
+
+                                  if (leftTime !== rightTime) {
+                                    return leftTime - rightTime;
+                                  }
+
+                                  return String(left?.id || "").localeCompare(String(right?.id || ""));
+                                });
+
+                                const index = sorted.findIndex((item: any) => String(item.id) === String(selectedBooking.id));
+                                return index >= 0 ? index + 1 : "-";
+                              })()}</strong>
                             </div>
                             <div className="booking-detail-row">
                               <span>Status</span>

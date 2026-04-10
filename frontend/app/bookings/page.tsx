@@ -133,6 +133,25 @@ export default function MyBookingsPage() {
     [bookings]
   );
 
+  const bookingDisplayNumberById = useMemo(() => {
+    const sorted = [...bookings].sort((left, right) => {
+      const leftTime = new Date(left.created_at || 0).getTime();
+      const rightTime = new Date(right.created_at || 0).getTime();
+
+      if (leftTime !== rightTime) {
+        return leftTime - rightTime;
+      }
+
+      return String(left.id || "").localeCompare(String(right.id || ""));
+    });
+
+    const map = new Map<string, number>();
+    sorted.forEach((booking, index) => {
+      map.set(String(booking.id || ""), index + 1);
+    });
+    return map;
+  }, [bookings]);
+
   return (
     <main className="booking-shell booking-shell--status">
       <section className="booking-panel booking-panel--status">
@@ -186,7 +205,7 @@ export default function MyBookingsPage() {
                 <div className="booking-package-row">
                   <div>
                     <div className="booking-package-name">{booking.services?.name ?? "Service booking"}</div>
-                    <div className="booking-package-eta">Booking ID: #{index + 1}</div>
+                    <div className="booking-package-eta">Booking ID: #{bookingDisplayNumberById.get(String(booking.id)) ?? index + 1}</div>
                   </div>
                   <span className="booking-badge">{formatStatus(booking.status)}</span>
                 </div>
