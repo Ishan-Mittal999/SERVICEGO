@@ -1238,6 +1238,71 @@
   align-items: stretch;
 }
 
+.booking-rating-card {
+  margin-top: 0.9rem;
+  padding: 1rem;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #fefcf7 0%, #fbf8ef 100%);
+  border: 1px solid #e9dfc0;
+}
+
+.booking-rating-stars {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.booking-rating-star {
+  width: 2.55rem;
+  height: 2.55rem;
+  border-radius: 999px;
+  border: 1px solid #e3d7af;
+  background: #fffdf7;
+  color: #a78b00;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.booking-rating-star.is-selected {
+  background: linear-gradient(135deg, #7a6a00 0%, #a68c00 100%);
+  border-color: #7a6a00;
+  color: #ffffff;
+}
+
+.booking-rating-label {
+  display: block;
+  margin-top: 0.85rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--gray-700);
+}
+
+.booking-rating-textarea {
+  width: 100%;
+  min-height: 92px;
+  resize: vertical;
+  border-radius: 16px;
+  border: 1px solid #d8d0b2;
+  background: #fff;
+  padding: 0.8rem 0.9rem;
+  color: var(--gray-900);
+  font-size: 0.92rem;
+  outline: none;
+}
+
+.booking-rating-textarea:focus {
+  border-color: #7a6a00;
+  box-shadow: 0 0 0 4px rgba(122, 106, 0, 0.12);
+}
+
+.booking-rating-success {
+  margin: 0.75rem 0 0;
+  color: #065f46;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
 .booking-primary-btn,
 .booking-secondary-btn,
 .booking-ghost-btn {

@@ -769,6 +769,10 @@ function SubservicesPageContent() {
   const serviceName = (searchParams.get("serviceName") || "").trim();
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [serviceId, serviceName, serviceQuery]);
+
+  useEffect(() => {
     const loadData = async () => {
       const cacheKey = `subservices:${serviceId}:${serviceQuery}`;
       const cachedPayload = readClientCache<SubservicesCachePayload>(cacheKey, SUBSERVICES_CACHE_TTL_MS);

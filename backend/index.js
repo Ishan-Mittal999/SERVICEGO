@@ -161,6 +161,71 @@ async function getBookingWithRelations(bookingId) {
   return { data, error };
 }
 
+async function enrichVendorsWithRatings(vendors) {
+  const vendorList = Array.isArray(vendors) ? vendors : [];
+  const vendorIds = vendorList
+    .map((vendor) => String(vendor?.id || "").trim())
+    .filter(Boolean);
+
+  if (vendorIds.length === 0) {
+    return vendorList.map((vendor) => ({
+      ...vendor,
+      rating_average: null,
+      rating_count: 0,
+    }));
+  }
+
+  const { data: ratingRows, error } = await supabase
+    .from("bookings")
+    .select("vendor_id, customer_rating")
+    .eq("status", "completed")
+    .not("customer_rating", "is", null)
+    .in("vendor_id", vendorIds);
+
+  if (error) {
+    console.error("Vendor rating fetch failed:", error.message);
+    return vendorList.map((vendor) => ({
+      ...vendor,
+      rating_average: null,
+      rating_count: 0,
+    }));
+  }
+
+  const ratingSummary = new Map();
+
+  for (const row of ratingRows || []) {
+    const vendorId = String(row?.vendor_id || "").trim();
+    const ratingValue = Number(row?.customer_rating);
+
+    if (!vendorId || !Number.isFinite(ratingValue)) {
+      continue;
+    }
+
+    const current = ratingSummary.get(vendorId) || { total: 0, count: 0 };
+    current.total += ratingValue;
+    current.count += 1;
+    ratingSummary.set(vendorId, current);
+  }
+
+  return vendorList.map((vendor) => {
+    const summary = ratingSummary.get(String(vendor?.id || "").trim());
+
+    if (!summary || summary.count === 0) {
+      return {
+        ...vendor,
+        rating_average: null,
+        rating_count: 0,
+      };
+    }
+
+    return {
+      ...vendor,
+      rating_average: Math.round((summary.total / summary.count) * 10) / 10,
+      rating_count: summary.count,
+    };
+  });
+}
+
 function canSendPushNotifications() {
   return Boolean(process.env.WEB_PUSH_PUBLIC_KEY && process.env.WEB_PUSH_PRIVATE_KEY);
 }
@@ -997,6 +1062,8 @@ app.put("/booking/:id/complete", async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
+    invalidateResponseCacheByPrefix("vendors|");
+
     return res.status(200).json({
       message: "Booking marked as completed",
       booking: data
@@ -1040,12 +1107,17 @@ app.put("/booking/:id/reopen", async (req, res) => {
         assigned_serviceman_id: null,
         assigned_serviceman_name: null,
         assigned_serviceman_phone: null,
+        customer_rating: null,
+        customer_review: null,
+        customer_rated_at: null,
       })
       .eq("id", bookingId);
 
     if (error) {
       return res.status(500).json({ error: error.message });
     }
+
+    invalidateResponseCacheByPrefix("vendors|");
 
     return res.status(200).json({
       message: "Booking reopened successfully",
@@ -1082,6 +1154,70 @@ app.delete("/booking/:id", async (req, res) => {
     }
 
     return res.status(200).json({ message: "Booking deleted successfully" });
+  } catch (err) {
+    console.error("Server Crash:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/booking/:id/rating", async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const userId = String(req.body?.userId || "").trim();
+    const rating = Number(req.body?.rating);
+    const review = String(req.body?.review || "").trim().slice(0, 500);
+
+    if (!bookingId) {
+      return res.status(400).json({ error: "Booking ID is required" });
+    }
+
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "Rating must be an integer between 1 and 5" });
+    }
+
+    const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .select("id, user_id, status")
+      .eq("id", bookingId)
+      .single();
+
+    if (bookingError || !booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    if (String(booking.user_id || "") !== userId) {
+      return res.status(403).json({ error: "You can only rate your own booking" });
+    }
+
+    if (booking.status !== "completed") {
+      return res.status(400).json({ error: "You can only rate a completed booking" });
+    }
+
+    const { data, error } = await supabase
+      .from("bookings")
+      .update({
+        customer_rating: rating,
+        customer_review: review || null,
+        customer_rated_at: new Date().toISOString(),
+      })
+      .eq("id", bookingId)
+      .select(BOOKING_SELECT)
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    invalidateResponseCacheByPrefix("vendors|");
+
+    return res.status(200).json({
+      message: "Rating saved successfully",
+      booking: data,
+    });
   } catch (err) {
     console.error("Server Crash:", err);
     return res.status(500).json({ error: err.message });
@@ -1171,8 +1307,10 @@ app.get("/vendors", async (req, res) => {
       }
 
       const total = filtered.length;
+      const enrichedData = await enrichVendorsWithRatings(pagedData);
+
       const payload = {
-        data: pagedData,
+        data: enrichedData,
         pagination: {
           limit,
           offset,
@@ -1191,7 +1329,7 @@ app.get("/vendors", async (req, res) => {
         serviceId: serviceId || null,
         candidates: Array.isArray(candidates) ? candidates.length : 0,
         total,
-        rows: pagedData.length,
+        rows: enrichedData.length,
       });
 
       return res.status(200).json(payload);
@@ -1220,8 +1358,10 @@ app.get("/vendors", async (req, res) => {
 
     if (!includeAll) {
       const filtered = (data || []).filter((vendor) => isVendorApproved(vendor));
+      const enrichedData = await enrichVendorsWithRatings(filtered);
+
       const payload = {
-        data: filtered,
+        data: enrichedData,
         pagination: {
           limit,
           offset,
@@ -1238,13 +1378,15 @@ app.get("/vendors", async (req, res) => {
         offset,
         serviceId: serviceId || null,
         total: count,
-        rows: filtered.length,
+        rows: enrichedData.length,
       });
       return res.status(200).json(payload);
     }
 
+    const enrichedData = await enrichVendorsWithRatings(data || []);
+
     const payload = {
-      data,
+      data: enrichedData,
       pagination: {
         limit,
         offset,
@@ -1261,7 +1403,7 @@ app.get("/vendors", async (req, res) => {
       offset,
       serviceId: serviceId || null,
       total: count,
-      rows: Array.isArray(data) ? data.length : 0,
+      rows: enrichedData.length,
     });
     return res.status(200).json(payload);
   } catch (err) {
@@ -1296,7 +1438,9 @@ app.get("/vendors/:id", async (req, res) => {
       return res.status(403).json({ error: "Vendor is not approved" });
     }
 
-    return res.status(200).json({ data });
+    const enrichedVendor = await enrichVendorsWithRatings([data]);
+
+    return res.status(200).json({ data: enrichedVendor[0] });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

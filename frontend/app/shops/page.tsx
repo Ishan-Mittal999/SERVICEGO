@@ -50,6 +50,8 @@ type Vendor = {
   service_base_price?: number;
   minimum_order_value?: number;
   sub_service_prices?: unknown;
+  rating_average?: number | null;
+  rating_count?: number | null;
 };
 
 type PricedSubService = {
@@ -221,12 +223,12 @@ const toCardVariantIndex = (vendorId: string | number) => {
   return total % SHOP_CARD_BACKGROUNDS.length;
 };
 
-const toShopRating = (experience?: number) => {
-  if (typeof experience !== "number") {
-    return 3.8;
-  }
+const getVendorRatingAverage = (vendor: Vendor) => {
+  return typeof vendor.rating_average === "number" ? vendor.rating_average : null;
+};
 
-  return Math.max(3.6, Math.min(4.9, 3.5 + experience / 12));
+const getVendorRatingCount = (vendor: Vendor) => {
+  return typeof vendor.rating_count === "number" ? vendor.rating_count : 0;
 };
 
 const toEtaMinutes = (distance?: number) => {
@@ -633,6 +635,10 @@ function ShopsPageContent() {
   const selectedSubService = normalizeShopText(selectedSubServiceLabel);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [serviceId, serviceName, serviceQuery, selectedSubServiceLabel]);
+
+  useEffect(() => {
     const syncCartCount = () => {
       const existingCart = readShopCart();
       const count = existingCart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
@@ -880,6 +886,26 @@ function ShopsPageContent() {
       const rightInactive = right.is_active === false ? 1 : 0;
       if (leftInactive !== rightInactive) {
         return leftInactive - rightInactive;
+      }
+
+      const leftRatingCount = getVendorRatingCount(left);
+      const rightRatingCount = getVendorRatingCount(right);
+      const leftHasRating = leftRatingCount > 0;
+      const rightHasRating = rightRatingCount > 0;
+
+      if (leftHasRating !== rightHasRating) {
+        return leftHasRating ? -1 : 1;
+      }
+
+      const leftRatingAverage = getVendorRatingAverage(left) ?? 0;
+      const rightRatingAverage = getVendorRatingAverage(right) ?? 0;
+
+      if (leftRatingAverage !== rightRatingAverage) {
+        return rightRatingAverage - leftRatingAverage;
+      }
+
+      if (leftRatingCount !== rightRatingCount) {
+        return rightRatingCount - leftRatingCount;
       }
 
       const leftDistance = vendorDistances[String(left.id)] ?? Number.POSITIVE_INFINITY;
@@ -1137,6 +1163,11 @@ function ShopsPageContent() {
                 const primaryImage = shopImages[0] || "";
                 const isOffline = vendor.is_active === false;
                 const finalPrice = getVendorFinalPrice(vendor);
+                const ratingAverage = getVendorRatingAverage(vendor);
+                const ratingCount = getVendorRatingCount(vendor);
+                const ratingLabel = ratingCount > 0 && ratingAverage !== null
+                  ? `★ ${ratingAverage.toFixed(1)} (${ratingCount})`
+                  : "★ New";
 
                 return (
                   <article
@@ -1206,7 +1237,7 @@ function ShopsPageContent() {
                     <div className="shop-feed-content">
                       <div className="shop-feed-title-row">
                         <h3>{vendor.name || "Shop"}</h3>
-                        <span className="shop-feed-rating">★ {toShopRating(vendor.experience).toFixed(1)}</span>
+                        <span className="shop-feed-rating">{ratingLabel}</span>
                       </div>
 
                       <p className="shop-feed-meta">

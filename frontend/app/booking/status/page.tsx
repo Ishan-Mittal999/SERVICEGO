@@ -34,6 +34,9 @@ type BookingResponse = {
   assigned_serviceman_photo?: string;
   live_update_message?: string;
   live_update_eta?: string;
+  customer_rating?: number | null;
+  customer_review?: string | null;
+  customer_rated_at?: string | null;
 };
 
 export default function BookingStatusPage() {
@@ -53,6 +56,10 @@ function BookingStatusPageContent() {
   const [booking, setBooking] = useState<BookingResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [ratingValue, setRatingValue] = useState(5);
+  const [ratingReview, setRatingReview] = useState("");
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingMessage, setRatingMessage] = useState<string | null>(null);
 
   const draft = readBookingDraft();
   const bookingId = searchParams.get("bookingId") ?? draft?.bookingId ?? "";
@@ -137,6 +144,54 @@ function BookingStatusPageContent() {
       window.clearInterval(poller);
     };
   }, [authReady, bookingId, router, userId]);
+
+  useEffect(() => {
+    if (booking?.status !== "completed") {
+      return;
+    }
+
+    if (typeof booking.customer_rating === "number") {
+      setRatingValue(Math.max(1, Math.min(5, Math.round(booking.customer_rating))));
+    }
+
+    setRatingReview(booking.customer_review || "");
+  }, [booking]);
+
+  const handleSubmitRating = async () => {
+    if (!bookingId || booking?.status !== "completed") {
+      return;
+    }
+
+    setRatingSubmitting(true);
+    setRatingMessage(null);
+
+    try {
+      const response = await fetch(apiUrl(`/booking/${bookingId}/rating`), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId,
+          rating: ratingValue,
+          review: ratingReview,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Unable to save rating.");
+      }
+
+      setBooking(data.booking);
+      setRatingMessage("Thanks. Your rating has been saved.");
+    } catch (error) {
+      setRatingMessage(error instanceof Error ? error.message : "Unable to save rating.");
+    } finally {
+      setRatingSubmitting(false);
+    }
+  };
 
   const packageTotal = (draft?.packagePrice ?? 0) + (draft?.addonTotal ?? 0);
 
@@ -271,6 +326,52 @@ function BookingStatusPageContent() {
                   {booking.vendors.phone ? <p className="booking-muted">Phone: {booking.vendors.phone}</p> : null}
                   {booking.vendors.email ? <p className="booking-muted">Email: {booking.vendors.email}</p> : null}
                   {booking.vendors.area ? <p className="booking-muted">Area: {booking.vendors.area}</p> : null}
+                </div>
+              ) : null}
+
+              {booking?.status === "completed" ? (
+                <div className="booking-rating-card">
+                  <div className="booking-label">Rate this shop</div>
+                  <p className="booking-muted" style={{ marginBottom: "0.8rem" }}>
+                    Tell us how the completed service went.
+                  </p>
+
+                  <div className="booking-rating-stars" role="radiogroup" aria-label="Shop rating">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`booking-rating-star ${value <= ratingValue ? "is-selected" : ""}`}
+                        onClick={() => setRatingValue(value)}
+                        aria-checked={ratingValue === value}
+                        aria-label={`${value} star${value > 1 ? "s" : ""}`}
+                        role="radio"
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+
+                  <label className="booking-rating-label" htmlFor="booking-rating-review">
+                    Optional feedback
+                  </label>
+                  <textarea
+                    id="booking-rating-review"
+                    className="booking-rating-textarea"
+                    value={ratingReview}
+                    onChange={(event) => setRatingReview(event.target.value)}
+                    placeholder="What went well?"
+                    rows={3}
+                    maxLength={500}
+                  />
+
+                  <div className="booking-actions booking-actions--stack" style={{ marginTop: "0.9rem" }}>
+                    <button className="booking-primary-btn" type="button" onClick={handleSubmitRating} disabled={ratingSubmitting}>
+                      {ratingSubmitting ? "Saving rating..." : "Submit rating"}
+                    </button>
+                  </div>
+
+                  {ratingMessage ? <p className="booking-rating-success">{ratingMessage}</p> : null}
                 </div>
               ) : null}
 
