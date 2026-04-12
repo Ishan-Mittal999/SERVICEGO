@@ -61,7 +61,6 @@ type PricedSubService = {
 
 type ShopsCachePayload = {
   services: Service[];
-  vendors: Vendor[];
 };
 
 const SHOPS_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -681,7 +680,6 @@ function ShopsPageContent() {
 
       if (hasCachedPayload && cachedPayload) {
         setServices(cachedPayload.services);
-        setVendors(cachedPayload.vendors);
         setLoading(false);
       } else {
         setLoading(true);
@@ -694,7 +692,7 @@ function ShopsPageContent() {
           );
 
           const [vendorsResponse, serviceResponse] = await Promise.all([
-            fetch(vendorsUrl, { cache: "force-cache" }),
+            fetch(vendorsUrl, { cache: "no-store" }),
             fetch(apiUrl(`/services/${encodeURIComponent(serviceId)}`), { cache: "force-cache" }),
           ]);
 
@@ -721,7 +719,7 @@ function ShopsPageContent() {
                   serviceData.name
                 )}&limit=100`
               ),
-              { cache: "force-cache" }
+              { cache: "no-store" }
             );
 
             if (fallbackVendorsResponse.ok) {
@@ -737,7 +735,6 @@ function ShopsPageContent() {
           setErrorMessage(null);
           writeClientCache(cacheKey, {
             services: serviceList,
-            vendors: vendorsData,
           });
           return;
         }
@@ -767,7 +764,7 @@ function ShopsPageContent() {
           )
           : apiUrl("/vendors?limit=100");
 
-        const vendorsResponse = await fetch(vendorsUrl, { cache: "force-cache" });
+        const vendorsResponse = await fetch(vendorsUrl, { cache: "no-store" });
         if (!vendorsResponse.ok) {
           throw new Error(`Vendors API failed with ${vendorsResponse.status}`);
         }
@@ -782,7 +779,6 @@ function ShopsPageContent() {
         setErrorMessage(null);
         writeClientCache(cacheKey, {
           services: servicesForState,
-          vendors: vendorsData,
         });
       } catch (error) {
         console.error("Failed to load shops", error);

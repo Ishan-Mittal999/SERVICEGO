@@ -11,16 +11,16 @@ app.use(cors());
 app.use(compression()); // Enable gzip compression for all responses
 app.use(express.json());
 
-// Cache middleware for GET requests (cached for 5 minutes by default)
+// Cache middleware for GET requests
 const setCacheHeaders = (req, res, next) => {
   if (req.method === "GET") {
     // Cache static data endpoints for longer (1 hour)
     if (req.path === "/services" || req.path.startsWith("/services/")) {
       res.set("Cache-Control", "public, max-age=3600"); // 1 hour
     }
-    // Cache vendor endpoints for 30 minutes
+    // Vendor availability is real-time; do not cache vendor endpoints.
     else if (req.path === "/vendors" || req.path.startsWith("/vendors/")) {
-      res.set("Cache-Control", "public, max-age=1800"); // 30 minutes
+      res.set("Cache-Control", "no-cache, no-store, must-revalidate");
     }
     // Dynamic endpoints (bookings, push) - no caching
     else {
@@ -55,7 +55,7 @@ const STUB_GATEWAY_PROVIDER = "stubpay";
 const PAYMENT_SIGNATURE_SECRET = process.env.PAYMENT_STUB_SECRET || "servicego-stub-payment-secret";
 const paymentOrderStore = new Map();
 const responseCacheStore = new Map();
-const VENDORS_CACHE_TTL_MS = 2 * 60 * 1000;
+const VENDORS_CACHE_TTL_MS = 0;
 const SERVICES_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function nowMs() {
@@ -68,6 +68,10 @@ function logRouteTiming(route, startedAtMs, details = {}) {
 }
 
 function readResponseCache(key, ttlMs) {
+  if (!ttlMs || ttlMs <= 0) {
+    return null;
+  }
+
   const cached = responseCacheStore.get(key);
   if (!cached) {
     return null;
