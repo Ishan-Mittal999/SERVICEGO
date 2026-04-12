@@ -201,7 +201,7 @@ function BookingStatusPageContent() {
   };
 
   return (
-    <main className="booking-shell booking-shell--status">
+    <main className="booking-shell booking-shell--status booking-shell--status-themed">
       <section className="booking-panel booking-panel--status">
         <div className="booking-stage">Step 3 of 3</div>
         <h1 className="booking-title">
@@ -393,7 +393,7 @@ function BookingStatusPageContent() {
 
 function BookingStatusFallback() {
   return (
-    <main className="booking-shell booking-shell--status">
+    <main className="booking-shell booking-shell--status booking-shell--status-themed">
       <section className="booking-panel booking-panel--status">
         <p>Loading booking status...</p>
       </section>

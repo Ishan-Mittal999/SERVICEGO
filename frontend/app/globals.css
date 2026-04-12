@@ -1789,6 +1789,163 @@
   color: #1b5e20;
 }
 
+.booking-shell--status-themed {
+  background:
+    radial-gradient(circle at 88% 12%, rgba(122, 106, 0, 0.14), transparent 35%),
+    radial-gradient(circle at 12% 22%, rgba(30, 144, 255, 0.08), transparent 32%),
+    var(--off-white);
+}
+
+.booking-shell--status-themed .booking-panel--status {
+  max-width: 1120px;
+  border-radius: 26px;
+  border: 1px solid #e8e3d3;
+  background: #fffdf8;
+  box-shadow: 0 22px 52px rgba(92, 80, 0, 0.1);
+  padding: clamp(1rem, 2.4vw, 1.8rem);
+}
+
+.booking-shell--status-themed .booking-stage {
+  background: var(--gold-bg);
+  color: var(--gold-dark);
+  border: 1px solid #e6dba9;
+}
+
+.booking-shell--status-themed .booking-title {
+  font-size: clamp(1.7rem, 2.7vw, 2.35rem);
+  line-height: 1.08;
+  margin-top: 0.8rem;
+}
+
+.booking-shell--status-themed .booking-subtitle {
+  margin-top: 0.5rem;
+  color: var(--gray-600);
+  max-width: 840px;
+}
+
+.booking-shell--status-themed .booking-grid--two {
+  margin-top: 1rem;
+  gap: 1.2rem;
+}
+
+.booking-shell--status-themed .booking-waiting-card,
+.booking-shell--status-themed .booking-summary-card--status {
+  margin-top: 0;
+  border: 1px solid #e8e3d3;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.05);
+}
+
+.booking-shell--status-themed .booking-waiting-card {
+  min-height: 0;
+  padding: 1.2rem;
+}
+
+.booking-shell--status-themed .booking-wave {
+  height: 56px;
+}
+
+.booking-shell--status-themed .booking-service-name {
+  font-size: 1.9rem;
+  margin-top: 0.45rem;
+  color: var(--gray-900);
+}
+
+.booking-shell--status-themed .booking-muted {
+  margin-top: 0.45rem;
+  font-size: 0.94rem;
+}
+
+.booking-shell--status-themed .booking-status-chip--active {
+  background: #f5f0d0;
+  border: 1px solid #e6dba9;
+  color: #5c5000;
+}
+
+.booking-shell--status-themed .booking-checkpoints {
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.booking-shell--status-themed .booking-checkpoint {
+  padding: 0.78rem 0.9rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+}
+
+.booking-shell--status-themed .booking-checkpoint.is-current {
+  background: #e8f0ff;
+  border-color: #b8cdf3;
+  color: #114488;
+}
+
+.booking-shell--status-themed .booking-checkpoint.is-complete {
+  background: #eef7ef;
+  border-color: #cfe6d0;
+  color: #20632d;
+}
+
+.booking-shell--status-themed .booking-summary-row {
+  padding: 0.82rem 0;
+}
+
+.booking-shell--status-themed .booking-summary-row span {
+  color: var(--gray-600);
+}
+
+.booking-shell--status-themed .booking-summary-row strong {
+  max-width: 66%;
+  line-height: 1.4;
+}
+
+.booking-shell--status-themed .booking-vendor-card {
+  border-radius: 16px;
+  padding: 0.9rem;
+  background: linear-gradient(180deg, #fffdf7 0%, #f9f6ea 100%);
+}
+
+.booking-shell--status-themed .booking-actions {
+  gap: 0.65rem;
+}
+
+.booking-shell--status-themed .booking-primary-btn {
+  min-height: 52px;
+  font-size: 1.02rem;
+}
+
+.booking-shell--status-themed .booking-secondary-btn {
+  min-height: 52px;
+  background: #ffffff;
+  color: var(--gray-900);
+  border: 1px solid #c5cbd6;
+}
+
+.booking-shell--status-themed .booking-secondary-btn:hover {
+  background: #f9fafb;
+  border-color: #aeb6c4;
+}
+
+.booking-shell--status-themed .booking-rating-card {
+  border-radius: 16px;
+  border-color: #e6dba9;
+}
+
+@media (max-width: 900px) {
+  .booking-shell--status-themed .booking-panel--status {
+    border-radius: 18px;
+    padding: 0.95rem;
+  }
+
+  .booking-shell--status-themed .booking-service-name {
+    font-size: 1.55rem;
+  }
+
+  .booking-shell--status-themed .booking-summary-row strong {
+    max-width: 58%;
+  }
+}
+
 @keyframes bookingSpin {
   to {
     transform: rotate(360deg);
