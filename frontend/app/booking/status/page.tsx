@@ -228,7 +228,7 @@ function BookingStatusPageContent() {
           </div>
         ) : (
           <div className="booking-grid booking-grid--two booking-grid--top">
-            <div className="booking-waiting-card">
+            <div className="booking-waiting-card checkout-block checkout-delivery-card">
               <div className="booking-wave">
                 <span />
                 <span />
@@ -259,7 +259,7 @@ function BookingStatusPageContent() {
               </div>
             </div>
 
-            <div className="booking-summary-card booking-summary-card--status">
+            <div className="booking-summary-card booking-summary-card--status checkout-block">
               <div className="booking-label">Booking details</div>
               <div className="booking-summary-row">
                 <span>Customer</span>
@@ -288,7 +288,7 @@ function BookingStatusPageContent() {
                 </div>
               ) : null}
 
-              <div className="booking-vendor-card">
+              <div className="booking-vendor-card checkout-block checkout-gold-card">
                 <div className="booking-label">Live team updates</div>
                 {booking?.status === "assigned" || booking?.status === "completed" ? (
                   <>
@@ -320,7 +320,7 @@ function BookingStatusPageContent() {
               </div>
 
               {booking?.vendors && (booking.status === "assigned" || booking.status === "completed") ? (
-                <div className="booking-vendor-card">
+                <div className="booking-vendor-card checkout-block checkout-gold-card">
                   <div className="booking-label">Assigned vendor</div>
                   <div className="booking-service-name">{booking.vendors.name ?? "Vendor assigned"}</div>
                   {booking.vendors.phone ? <p className="booking-muted">Phone: {booking.vendors.phone}</p> : null}
@@ -330,7 +330,7 @@ function BookingStatusPageContent() {
               ) : null}
 
               {booking?.status === "completed" ? (
-                <div className="booking-rating-card">
+                <div className="booking-rating-card checkout-block">
                   <div className="booking-label">Rate this shop</div>
                   <p className="booking-muted" style={{ marginBottom: "0.8rem" }}>
                     Tell us how the completed service went.
@@ -366,7 +366,7 @@ function BookingStatusPageContent() {
                   />
 
                   <div className="booking-actions booking-actions--stack" style={{ marginTop: "0.9rem" }}>
-                    <button className="booking-primary-btn" type="button" onClick={handleSubmitRating} disabled={ratingSubmitting}>
+                    <button className="booking-primary-btn checkout-primary-cta" type="button" onClick={handleSubmitRating} disabled={ratingSubmitting}>
                       {ratingSubmitting ? "Saving rating..." : "Submit rating"}
                     </button>
                   </div>
@@ -379,7 +379,7 @@ function BookingStatusPageContent() {
                 <button className="booking-secondary-btn" type="button" onClick={() => window.location.reload()}>
                   Check latest update
                 </button>
-                <button className="booking-primary-btn" type="button" onClick={handleReset}>
+                <button className="booking-primary-btn checkout-primary-cta" type="button" onClick={handleReset}>
                   Book another service
                 </button>
               </div>
