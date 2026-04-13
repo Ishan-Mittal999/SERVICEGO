@@ -1,4 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Cancellation and Refund Policy",
+  description:
+    "View ServiceGo cancellation, rescheduling, and refund terms for home service bookings, including timelines and eligibility rules.",
+  alternates: {
+    canonical: "/cancellation-refund-policy",
+  },
+};
 
 export default function CancellationRefundPolicyPage() {
   return (

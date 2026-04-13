@@ -16,10 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://servicego.works"),
   title: {
-    default: "ServiceGo | Home Services Platform",
+    default: "ServiceGo | Trusted Home Services in India",
     template: "%s | ServiceGo",
   },
-  description: "ServiceGo is the official home-services platform for trusted AC, electrical, carpentry, appliance, and doorstep repair services.",
+  description: "Book trusted AC repair, electrician, carpentry, appliance service, and doorstep home maintenance with ServiceGo.",
   applicationName: "ServiceGo",
   keywords: [
     "servicego",
@@ -27,9 +27,15 @@ export const metadata: Metadata = {
     "home services",
     "ac repair",
     "electrician",
+    "appliance repair",
+    "carpenter near me",
+    "home maintenance services",
     "doorstep services",
     "india",
   ],
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+  },
   robots: {
     index: true,
     follow: true,
@@ -46,8 +52,8 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "ServiceGo | Home Services Platform",
-    description: "Official ServiceGo website for trusted doorstep home services.",
+    title: "ServiceGo | Trusted Home Services in India",
+    description: "Book trusted AC repair, electrician, carpentry, appliance service, and doorstep home maintenance with ServiceGo.",
     url: "https://servicego.works",
     siteName: "ServiceGo",
     locale: "en_IN",
@@ -63,8 +69,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ServiceGo | Home Services Platform",
-    description: "Official ServiceGo website for trusted doorstep home services.",
+    title: "ServiceGo | Trusted Home Services in India",
+    description: "Book trusted AC repair, electrician, carpentry, appliance service, and doorstep home maintenance with ServiceGo.",
     images: ["/icon.webp"],
   },
   icons: {
@@ -90,6 +96,9 @@ export default function RootLayout({
     alternateName: ["ServiceGo", "servicego.works"],
     url: "https://servicego.works",
     logo: "https://servicego.works/icon.webp",
+    sameAs: [
+      "https://servicego.works",
+    ],
   };
 
   const websiteSchema = {
@@ -98,6 +107,11 @@ export default function RootLayout({
     name: "ServiceGo",
     url: "https://servicego.works",
     inLanguage: "en-IN",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: "https://servicego.works/subservices?query={search_term_string}",
+      "query-input": "required name=search_term_string",
+    },
   };
 
   return (

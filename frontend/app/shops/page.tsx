@@ -1247,6 +1247,17 @@ function ShopsPageContent() {
                         </div>
                         <span className="shop-feed-cta">Continue</span>
                       </div>
+                      <p style={{ margin: "0.55rem 0 0", fontSize: "0.8rem" }}>
+                        <Link
+                          href={`/shops/${encodeURIComponent(String(vendor.id))}`}
+                          prefetch={false}
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => event.stopPropagation()}
+                          style={{ color: "#1d4ed8", textDecoration: "underline" }}
+                        >
+                          View shop profile
+                        </Link>
+                      </p>
                     </div>
                   </article>
                 );

@@ -1,4 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "FAQs",
+  description:
+    "Read frequently asked questions about ServiceGo bookings, pricing, safety checks, warranty, and customer support.",
+  alternates: {
+    canonical: "/faqs",
+  },
+};
 
 const FAQ_ITEMS = [
   {
