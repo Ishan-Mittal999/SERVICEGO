@@ -316,11 +316,9 @@ const normalizeEntry = (entry: unknown) => {
   return trimmed;
 };
 
-const parseVendorListField = (value: unknown): string[] => {
+const parseVendorRawListField = (value: unknown): string[] => {
   if (Array.isArray(value)) {
-    return value
-      .map((item) => normalizeEntry(item))
-      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
   }
 
   if (typeof value === "string") {
@@ -332,9 +330,7 @@ const parseVendorListField = (value: unknown): string[] => {
     try {
       const parsed = JSON.parse(normalized);
       if (Array.isArray(parsed)) {
-        return parsed
-          .map((item) => normalizeEntry(item))
-          .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
+        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
       }
     } catch {
       // Fallback to structured string formats.
@@ -343,8 +339,8 @@ const parseVendorListField = (value: unknown): string[] => {
     const postgresArray = parsePostgresArrayString(normalized);
     if (postgresArray.length > 0) {
       return postgresArray
-        .map((item) => normalizeEntry(item))
-        .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
+        .map((item) => String(item || "").trim())
+        .filter(Boolean);
     }
 
     if (normalized.startsWith("data:image/")) {
@@ -353,11 +349,17 @@ const parseVendorListField = (value: unknown): string[] => {
 
     return normalized
       .split(",")
-      .map((item) => normalizeEntry(item))
-      .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
   return [];
+};
+
+const parseVendorListField = (value: unknown): string[] => {
+  return parseVendorRawListField(value)
+    .map((item) => normalizeEntry(item))
+    .filter((item) => item && item.toLowerCase() !== "null" && item.toLowerCase() !== "undefined");
 };
 
 const parsePositivePrice = (value: unknown): number | null => {
@@ -381,7 +383,7 @@ const parsePositivePrice = (value: unknown): number | null => {
 };
 
 const parseVendorSubservicePricing = (vendor: Vendor): PricedSubService[] => {
-  const rawEntries = parseVendorListField((vendor as Record<string, unknown>).sub_services);
+  const rawEntries = parseVendorRawListField((vendor as Record<string, unknown>).sub_services);
   const fallbackPriceMap = (vendor as Record<string, unknown>).sub_service_prices;
 
   // Build a map that ensures exact name matching to avoid collisions
