@@ -8,6 +8,7 @@ import { apiUrl, WEB_PUSH_PUBLIC_KEY } from "@/lib/env";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { detectUserLocation } from "@/lib/location";
+import { invalidateClientCacheByPrefix } from "@/lib/client-cache";
 import { isValidIndianMobile, normalizeIndianPhone, sanitizeIndianPhoneInput } from "@/lib/phone";
 
 const LOGO_SRC = "/icon.webp";
@@ -3703,6 +3704,9 @@ export default function VendorDashboard() {
           serviceman_details: normalizedServicemen,
           serviceman_count: normalizedServicemen.length,
         }));
+
+        invalidateClientCacheByPrefix("shops:");
+        invalidateClientCacheByPrefix("subservices:");
 
         setDashboardMessage("Profile updated successfully.");
       } catch (error) {

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { apiUrl } from "@/lib/env";
 import { useRouter } from "next/navigation";
 import { requireAdminOrRedirect } from "@/lib/admin-access";
+import { invalidateClientCacheByPrefix } from "@/lib/client-cache";
 import { isValidIndianMobile, sanitizeIndianPhoneInput } from "@/lib/phone";
 
 type AdminVendor = {
@@ -266,6 +267,9 @@ export default function AdminVendorsPage() {
       if (!response.ok) {
         throw new Error(data?.error || "Could not save vendor profile");
       }
+
+      invalidateClientCacheByPrefix("shops:");
+      invalidateClientCacheByPrefix("subservices:");
 
       setSuccessMessage("Vendor profile updated.");
       await loadData();
