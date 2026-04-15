@@ -6,6 +6,7 @@ import Link from "next/link";
 import { apiUrl } from "@/lib/env";
 import { useRouter } from "next/navigation";
 import { requireAdminOrRedirect } from "@/lib/admin-access";
+import { invalidateClientCacheByPrefix } from "@/lib/client-cache";
 
 type Service = {
   id: string | number;
@@ -309,6 +310,10 @@ export default function AdminServicesPage() {
         throw new Error(data?.error || "Could not save service");
       }
 
+      invalidateClientCacheByPrefix("home:services");
+      invalidateClientCacheByPrefix("shops:");
+      invalidateClientCacheByPrefix("subservices:");
+
       setSuccessMessage("Service updated.");
       await loadServices();
     } catch (error) {
@@ -348,6 +353,10 @@ export default function AdminServicesPage() {
         throw new Error(data?.error || "Could not save raw JSON");
       }
 
+      invalidateClientCacheByPrefix("home:services");
+      invalidateClientCacheByPrefix("shops:");
+      invalidateClientCacheByPrefix("subservices:");
+
       setSuccessMessage("Service updated from raw JSON.");
       await loadServices();
     } catch (error) {
@@ -380,6 +389,10 @@ export default function AdminServicesPage() {
       if (!response.ok) {
         throw new Error(data?.error || "Could not create service");
       }
+
+      invalidateClientCacheByPrefix("home:services");
+      invalidateClientCacheByPrefix("shops:");
+      invalidateClientCacheByPrefix("subservices:");
 
       await loadServices();
       if (data?.service?.id) {
@@ -416,6 +429,10 @@ export default function AdminServicesPage() {
       if (!response.ok) {
         throw new Error(data?.error || "Could not delete service");
       }
+
+      invalidateClientCacheByPrefix("home:services");
+      invalidateClientCacheByPrefix("shops:");
+      invalidateClientCacheByPrefix("subservices:");
 
       setSuccessMessage("Service deleted.");
       await loadServices();

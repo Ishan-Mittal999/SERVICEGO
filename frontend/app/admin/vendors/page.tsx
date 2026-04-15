@@ -30,6 +30,7 @@ type AdminVendor = {
   open_time?: string;
   close_time?: string;
   service_radius_km?: number;
+  service_base_price?: number;
   minimum_order_value?: number;
   experience?: number;
   is_active?: boolean;
@@ -195,7 +196,7 @@ export default function AdminVendorsPage() {
     setFormOpenTime(String(selectedVendor.open_time || ""));
     setFormCloseTime(String(selectedVendor.close_time || ""));
     setFormServiceRadiusKm(String(selectedVendor.service_radius_km || ""));
-    setFormMinimumOrderValue(String(selectedVendor.minimum_order_value || ""));
+    setFormMinimumOrderValue(String(selectedVendor.service_base_price || selectedVendor.minimum_order_value || ""));
     setFormExperience(String(selectedVendor.experience || ""));
     setFormIsActive(Boolean(selectedVendor.is_active));
     setFormApprovalStatus(String(selectedVendor.approval_status || "approved").toLowerCase());
@@ -247,6 +248,7 @@ export default function AdminVendorsPage() {
       open_time: formOpenTime || null,
       close_time: formCloseTime || null,
       service_radius_km: Number(formServiceRadiusKm) || null,
+      service_base_price: Number(formMinimumOrderValue) || 0,
       minimum_order_value: Number(formMinimumOrderValue) || 0,
       experience: Number(formExperience) || 0,
       is_active: formIsActive,

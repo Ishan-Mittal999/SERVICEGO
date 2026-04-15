@@ -1686,6 +1686,18 @@ app.put("/services/:id", async (req, res) => {
       return res.status(400).json({ error: "No fields provided to update" });
     }
 
+    const { data: existingService, error: existingServiceError } = await supabase
+      .from("services")
+      .select("id, name")
+      .eq("id", serviceId)
+      .single();
+
+    if (existingServiceError || !existingService) {
+      return res.status(404).json({ error: "Service not found" });
+    }
+
+    const previousServiceName = String(existingService.name || "").trim();
+
     const { data, error } = await supabase
       .from("services")
       .update(payload)
@@ -1698,6 +1710,105 @@ app.put("/services/:id", async (req, res) => {
     }
 
     invalidateResponseCacheByPrefix("services|");
+
+    const updatedServiceName = String(data?.name || payload.name || previousServiceName || "").trim();
+    const serviceNameChanged =
+      Boolean(previousServiceName && updatedServiceName) &&
+      normalizeVendorServiceText(previousServiceName) !== normalizeVendorServiceText(updatedServiceName);
+
+    if (serviceNameChanged) {
+      const normalizedPreviousName = normalizeVendorServiceText(previousServiceName);
+      const normalizedUpdatedName = updatedServiceName;
+
+      const vendorSelectColumns = "id, service_id, service_ids, selected_service_names";
+      const [serviceIdMatches, serviceIdsMatches, serviceNameMatches] = await Promise.all([
+        supabase
+          .from("vendors")
+          .select(vendorSelectColumns)
+          .eq("service_id", serviceId),
+        supabase
+          .from("vendors")
+          .select(vendorSelectColumns)
+          .contains("service_ids", [serviceId]),
+        previousServiceName
+          ? supabase
+              .from("vendors")
+              .select(vendorSelectColumns)
+              .contains("selected_service_names", [previousServiceName])
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      const vendorRows = [
+        ...(serviceIdMatches.data || []),
+        ...(serviceIdsMatches.data || []),
+        ...(serviceNameMatches.data || []),
+      ].filter(Boolean);
+
+      const vendorById = new Map();
+      for (const vendor of vendorRows) {
+        vendorById.set(String(vendor.id), vendor);
+      }
+
+      const vendorUpdates = [];
+      for (const vendor of vendorById.values()) {
+        const selectedNames = parseVendorListField(vendor.selected_service_names);
+        const serviceIds = parseVendorListField(vendor.service_ids);
+        const matchesByServiceId = String(vendor.service_id || "").trim() === String(serviceId).trim();
+        const matchesByServiceIds = serviceIds.includes(String(serviceId).trim());
+        const matchesByName = selectedNames.some((name) => normalizeVendorServiceText(name) === normalizedPreviousName);
+
+        if (!matchesByServiceId && !matchesByServiceIds && !matchesByName) {
+          continue;
+        }
+
+        const nextNames = [];
+        const seen = new Set();
+
+        for (const name of selectedNames) {
+          const trimmedName = String(name || "").trim();
+          if (!trimmedName) {
+            continue;
+          }
+
+          const nextName = normalizeVendorServiceText(trimmedName) === normalizedPreviousName ? normalizedUpdatedName : trimmedName;
+          const normalizedNextName = normalizeVendorServiceText(nextName);
+          if (!normalizedNextName || seen.has(normalizedNextName)) {
+            continue;
+          }
+
+          seen.add(normalizedNextName);
+          nextNames.push(nextName);
+        }
+
+        const normalizedUpdatedNameKey = normalizeVendorServiceText(normalizedUpdatedName);
+        if (normalizedUpdatedNameKey && !seen.has(normalizedUpdatedNameKey)) {
+          nextNames.push(normalizedUpdatedName);
+        }
+
+        const currentKeys = selectedNames.map((name) => normalizeVendorServiceText(name)).filter(Boolean);
+        const nextKeys = nextNames.map((name) => normalizeVendorServiceText(name)).filter(Boolean);
+        const hasChanged = currentKeys.length !== nextKeys.length || currentKeys.some((key, index) => key !== nextKeys[index]);
+
+        if (hasChanged) {
+          vendorUpdates.push(
+            supabase
+              .from("vendors")
+              .update({ selected_service_names: nextNames })
+              .eq("id", vendor.id)
+          );
+        }
+      }
+
+      if (vendorUpdates.length > 0) {
+        const updateResults = await Promise.all(vendorUpdates);
+        const vendorUpdateError = updateResults.find((result) => result.error)?.error || null;
+        if (vendorUpdateError) {
+          return res.status(500).json({ error: vendorUpdateError.message });
+        }
+
+        invalidateResponseCacheByPrefix("vendors|");
+      }
+    }
 
     return res.status(200).json({ message: "Service updated", service: data });
   } catch (err) {

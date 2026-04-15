@@ -90,7 +90,7 @@ function BookingLocationPageContent() {
       }
 
       try {
-        const response = await fetch(apiUrl("/services"));
+        const response = await fetch(apiUrl("/services"), { cache: "no-store" });
         if (!response.ok) {
           throw new Error(`Services API failed with ${response.status}`);
         }

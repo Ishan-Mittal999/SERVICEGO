@@ -3648,14 +3648,28 @@ export default function VendorDashboard() {
           throw new Error("Each serviceman phone must be a valid 10-digit mobile number.");
         }
 
+        const normalizedServiceNames = payload.selectedServiceNames
+          .map((item) => String(item || "").trim())
+          .filter(Boolean);
+        const resolvedServiceIds = normalizedServiceNames
+          .map((serviceName) => serviceCatalog.find((serviceItem) => String(serviceItem.name || "").trim().toLowerCase() === serviceName.toLowerCase())?.id)
+          .map((id) => String(id || "").trim())
+          .filter(Boolean);
+        const existingServiceIds = parseVendorListField((vendor as Record<string, unknown> | null)?.service_ids);
+        const nextServiceIds = resolvedServiceIds.length > 0 ? resolvedServiceIds : existingServiceIds;
+        const nextServiceId = resolvedServiceIds[0] || String((vendor as Record<string, unknown> | null)?.service_id || "").trim() || null;
+
         const extendedPayload = {
           name: payload.name,
           phone: normalizedVendorPhone,
           area: payload.area,
           experience: payload.experience,
           about_shop: payload.aboutShop || null,
-          selected_service_names: payload.selectedServiceNames,
+          service_id: nextServiceId,
+          service_ids: nextServiceIds,
+          selected_service_names: normalizedServiceNames,
           service_base_price: payload.serviceBasePrice,
+          minimum_order_value: payload.serviceBasePrice,
           sub_services: payload.subServices,
           shop_image_urls: payload.shopImageUrls,
           servicemen_details: normalizedServicemen,
@@ -3677,8 +3691,11 @@ export default function VendorDashboard() {
           area: payload.area,
           experience: payload.experience,
           about_shop: payload.aboutShop,
-          selected_service_names: payload.selectedServiceNames,
+          service_id: nextServiceId,
+          service_ids: nextServiceIds,
+          selected_service_names: normalizedServiceNames,
           service_base_price: payload.serviceBasePrice,
+          minimum_order_value: payload.serviceBasePrice,
           sub_services: payload.subServices,
           shop_image_urls: payload.shopImageUrls,
           servicemen_details: normalizedServicemen,

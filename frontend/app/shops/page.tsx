@@ -693,7 +693,7 @@ function ShopsPageContent() {
 
           const [vendorsResponse, serviceResponse] = await Promise.all([
             fetch(vendorsUrl, { cache: "no-store" }),
-            fetch(apiUrl(`/services/${encodeURIComponent(serviceId)}`), { cache: "force-cache" }),
+            fetch(apiUrl(`/services/${encodeURIComponent(serviceId)}`), { cache: "no-store" }),
           ]);
 
           if (!vendorsResponse.ok) {
@@ -739,7 +739,7 @@ function ShopsPageContent() {
           return;
         }
 
-        const servicesResponse = await fetch(apiUrl("/services?limit=100"), { cache: "force-cache" });
+        const servicesResponse = await fetch(apiUrl("/services?limit=100"), { cache: "no-store" });
 
         if (!servicesResponse.ok) {
           throw new Error(`Services API failed with ${servicesResponse.status}`);

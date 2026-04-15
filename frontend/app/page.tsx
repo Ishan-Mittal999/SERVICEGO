@@ -249,14 +249,14 @@ export default function HomePage() {
     void (async () => {
       try {
         const [serviceResponse, vendorsResponse] = await Promise.all([
-          fetch(apiUrl(`/services/${encodeURIComponent(String(service.id))}`), { cache: "force-cache" }),
+          fetch(apiUrl(`/services/${encodeURIComponent(String(service.id))}`), { cache: "no-store" }),
           fetch(
             apiUrl(
               `/vendors?serviceId=${encodeURIComponent(String(service.id))}&serviceName=${encodeURIComponent(
                 service.name || ""
               )}&limit=100`
             ),
-            { cache: "force-cache" }
+            { cache: "no-store" }
           ),
         ]);
 
@@ -290,7 +290,7 @@ export default function HomePage() {
     
     const fetchServices = async () => {
       try {
-        const servicesRes = await fetch(apiUrl("/services"), { cache: "force-cache" });
+        const servicesRes = await fetch(apiUrl("/services"), { cache: "no-store" });
 
         if (!servicesRes.ok) {
           throw new Error(`Services API failed with ${servicesRes.status}`);
@@ -637,13 +637,13 @@ export default function HomePage() {
             </div>
 
             <h1>
-              Trusted <span className="highlight">Home Services</span>
+              ServiceGo: Trusted <span className="highlight">Home Services</span>
               <br />
               at Your Doorstep
             </h1>
 
             <p>
-              Verified professionals. Transparent pricing.
+              Official ServiceGo website. Verified professionals. Transparent pricing.
               Quick bookings in minutes.
             </p>
             <div className="hero-search-row">

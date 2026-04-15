@@ -58,3 +58,29 @@ export function writeClientCache<T>(key: string, value: T): void {
     // Ignore storage quota issues and continue with in-memory cache only.
   }
 }
+
+export function invalidateClientCacheByPrefix(prefix: string): void {
+  for (const key of Array.from(memoryCache.keys())) {
+    if (key.startsWith(prefix)) {
+      memoryCache.delete(key);
+    }
+  }
+
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const keysToRemove: string[] = [];
+    for (let index = 0; index < window.sessionStorage.length; index += 1) {
+      const key = window.sessionStorage.key(index);
+      if (key && key.startsWith(prefix)) {
+        keysToRemove.push(key);
+      }
+    }
+
+    keysToRemove.forEach((key) => window.sessionStorage.removeItem(key));
+  } catch {
+    // Ignore storage access errors and continue with in-memory invalidation only.
+  }
+}
