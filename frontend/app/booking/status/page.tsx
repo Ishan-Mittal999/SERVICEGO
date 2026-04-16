@@ -53,7 +53,7 @@ function parseAddressAndService(rawAddress?: string) {
   const segments = source.split("|").map((segment) => segment.trim()).filter(Boolean);
   const addressSegments: string[] = [];
   let city = "";
-  let items = "";
+  let serviceSummary = "";
 
   for (const segment of segments) {
     const keyValueMatch = segment.match(/^([a-zA-Z ]+):\s*(.*)$/);
@@ -74,8 +74,18 @@ function parseAddressAndService(rawAddress?: string) {
       continue;
     }
 
-    if (key === "items") {
-      items = value;
+    if (
+      key === "item"
+      || key === "items"
+      || key === "service"
+      || key === "services"
+      || key === "package"
+      || key === "subservice"
+      || key === "subservices"
+    ) {
+      if (!serviceSummary) {
+        serviceSummary = value;
+      }
       continue;
     }
 
@@ -90,7 +100,7 @@ function parseAddressAndService(rawAddress?: string) {
 
   return {
     cleanAddress: cleanAddress || source,
-    serviceFromAddress: items,
+    serviceFromAddress: serviceSummary,
   };
 }
 
@@ -335,7 +345,7 @@ function BookingStatusPageContent() {
               </div>
               <div className="booking-summary-row">
                 <span>Service</span>
-                <strong>{serviceLabel}</strong>
+                <strong className="booking-multiline">{serviceLabel}</strong>
               </div>
               <div className="booking-summary-row">
                 <span>Estimated charges</span>

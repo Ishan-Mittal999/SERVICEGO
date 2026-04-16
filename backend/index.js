@@ -171,7 +171,7 @@ function extractBookingAddressDetails(rawAddress) {
 
   const addressSegments = [];
   let city = "";
-  let items = "";
+  let serviceSummary = "";
 
   for (const segment of segments) {
     const keyValueMatch = segment.match(/^([a-zA-Z ]+):\s*(.*)$/);
@@ -192,8 +192,18 @@ function extractBookingAddressDetails(rawAddress) {
       continue;
     }
 
-    if (key === "items") {
-      items = value;
+    if (
+      key === "item"
+      || key === "items"
+      || key === "service"
+      || key === "services"
+      || key === "package"
+      || key === "subservice"
+      || key === "subservices"
+    ) {
+      if (!serviceSummary) {
+        serviceSummary = value;
+      }
       continue;
     }
 
@@ -208,7 +218,7 @@ function extractBookingAddressDetails(rawAddress) {
 
   return {
     cleanAddress: cleanAddress || source,
-    serviceSummaryFromAddress: items,
+    serviceSummaryFromAddress: serviceSummary,
   };
 }
 
