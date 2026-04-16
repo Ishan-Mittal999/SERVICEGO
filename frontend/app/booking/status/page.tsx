@@ -37,7 +37,62 @@ type BookingResponse = {
   customer_rating?: number | null;
   customer_review?: string | null;
   customer_rated_at?: string | null;
+  service_summary?: string | null;
+  estimated_amount?: number | string | null;
 };
+
+function parseAddressAndService(rawAddress?: string) {
+  const source = String(rawAddress || "").trim();
+  if (!source) {
+    return {
+      cleanAddress: "-",
+      serviceFromAddress: "",
+    };
+  }
+
+  const segments = source.split("|").map((segment) => segment.trim()).filter(Boolean);
+  const addressSegments: string[] = [];
+  let city = "";
+  let items = "";
+
+  for (const segment of segments) {
+    const keyValueMatch = segment.match(/^([a-zA-Z ]+):\s*(.*)$/);
+    if (!keyValueMatch) {
+      addressSegments.push(segment);
+      continue;
+    }
+
+    const key = keyValueMatch[1].trim().toLowerCase();
+    const value = keyValueMatch[2].trim();
+
+    if (!value) {
+      continue;
+    }
+
+    if (key === "city") {
+      city = value;
+      continue;
+    }
+
+    if (key === "items") {
+      items = value;
+      continue;
+    }
+
+    if (key === "shop" || key === "payment") {
+      continue;
+    }
+
+    addressSegments.push(segment);
+  }
+
+  const cleanAddress = [...addressSegments, city].filter(Boolean).join(", ");
+
+  return {
+    cleanAddress: cleanAddress || source,
+    serviceFromAddress: items,
+  };
+}
 
 export default function BookingStatusPage() {
   return (
@@ -194,6 +249,15 @@ function BookingStatusPageContent() {
   };
 
   const packageTotal = (draft?.packagePrice ?? 0) + (draft?.addonTotal ?? 0);
+  const parsedAddress = parseAddressAndService(booking?.address ?? draft?.addressLine);
+  const serviceLabel = booking?.service_summary || parsedAddress.serviceFromAddress || booking?.services?.name || draft?.serviceName || "-";
+  const parsedEstimatedAmount = Number(booking?.estimated_amount);
+  const hasPersistedEstimatedAmount = booking?.estimated_amount !== null
+    && booking?.estimated_amount !== undefined
+    && Number.isFinite(parsedEstimatedAmount)
+    && parsedEstimatedAmount >= 0;
+  const estimatedAmount = hasPersistedEstimatedAmount ? parsedEstimatedAmount : (packageTotal > 0 ? packageTotal : null);
+  const estimatedChargesLabel = estimatedAmount === null ? "Pending" : formatPrice(estimatedAmount);
 
   const handleReset = () => {
     clearBookingDraft();
@@ -270,16 +334,16 @@ function BookingStatusPageContent() {
                 <strong>{booking?.customer_phone ?? draft?.customerPhone ?? "-"}</strong>
               </div>
               <div className="booking-summary-row">
-                <span>Package</span>
-                <strong>{draft?.packageName ?? "Standard package"}</strong>
+                <span>Service</span>
+                <strong>{serviceLabel}</strong>
               </div>
               <div className="booking-summary-row">
                 <span>Estimated charges</span>
-                <strong>{formatPrice(packageTotal)}</strong>
+                <strong>{estimatedChargesLabel}</strong>
               </div>
               <div className="booking-summary-row">
                 <span>Address</span>
-                <strong className="booking-multiline">{booking?.address ?? draft?.addressLine ?? "-"}</strong>
+                <strong className="booking-multiline">{parsedAddress.cleanAddress}</strong>
               </div>
 
               {draft?.addonNames?.length ? (

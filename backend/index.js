@@ -155,6 +155,77 @@ function normalizePaymentMethod(method) {
   return String(method || "").trim().toLowerCase();
 }
 
+function extractBookingAddressDetails(rawAddress) {
+  const source = String(rawAddress || "").trim();
+  if (!source) {
+    return {
+      cleanAddress: "",
+      serviceSummaryFromAddress: "",
+    };
+  }
+
+  const segments = source
+    .split("|")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  const addressSegments = [];
+  let city = "";
+  let items = "";
+
+  for (const segment of segments) {
+    const keyValueMatch = segment.match(/^([a-zA-Z ]+):\s*(.*)$/);
+    if (!keyValueMatch) {
+      addressSegments.push(segment);
+      continue;
+    }
+
+    const key = String(keyValueMatch[1] || "").trim().toLowerCase();
+    const value = String(keyValueMatch[2] || "").trim();
+
+    if (!value) {
+      continue;
+    }
+
+    if (key === "city") {
+      city = value;
+      continue;
+    }
+
+    if (key === "items") {
+      items = value;
+      continue;
+    }
+
+    if (key === "shop" || key === "payment") {
+      continue;
+    }
+
+    addressSegments.push(segment);
+  }
+
+  const cleanAddress = [...addressSegments, city].filter(Boolean).join(", ");
+
+  return {
+    cleanAddress: cleanAddress || source,
+    serviceSummaryFromAddress: items,
+  };
+}
+
+function normalizeBookingPayload(booking) {
+  if (!booking || typeof booking !== "object") {
+    return booking;
+  }
+
+  const { cleanAddress, serviceSummaryFromAddress } = extractBookingAddressDetails(booking.address);
+
+  return {
+    ...booking,
+    address: cleanAddress || booking.address,
+    service_summary: booking.service_summary || serviceSummaryFromAddress || null,
+  };
+}
+
 async function getBookingWithRelations(bookingId) {
   const { data, error } = await supabase
     .from("bookings")
@@ -162,7 +233,7 @@ async function getBookingWithRelations(bookingId) {
     .eq("id", bookingId)
     .single();
 
-  return { data, error };
+  return { data: normalizeBookingPayload(data), error };
 }
 
 async function enrichVendorsWithRatings(vendors) {
@@ -574,7 +645,9 @@ app.post("/booking", async (req, res) => {
       service_id,
       address,
       preferred_time,
-      user_id
+      user_id,
+      service_summary,
+      estimated_amount,
     } = req.body;
 
     if (!customer_name || !customer_phone || !service_id || !address) {
@@ -582,6 +655,14 @@ app.post("/booking", async (req, res) => {
         error: "Missing required fields"
       });
     }
+
+    const parsedEstimatedAmount = Number(estimated_amount);
+    const normalizedEstimatedAmount = Number.isFinite(parsedEstimatedAmount) && parsedEstimatedAmount >= 0
+      ? parsedEstimatedAmount
+      : null;
+    const normalizedServiceSummary = typeof service_summary === "string"
+      ? service_summary.trim()
+      : "";
 
     const { data, error } = await supabase
       .from("bookings")
@@ -593,6 +674,8 @@ app.post("/booking", async (req, res) => {
           address,
           preferred_time,
           user_id,
+          service_summary: normalizedServiceSummary || null,
+          estimated_amount: normalizedEstimatedAmount,
           status: "pending"
         }
       ])
@@ -658,7 +741,8 @@ app.get("/bookings/user/:userId", async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
-    return res.status(200).json(data ?? []);
+    const normalizedRows = Array.isArray(data) ? data.map((row) => normalizeBookingPayload(row)) : [];
+    return res.status(200).json(normalizedRows);
   } catch (err) {
     console.error("Server Crash:", err);
     return res.status(500).json({ error: err.message });
@@ -698,8 +782,10 @@ app.get("/bookings", async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
+    const normalizedRows = Array.isArray(data) ? data.map((row) => normalizeBookingPayload(row)) : [];
+
     return res.status(200).json({
-      data,
+      data: normalizedRows,
       pagination: {
         limit,
         offset,

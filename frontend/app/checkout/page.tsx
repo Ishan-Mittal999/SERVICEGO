@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/env";
-import { clearBookingDraft, formatPrice } from "@/lib/booking-flow";
+import { formatPrice, mergeBookingDraft } from "@/lib/booking-flow";
 import {
   getCartTotal,
   clearShopCart,
@@ -188,7 +188,8 @@ export default function CheckoutPage() {
         return;
       }
 
-      setCustomerName(user.email?.split("@")[0] || "");
+      const metadataName = String((user.user_metadata as { name?: string } | null)?.name || "").trim();
+      setCustomerName(metadataName || user.email?.split("@")[0] || "");
       const metadataPhone = String((user.user_metadata as { phone?: string } | null)?.phone || "");
       if (metadataPhone) {
         const normalizedMetadataPhone = normalizeIndianPhone(metadataPhone);
@@ -308,9 +309,19 @@ export default function CheckoutPage() {
     !placingOrder
     && resolvedCity
     && resolvedAddress
-    && customerName.trim()
-    && isValidIndianMobile(resolvedPhone)
   );
+  const checkoutMissingHints: string[] = [];
+  if (!resolvedCity || !resolvedAddress) {
+    checkoutMissingHints.push("Select service address");
+  }
+  if (!customerName.trim()) {
+    checkoutMissingHints.push("Add your profile name");
+  }
+  if (!resolvedPhone) {
+    checkoutMissingHints.push("Add contact phone");
+  } else if (!isValidIndianMobile(resolvedPhone)) {
+    checkoutMissingHints.push("Use valid 10-digit phone");
+  }
 
   const cartItems = cart?.items || [];
 
@@ -483,7 +494,12 @@ export default function CheckoutPage() {
         }
       }
 
-      const bookingAddress = `${finalAddress} | City: ${finalCity} | Shop: ${cart.vendorName} | Items: ${itemSummary} | Payment: ${selectedPaymentLabel}`;
+      const bookingAddress = [
+        finalAddress,
+        finalCity ? `City: ${finalCity}` : "",
+      ]
+        .filter(Boolean)
+        .join(" | ");
 
       const response = await fetch(apiUrl("/booking"), {
         method: "POST",
@@ -495,6 +511,8 @@ export default function CheckoutPage() {
           customer_name: customerName.trim(),
           customer_phone: finalPhone,
           address: bookingAddress,
+          service_summary: itemSummary || cart.serviceName,
+          estimated_amount: totalAmount,
           preferred_time: new Date().toISOString(),
           user_id: session.user.id,
         }),
@@ -511,8 +529,18 @@ export default function CheckoutPage() {
         throw new Error("Booking completed but booking id was not returned.");
       }
 
+      mergeBookingDraft({
+        bookingId,
+        serviceId: String(cart.serviceId || ""),
+        serviceName: itemSummary || cart.serviceName || "",
+        addressLine: finalAddress,
+        packagePrice: totalAmount,
+        addonTotal: 0,
+        customerName: customerName.trim(),
+        customerPhone: finalPhone,
+      });
+
       clearShopCart();
-      clearBookingDraft();
       setCart(null);
 
       router.push(`/booking/status?bookingId=${encodeURIComponent(bookingId)}`);
@@ -688,6 +716,11 @@ export default function CheckoutPage() {
             </button>
           </div>
         )}
+        {step === "payment" && checkoutMissingHints.length > 0 ? (
+          <p className="checkout-address-meta" style={{ marginTop: "0.35rem", textAlign: "center", color: "#8b6b00" }}>
+            Complete before placing order: {checkoutMissingHints.join(" • ")}
+          </p>
+        ) : null}
       </footer>
 
       {addressSheetOpen ? (

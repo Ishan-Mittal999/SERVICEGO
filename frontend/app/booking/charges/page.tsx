@@ -295,6 +295,12 @@ function BookingChargesPageContent() {
       .join(" | ");
 
     const addonNames = selectedAddons.map((item) => item.name);
+    const selectedServiceSummary = [
+      selectedPackage.name,
+      addonNames.length ? addonNames.join(", ") : "",
+    ]
+      .filter(Boolean)
+      .join(" + ");
     const preferredTimestamp = preferredTime === "just-now"
       ? new Date().toISOString()
       : preferredTime;
@@ -313,6 +319,8 @@ function BookingChargesPageContent() {
           customer_name: customerName.trim(),
           customer_phone: normalizedCustomerPhone,
           address: bookingAddress,
+          service_summary: selectedServiceSummary,
+          estimated_amount: totalPrice,
           preferred_time: preferredTimestamp,
           user_id: session.user.id,
         }),
