@@ -300,6 +300,9 @@ export default function CheckoutPage() {
     !placingOrder
     && resolvedCity
     && resolvedAddress
+    && customerName.trim()
+    && resolvedPhone
+    && isValidIndianMobile(resolvedPhone)
   );
   const checkoutMissingHints: string[] = [];
   if (!resolvedCity || !resolvedAddress) {
@@ -659,11 +662,7 @@ export default function CheckoutPage() {
                 <div className="checkout-method-list">
                   {PAYMENT_METHODS.map((method) => {
                     const available = true;
-                    const methodTag = method.id === "cod"
-                      ? "Available"
-                      : onlinePaymentsEnabled
-                        ? "Available"
-                        : "Configure Razorpay key";
+                    const methodTag = method.id === "cod" ? "Available" : "Tap to select";
 
                     return (
                     <button
@@ -674,6 +673,7 @@ export default function CheckoutPage() {
                           ? "checkout-method-row active"
                           : "checkout-method-row"
                       }
+                      aria-pressed={paymentMethod === method.id}
                       onClick={() => {
                         if (!available) {
                           return;
@@ -693,6 +693,9 @@ export default function CheckoutPage() {
                     );
                   })}
                 </div>
+                <p className="checkout-address-meta" style={{ marginTop: "0.45rem" }}>
+                  Selected payment: <strong>{selectedPayment?.label || "Cash on Delivery"}</strong>. Online payment will open Razorpay after you tap Place Order.
+                </p>
               </section>
             ) : null}
 
