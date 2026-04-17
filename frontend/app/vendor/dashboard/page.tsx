@@ -3647,12 +3647,44 @@ export default function VendorDashboard() {
         return "";
       }
 
-      return addressText
+      const withoutCoords = addressText
+        .replace(/\(\s*Lat\s*-?\d+(?:\.\d+)?\s*,\s*Lng\s*-?\d+(?:\.\d+)?\s*\)/gi, "")
+        .replace(/\bLat\s*-?\d+(?:\.\d+)?\s*,\s*Lng\s*-?\d+(?:\.\d+)?\b/gi, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+
+      const parts = withoutCoords
         .split("|")
         .map((part: string) => part.trim())
         .filter(Boolean)
-        .filter((part: string) => !/^city\s*:/i.test(part))
-        .join(", ");
+        .filter((part: string) => !/^city\s*:/i.test(part));
+
+      const joined = parts.join(", ");
+      const commaParts = joined
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+      const n = commaParts.length;
+      for (let chunk = 1; chunk <= Math.floor(n / 2); chunk += 1) {
+        if (n % chunk !== 0) {
+          continue;
+        }
+
+        let repeated = true;
+        for (let i = chunk; i < n; i += 1) {
+          if (commaParts[i].toLowerCase() !== commaParts[i % chunk].toLowerCase()) {
+            repeated = false;
+            break;
+          }
+        }
+
+        if (repeated) {
+          return commaParts.slice(0, chunk).join(", ");
+        }
+      }
+
+      return commaParts.join(", ");
     };
 
     const getBookingCity = (booking: any) => {
@@ -3671,6 +3703,9 @@ export default function VendorDashboard() {
       const city = getBookingCity(booking);
 
       if (manualAddress && city) {
+        if (manualAddress.toLowerCase().includes(city.toLowerCase())) {
+          return manualAddress;
+        }
         return `${manualAddress}, ${city}`;
       }
 
@@ -4101,21 +4136,11 @@ export default function VendorDashboard() {
                             {(() => {
                               const amount = getBookingAmount(selectedBooking);
                               const notes = getBookingNotes(selectedBooking);
-                              const coordinates = getBookingCoordinates(selectedBooking);
                               const paymentMethod = getBookingPaymentMethod(selectedBooking);
                               const preferredSlot = String(selectedBooking?.preferred_time || "").trim();
-                              const addressText = String(
-                                selectedBooking.address
-                                || selectedBooking.address_line
-                                || selectedBooking.area
-                                || ""
-                              ).trim();
-                              const addressMapUrl = addressText
-                                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressText)}`
-                                : null;
-                              const latLngMapUrl = coordinates
-                                ? `https://www.google.com/maps?q=${encodeURIComponent(`${coordinates.lat},${coordinates.lng}`)}`
-                                : null;
+                              const addressText = getBookingManualAddress(selectedBooking)
+                                || getBookingAddress(selectedBooking)
+                                || "";
                               const bookingDisplayNumber = (() => {
                                 const sorted = [...bookings].sort((left: any, right: any) => {
                                   const leftTime = new Date(left?.created_at || 0).getTime();
@@ -4196,28 +4221,6 @@ export default function VendorDashboard() {
                               <span>Address</span>
                               <strong>{addressText || "Not available"}</strong>
                             </div>
-                            {addressMapUrl ? (
-                              <div className="booking-detail-row">
-                                <span>Address Map</span>
-                                <a className="booking-detail-link" href={addressMapUrl} target="_blank" rel="noreferrer">
-                                  Open address in map
-                                </a>
-                              </div>
-                            ) : null}
-                            {coordinates ? (
-                              <div className="booking-detail-row">
-                                <span>Coordinates</span>
-                                <strong>{`${coordinates.lat.toFixed(6)}, ${coordinates.lng.toFixed(6)}`}</strong>
-                              </div>
-                            ) : null}
-                            {latLngMapUrl ? (
-                              <div className="booking-detail-row">
-                                <span>Coordinates Map</span>
-                                <a className="booking-detail-link" href={latLngMapUrl} target="_blank" rel="noreferrer">
-                                  Open exact pin
-                                </a>
-                              </div>
-                            ) : null}
                             <div className="booking-detail-row">
                               <span>Serviceman</span>
                               <strong>{selectedBooking.assigned_serviceman_name || "Not assigned"}</strong>
