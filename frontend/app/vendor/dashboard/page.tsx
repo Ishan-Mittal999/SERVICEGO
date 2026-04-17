@@ -2039,6 +2039,11 @@ function DashboardHome({
     const filtered = bookingTab === "all" ? bookings : bookings.filter((b: any) => b.status === bookingTab);
 
     const getBookingServiceLabel = (booking: any) => {
+      const summaryName = String(booking?.service_summary || booking?.serviceSummary || booking?.subservice_summary || "").trim();
+      if (summaryName) {
+        return summaryName;
+      }
+
       const directName = String(booking?.services?.name || booking?.service_name || "").trim();
       if (directName) {
         return directName;
@@ -2062,6 +2067,11 @@ function DashboardHome({
     );
 
     const isBookingServiceBroken = (booking: any) => {
+      const hasSummary = Boolean(String(booking?.service_summary || booking?.serviceSummary || booking?.subservice_summary || "").trim());
+      if (hasSummary) {
+        return false;
+      }
+
       const serviceId = String(booking?.service_id || "").trim();
       if (!serviceId) {
         return true;
@@ -2257,6 +2267,11 @@ function DashboardHome({
     const [tab, setTab] = useState<string>("all");
     const filtered = tab === "all" ? bookings : bookings.filter((b: any) => b.status === tab);
     const getBookingServiceLabel = (booking: any) => {
+      const summaryName = String(booking?.service_summary || booking?.serviceSummary || booking?.subservice_summary || "").trim();
+      if (summaryName) {
+        return summaryName;
+      }
+
       const directName = String(booking?.services?.name || booking?.service_name || "").trim();
       if (directName) {
         return directName;
@@ -2278,6 +2293,11 @@ function DashboardHome({
         .filter(Boolean)
     );
     const isBookingServiceBroken = (booking: any) => {
+      const hasSummary = Boolean(String(booking?.service_summary || booking?.serviceSummary || booking?.subservice_summary || "").trim());
+      if (hasSummary) {
+        return false;
+      }
+
       const serviceId = String(booking?.service_id || "").trim();
       if (!serviceId) {
         return true;
