@@ -1890,6 +1890,93 @@ function PaymentStatusPill({ status }: { status?: string | null }) {
   return <span className={`payment-pill ${normalized}`}>Payment: {label}</span>;
 }
 
+function getBookingAmount(booking: any) {
+  const candidates = [
+    booking?.estimated_amount,
+    booking?.payment_amount,
+    booking?.total_amount,
+    booking?.final_amount,
+    booking?.amount,
+    booking?.payable_amount,
+    booking?.service_charge,
+    booking?.price,
+  ];
+
+  for (const value of candidates) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      return `Rs ${numeric.toFixed(2)}`;
+    }
+  }
+
+  return null;
+}
+
+function getBookingAddress(booking: any) {
+  const candidates = [
+    booking?.address,
+    booking?.address_line,
+    booking?.location,
+    booking?.service_address,
+    booking?.customer_address,
+  ];
+
+  for (const value of candidates) {
+    const normalized = String(value || "").trim();
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return "";
+}
+
+function getBookingManualAddress(booking: any) {
+  const addressText = getBookingAddress(booking);
+  if (!addressText) {
+    return "";
+  }
+
+  return addressText
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => !/^city\s*:/i.test(part))
+    .join(", ");
+}
+
+function getBookingCity(booking: any) {
+  const explicitCity = String(booking?.city || booking?.area || "").trim();
+  if (explicitCity) {
+    return explicitCity;
+  }
+
+  const addressText = getBookingAddress(booking);
+  const cityMatch = addressText.match(/(?:^|\|)\s*City:\s*([^|]+)$/i);
+  return cityMatch?.[1] ? String(cityMatch[1]).trim() : "";
+}
+
+function getBookingLocationLabel(booking: any) {
+  const manualAddress = getBookingManualAddress(booking);
+  const city = getBookingCity(booking);
+
+  if (manualAddress && city) {
+    return `${manualAddress}, ${city}`;
+  }
+
+  return manualAddress || city || "Not available";
+}
+
+function getBookingMapUrl(booking: any) {
+  const manualAddress = getBookingManualAddress(booking);
+  const city = getBookingCity(booking);
+  const query = [manualAddress, city].filter(Boolean).join(", ");
+
+  return query
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+    : "";
+}
+
 // ─── PAGES ───────────────────────────────────────────────────────────────────
 
 function DashboardHome({
@@ -2054,6 +2141,7 @@ function DashboardHome({
                                     <th>Booking ID</th>
                                     <th>Customer</th>
                                     <th>Service</th>
+                                    <th>Location</th>
                                     <th>Date</th>
                                     <th>Amount</th>
                                     <th>Status</th>
@@ -2315,7 +2403,7 @@ function DashboardHome({
                     </thead>
                     <tbody>
                         {filtered.length === 0 ? (
-                          <tr><td colSpan={7}><div className="empty-state"><span className="empty-icon">📭</span>No bookings in this section</div></td></tr>
+                          <tr><td colSpan={8}><div className="empty-state"><span className="empty-icon">📭</span>No bookings in this section</div></td></tr>
                         ) : filtered.map((b: any, i: number) => (
                             <tr key={i}>
                           <td><span className="booking-id">#{bookingDisplayNumberById.get(String(b.id)) ?? i + 1}</span></td>
@@ -2498,7 +2586,6 @@ function ProfilePage({
       const unsupported = files.find((file) => !file.type.startsWith("image/"));
       if (unsupported) {
         setShopImageMessage("Only image files are supported.");
-        event.target.value = "";
         return;
       }
 
@@ -3477,6 +3564,8 @@ export default function VendorDashboard() {
 
     const getBookingAmount = (booking: any) => {
       const candidates = [
+        booking?.estimated_amount,
+        booking?.payment_amount,
         booking?.total_amount,
         booking?.final_amount,
         booking?.amount,
@@ -3493,6 +3582,71 @@ export default function VendorDashboard() {
       }
 
       return null;
+    };
+
+    const getBookingAddress = (booking: any) => {
+      const candidates = [
+        booking?.address,
+        booking?.address_line,
+        booking?.location,
+        booking?.service_address,
+        booking?.customer_address,
+      ];
+
+      for (const value of candidates) {
+        const normalized = String(value || "").trim();
+        if (normalized) {
+          return normalized;
+        }
+      }
+
+      return "";
+    };
+
+    const getBookingManualAddress = (booking: any) => {
+      const addressText = getBookingAddress(booking);
+      if (!addressText) {
+        return "";
+      }
+
+      return addressText
+        .split("|")
+        .map((part: string) => part.trim())
+        .filter(Boolean)
+        .filter((part: string) => !/^city\s*:/i.test(part))
+        .join(", ");
+    };
+
+    const getBookingCity = (booking: any) => {
+      const explicitCity = String(booking?.city || booking?.area || "").trim();
+      if (explicitCity) {
+        return explicitCity;
+      }
+
+      const addressText = getBookingAddress(booking);
+      const cityMatch = addressText.match(/(?:^|\|)\s*City:\s*([^|]+)$/i);
+      return cityMatch?.[1] ? String(cityMatch[1]).trim() : "";
+    };
+
+    const getBookingLocationLabel = (booking: any) => {
+      const manualAddress = getBookingManualAddress(booking);
+      const city = getBookingCity(booking);
+
+      if (manualAddress && city) {
+        return `${manualAddress}, ${city}`;
+      }
+
+      return manualAddress || city || "Not available";
+    };
+
+    const getBookingMapUrl = (booking: any) => {
+      const manualAddress = getBookingManualAddress(booking);
+      const city = getBookingCity(booking);
+      const query = [manualAddress, city].filter(Boolean).join(", ");
+
+      return query
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+        : "";
     };
 
     const getBookingNotes = (booking: any) => {
@@ -3986,6 +4140,18 @@ export default function VendorDashboard() {
                               <div className="booking-detail-row">
                                 <span>Amount</span>
                                 <strong>{amount}</strong>
+                              </div>
+                            ) : null}
+                            <div className="booking-detail-row">
+                              <span>Location</span>
+                              <strong>{getBookingLocationLabel(selectedBooking)}</strong>
+                            </div>
+                            {getBookingMapUrl(selectedBooking) ? (
+                              <div className="booking-detail-row">
+                                <span>Google Maps</span>
+                                <a className="booking-detail-link" href={getBookingMapUrl(selectedBooking)} target="_blank" rel="noreferrer">
+                                  Open location in Google Maps
+                                </a>
                               </div>
                             ) : null}
                             <div className="booking-detail-row">
