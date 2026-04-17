@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { apiUrl } from "@/lib/env";
+import { apiUrl, RAZORPAY_KEY_ID } from "@/lib/env";
 import { formatPrice, mergeBookingDraft } from "@/lib/booking-flow";
 import {
   getCartTotal,
@@ -66,36 +66,26 @@ const PAYMENT_METHODS: Array<{
   id: PaymentMethod;
   label: string;
   subtitle: string;
-  available: boolean;
-  tag?: string;
 }> = [
   {
     id: "upi",
     label: "UPI / Wallet",
     subtitle: "Google Pay, PhonePe, Paytm",
-    available: false,
-    tag: "Coming soon",
   },
   {
     id: "card",
     label: "Credit / Debit Card",
     subtitle: "Visa, Mastercard, RuPay",
-    available: false,
-    tag: "Coming soon",
   },
   {
     id: "netbanking",
     label: "Net Banking",
     subtitle: "All major Indian banks",
-    available: false,
-    tag: "Coming soon",
   },
   {
     id: "cod",
     label: "Cash on Delivery",
     subtitle: "Pay after service completion",
-    available: true,
-    tag: "Available",
   },
 ];
 
@@ -120,6 +110,7 @@ export default function CheckoutPage() {
   const [placingOrder, setPlacingOrder] = useState(false);
   const [isResolvingPin, setIsResolvingPin] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const onlinePaymentsEnabled = Boolean(RAZORPAY_KEY_ID);
 
   useEffect(() => {
     const currentCart = readShopCart();
@@ -445,6 +436,11 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (!onlinePaymentsEnabled && paymentMethod !== "cod") {
+      setErrorMessage("Online payment is not configured. Please choose Cash on Delivery.");
+      return;
+    }
+
     setPlacingOrder(true);
     setErrorMessage(null);
 
@@ -501,6 +497,11 @@ export default function CheckoutPage() {
         .filter(Boolean)
         .join(" | ");
 
+      const isOnlineMethod = paymentMethod !== "cod";
+      const normalizedProvider = gatewayOrder.provider || (isOnlineMethod ? "razorpay" : "cod");
+      const paymentStatus = isOnlineMethod ? "paid" : "pending";
+      const paymentVerifiedAt = isOnlineMethod ? new Date().toISOString() : null;
+
       const response = await fetch(apiUrl("/booking"), {
         method: "POST",
         headers: {
@@ -515,6 +516,12 @@ export default function CheckoutPage() {
           estimated_amount: totalAmount,
           preferred_time: new Date().toISOString(),
           user_id: session.user.id,
+          payment_method: paymentMethod,
+          payment_status: paymentStatus,
+          payment_provider: normalizedProvider,
+          payment_order_id: gatewayOrder.providerOrderId || null,
+          payment_id: gatewayOrder.providerPaymentId || null,
+          payment_verified_at: paymentVerifiedAt,
         }),
       });
 
@@ -655,7 +662,11 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="checkout-method-list">
-                  {PAYMENT_METHODS.map((method) => (
+                  {PAYMENT_METHODS.map((method) => {
+                    const available = method.id === "cod" ? true : onlinePaymentsEnabled;
+                    const methodTag = available ? "Available" : "Configure Razorpay key";
+
+                    return (
                     <button
                       key={method.id}
                       type="button"
@@ -665,22 +676,23 @@ export default function CheckoutPage() {
                           : "checkout-method-row"
                       }
                       onClick={() => {
-                        if (!method.available) {
+                        if (!available) {
                           return;
                         }
                         setPaymentMethod(method.id);
                       }}
-                      disabled={!method.available}
+                      disabled={!available}
                     >
                       <div>
                         <strong>{method.label}</strong>
                         <p>{method.subtitle}</p>
                       </div>
-                      <span className={method.available ? "checkout-method-tag available" : "checkout-method-tag"}>
-                        {method.tag}
+                      <span className={available ? "checkout-method-tag available" : "checkout-method-tag"}>
+                        {methodTag}
                       </span>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             ) : null}

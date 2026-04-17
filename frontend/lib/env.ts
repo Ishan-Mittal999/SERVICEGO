@@ -12,6 +12,7 @@ export const API_BASE_URL = (
 ).replace(/\/$/, "");
 
 export const WEB_PUSH_PUBLIC_KEY = process.env.NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY?.trim() || "";
+export const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.trim() || "";
 
 export function apiUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;

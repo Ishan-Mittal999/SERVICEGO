@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const compression = require("compression");
 const crypto = require("crypto");
+const Razorpay = require("razorpay");
 require("dotenv").config();
 const { createClient } = require("@supabase/supabase-js");
 const webpush = require("web-push");
@@ -51,8 +52,16 @@ const BOOKING_SELECT = `
 `;
 
 const SUPPORTED_PAYMENT_METHODS = new Set(["cod", "upi", "card", "netbanking"]);
-const STUB_GATEWAY_PROVIDER = "stubpay";
-const PAYMENT_SIGNATURE_SECRET = process.env.PAYMENT_STUB_SECRET || "servicego-stub-payment-secret";
+const COD_PROVIDER = "cod";
+const ONLINE_PROVIDER = "razorpay";
+const RAZORPAY_KEY_ID = String(process.env.RAZORPAY_KEY_ID || "").trim();
+const RAZORPAY_KEY_SECRET = String(process.env.RAZORPAY_KEY_SECRET || "").trim();
+const razorpayClient = RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET
+  ? new Razorpay({
+    key_id: RAZORPAY_KEY_ID,
+    key_secret: RAZORPAY_KEY_SECRET,
+  })
+  : null;
 const paymentOrderStore = new Map();
 const responseCacheStore = new Map();
 const VENDORS_CACHE_TTL_MS = 0;
@@ -143,16 +152,20 @@ async function warmServicesResponseCache() {
   }
 }
 
-function createStubPaymentSignature({ providerOrderId, providerPaymentId, method, amount }) {
-  const payload = [providerOrderId, providerPaymentId, method, String(amount)].join("|");
+function createRazorpaySignature(providerOrderId, providerPaymentId) {
+  const payload = [providerOrderId, providerPaymentId].join("|");
   return crypto
-    .createHmac("sha256", PAYMENT_SIGNATURE_SECRET)
+    .createHmac("sha256", RAZORPAY_KEY_SECRET)
     .update(payload)
     .digest("hex");
 }
 
 function normalizePaymentMethod(method) {
   return String(method || "").trim().toLowerCase();
+}
+
+function normalizePaymentStatus(status) {
+  return String(status || "").trim().toLowerCase();
 }
 
 function extractBookingAddressDetails(rawAddress) {
@@ -658,6 +671,12 @@ app.post("/booking", async (req, res) => {
       user_id,
       service_summary,
       estimated_amount,
+      payment_method,
+      payment_status,
+      payment_provider,
+      payment_order_id,
+      payment_id,
+      payment_verified_at,
     } = req.body;
 
     if (!customer_name || !customer_phone || !service_id || !address) {
@@ -674,6 +693,41 @@ app.post("/booking", async (req, res) => {
       ? service_summary.trim()
       : "";
 
+    const normalizedPaymentMethod = normalizePaymentMethod(payment_method || "cod");
+    if (!SUPPORTED_PAYMENT_METHODS.has(normalizedPaymentMethod)) {
+      return res.status(400).json({ error: "Invalid payment method" });
+    }
+
+    const normalizedPaymentStatus = normalizePaymentStatus(
+      payment_status || (normalizedPaymentMethod === "cod" ? "pending" : "paid")
+    );
+    const allowedPaymentStatuses = new Set(["pending", "paid", "failed", "refunded"]);
+    if (!allowedPaymentStatuses.has(normalizedPaymentStatus)) {
+      return res.status(400).json({ error: "Invalid payment status" });
+    }
+
+    const normalizedPaymentProvider = String(
+      payment_provider || (normalizedPaymentMethod === "cod" ? COD_PROVIDER : ONLINE_PROVIDER)
+    )
+      .trim()
+      .toLowerCase();
+    const normalizedPaymentOrderId = String(payment_order_id || "").trim() || null;
+    const normalizedPaymentId = String(payment_id || "").trim() || null;
+
+    let normalizedPaymentVerifiedAt = null;
+    if (payment_verified_at) {
+      const parsedVerifiedAt = new Date(payment_verified_at);
+      if (!Number.isNaN(parsedVerifiedAt.getTime())) {
+        normalizedPaymentVerifiedAt = parsedVerifiedAt.toISOString();
+      }
+    }
+
+    if (normalizedPaymentStatus === "paid" && normalizedPaymentMethod !== "cod") {
+      if (!normalizedPaymentOrderId || !normalizedPaymentId) {
+        return res.status(400).json({ error: "Missing payment gateway identifiers for paid online booking" });
+      }
+    }
+
     const { data, error } = await supabase
       .from("bookings")
       .insert([
@@ -686,6 +740,12 @@ app.post("/booking", async (req, res) => {
           user_id,
           service_summary: normalizedServiceSummary || null,
           estimated_amount: normalizedEstimatedAmount,
+          payment_method: normalizedPaymentMethod,
+          payment_status: normalizedPaymentStatus,
+          payment_provider: normalizedPaymentProvider || null,
+          payment_order_id: normalizedPaymentOrderId,
+          payment_id: normalizedPaymentId,
+          payment_verified_at: normalizedPaymentVerifiedAt,
           status: "pending"
         }
       ])
@@ -2055,7 +2115,7 @@ app.post("/payments/create-order", async (req, res) => {
     if (!SUPPORTED_PAYMENT_METHODS.has(method)) {
       return res.status(400).json({
         ok: false,
-        provider: STUB_GATEWAY_PROVIDER,
+        provider: ONLINE_PROVIDER,
         message: "Unsupported payment method",
       });
     }
@@ -2063,7 +2123,7 @@ app.post("/payments/create-order", async (req, res) => {
     if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({
         ok: false,
-        provider: STUB_GATEWAY_PROVIDER,
+        provider: ONLINE_PROVIDER,
         message: "Amount must be greater than zero",
       });
     }
@@ -2071,48 +2131,71 @@ app.post("/payments/create-order", async (req, res) => {
     if (!customer.userId || !customer.name || !customer.phone) {
       return res.status(400).json({
         ok: false,
-        provider: STUB_GATEWAY_PROVIDER,
+        provider: ONLINE_PROVIDER,
         message: "Customer userId, name, and phone are required",
       });
     }
 
-    const providerOrderId = `stub_order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const providerPaymentId = method === "cod"
-      ? `stub_cod_${Date.now()}`
-      : `stub_pay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const signature = createStubPaymentSignature({
-      providerOrderId,
-      providerPaymentId,
-      method,
-      amount,
-    });
+    if (method === "cod") {
+      const providerOrderId = `cod_order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      paymentOrderStore.set(providerOrderId, {
+        method,
+        amount,
+        currency,
+        metadata,
+        customer,
+        createdAt: Date.now(),
+        verified: true,
+      });
 
-    paymentOrderStore.set(providerOrderId, {
-      method,
-      amount,
+      return res.status(200).json({
+        ok: true,
+        provider: COD_PROVIDER,
+        providerOrderId,
+        metadata,
+        message: "COD order initialized",
+      });
+    }
+
+    if (!razorpayClient) {
+      return res.status(503).json({
+        ok: false,
+        provider: ONLINE_PROVIDER,
+        message: "Online payments are not configured on server",
+      });
+    }
+
+    const amountInPaise = Math.round(amount * 100);
+    const receipt = `sg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+    const order = await razorpayClient.orders.create({
+      amount: amountInPaise,
       currency,
-      providerPaymentId,
-      signature,
-      metadata,
-      customer,
-      createdAt: Date.now(),
-      verified: method === "cod",
+      receipt,
+      notes: {
+        userId: String(customer.userId || "").slice(0, 40),
+        customerName: String(customer.name || "").slice(0, 120),
+        customerPhone: String(customer.phone || "").slice(0, 20),
+        serviceId: String(metadata.serviceId || "").slice(0, 40),
+        vendorId: String(metadata.vendorId || "").slice(0, 40),
+      },
     });
 
     return res.status(200).json({
       ok: true,
-      provider: STUB_GATEWAY_PROVIDER,
-      providerOrderId,
-      providerPaymentId,
-      signature,
+      provider: ONLINE_PROVIDER,
+      keyId: RAZORPAY_KEY_ID,
+      providerOrderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
       metadata,
-      message: method === "cod" ? "COD order initialized" : "Stub online order initialized",
+      message: "Online order initialized",
     });
   } catch (err) {
     console.error("Payment create-order crash:", err);
     return res.status(500).json({
       ok: false,
-      provider: STUB_GATEWAY_PROVIDER,
+      provider: ONLINE_PROVIDER,
       message: err.message || "Failed to create payment order",
     });
   }
@@ -2128,7 +2211,7 @@ app.post("/payments/verify", async (req, res) => {
     if (!SUPPORTED_PAYMENT_METHODS.has(method)) {
       return res.status(400).json({
         verified: false,
-        provider: STUB_GATEWAY_PROVIDER,
+        provider: ONLINE_PROVIDER,
         message: "Unsupported payment method",
       });
     }
@@ -2136,7 +2219,7 @@ app.post("/payments/verify", async (req, res) => {
     if (method === "cod") {
       return res.status(200).json({
         verified: true,
-        provider: STUB_GATEWAY_PROVIDER,
+        provider: COD_PROVIDER,
         message: "COD does not require online verification",
       });
     }
@@ -2144,55 +2227,38 @@ app.post("/payments/verify", async (req, res) => {
     if (!providerOrderId || !providerPaymentId || !signature) {
       return res.status(400).json({
         verified: false,
-        provider: STUB_GATEWAY_PROVIDER,
+        provider: ONLINE_PROVIDER,
         message: "providerOrderId, providerPaymentId, and signature are required",
       });
     }
 
-    const orderRecord = paymentOrderStore.get(providerOrderId);
-    if (!orderRecord) {
-      return res.status(404).json({
+    if (!RAZORPAY_KEY_SECRET) {
+      return res.status(503).json({
         verified: false,
-        provider: STUB_GATEWAY_PROVIDER,
-        message: "Payment order not found",
+        provider: ONLINE_PROVIDER,
+        message: "Online payment verification is not configured",
       });
     }
 
-    const expectedSignature = createStubPaymentSignature({
-      providerOrderId,
-      providerPaymentId,
-      method,
-      amount: orderRecord.amount,
-    });
-
-    const isPaymentIdMatch = providerPaymentId === orderRecord.providerPaymentId;
-    const isMethodMatch = method === orderRecord.method;
-    const isSignatureMatch = signature === expectedSignature;
-
-    if (!isPaymentIdMatch || !isMethodMatch || !isSignatureMatch) {
+    const expectedSignature = createRazorpaySignature(providerOrderId, providerPaymentId);
+    if (signature !== expectedSignature) {
       return res.status(400).json({
         verified: false,
-        provider: STUB_GATEWAY_PROVIDER,
+        provider: ONLINE_PROVIDER,
         message: "Payment verification failed",
       });
     }
 
-    paymentOrderStore.set(providerOrderId, {
-      ...orderRecord,
-      verified: true,
-      verifiedAt: Date.now(),
-    });
-
     return res.status(200).json({
       verified: true,
-      provider: STUB_GATEWAY_PROVIDER,
+      provider: ONLINE_PROVIDER,
       message: "Payment verified successfully",
     });
   } catch (err) {
     console.error("Payment verify crash:", err);
     return res.status(500).json({
       verified: false,
-      provider: STUB_GATEWAY_PROVIDER,
+      provider: ONLINE_PROVIDER,
       message: err.message || "Payment verification failed",
     });
   }
