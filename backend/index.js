@@ -728,10 +728,41 @@ app.post("/booking", async (req, res) => {
       }
     }
 
-    const { data, error } = await supabase
-      .from("bookings")
-      .insert([
-        {
+    const baseBookingPayload = {
+      customer_name,
+      customer_phone,
+      service_id,
+      address,
+      preferred_time,
+      user_id,
+      service_summary: normalizedServiceSummary || null,
+      estimated_amount: normalizedEstimatedAmount,
+      payment_method: normalizedPaymentMethod,
+      payment_status: normalizedPaymentStatus,
+      payment_provider: normalizedPaymentProvider || null,
+      payment_order_id: normalizedPaymentOrderId,
+      payment_id: normalizedPaymentId,
+      payment_verified_at: normalizedPaymentVerifiedAt,
+      status: "pending",
+    };
+
+    const insertBooking = async (payload) => {
+      return supabase
+        .from("bookings")
+        .insert([payload])
+        .select(BOOKING_SELECT)
+        .single();
+    };
+
+    let { data, error } = await insertBooking(baseBookingPayload);
+
+    if (error) {
+      const errorMessage = String(error.message || error?.details || error?.hint || "");
+      const looksLikeMissingPaymentColumn = /payment_(id|order_id|status|method|provider|verified_at)/i.test(errorMessage);
+      const looksLikeSchemaCacheIssue = /schema cache|could not find the .* column/i.test(errorMessage);
+
+      if (looksLikeMissingPaymentColumn || looksLikeSchemaCacheIssue) {
+        const fallbackPayload = {
           customer_name,
           customer_phone,
           service_id,
@@ -740,17 +771,12 @@ app.post("/booking", async (req, res) => {
           user_id,
           service_summary: normalizedServiceSummary || null,
           estimated_amount: normalizedEstimatedAmount,
-          payment_method: normalizedPaymentMethod,
-          payment_status: normalizedPaymentStatus,
-          payment_provider: normalizedPaymentProvider || null,
-          payment_order_id: normalizedPaymentOrderId,
-          payment_id: normalizedPaymentId,
-          payment_verified_at: normalizedPaymentVerifiedAt,
-          status: "pending"
-        }
-      ])
-      .select(BOOKING_SELECT)
-      .single();
+          status: "pending",
+        };
+
+        ({ data, error } = await insertBooking(fallbackPayload));
+      }
+    }
 
     if (error) {
       console.error("Supabase Error:", error);
