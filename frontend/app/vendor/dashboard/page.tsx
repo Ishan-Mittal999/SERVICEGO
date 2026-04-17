@@ -632,6 +632,24 @@ const styles = `
   .status-pill.completed { background: ${theme.greenLight}; color: ${theme.green}; }
   .status-pill.cancelled { background: ${theme.redBg}; color: ${theme.red}; }
 
+  .payment-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  .payment-pill.pending { background: ${theme.orangeBg}; color: ${theme.orange}; }
+  .payment-pill.paid { background: ${theme.greenLight}; color: ${theme.green}; }
+  .payment-pill.failed { background: ${theme.redBg}; color: ${theme.red}; }
+  .payment-pill.refunded { background: ${theme.blueBg}; color: ${theme.blue}; }
+
   .action-btn {
     padding: 5px 14px;
     border-radius: 8px;
@@ -1859,6 +1877,19 @@ function StatusPill({ status }: { status: string }) {
     );
 }
 
+function PaymentStatusPill({ status }: { status?: string | null }) {
+  const normalized = String(status || "pending").toLowerCase();
+  const label = normalized === "paid"
+    ? "Paid"
+    : normalized === "failed"
+      ? "Failed"
+      : normalized === "refunded"
+        ? "Refunded"
+        : "Pending";
+
+  return <span className={`payment-pill ${normalized}`}>Payment: {label}</span>;
+}
+
 // ─── PAGES ───────────────────────────────────────────────────────────────────
 
 function DashboardHome({
@@ -2051,7 +2082,12 @@ function DashboardHome({
                                         </td>
                                         <td style={{ color: theme.muted, fontSize: 12 }}>{b.preferred_time || new Date(b.created_at).toLocaleDateString()}</td>
                                         <td style={{ fontWeight: 700 }}>—</td>
-                                        <td><StatusPill status={b.status} /></td>
+                                        <td>
+                                          <div style={{ display: "grid", gap: 6 }}>
+                                            <StatusPill status={b.status} />
+                                            <PaymentStatusPill status={b.payment_status} />
+                                          </div>
+                                        </td>
                                         <td>
                                           {b.status === "pending" ? (
                                             <div style={{ display: "grid", gap: 6 }}>
@@ -2240,7 +2276,10 @@ function DashboardHome({
                     <article key={`mobile-${i}-${b.id}`} className="mobile-booking-card">
                       <div className="mobile-booking-head">
                         <span className="booking-id">#{bookingDisplayNumberById.get(String(b.id)) ?? i + 1}</span>
-                        <StatusPill status={b.status} />
+                        <div style={{ display: "grid", gap: 6, justifyItems: "end" }}>
+                          <StatusPill status={b.status} />
+                          <PaymentStatusPill status={b.payment_status} />
+                        </div>
                       </div>
                       <div className="mobile-booking-meta">
                         <span>Customer</span>
@@ -2291,7 +2330,12 @@ function DashboardHome({
                                 </td>
                                 <td style={{ color: theme.muted, fontSize: 12 }}>{b.preferred_time || new Date(b.created_at).toLocaleDateString()}</td>
                                 <td style={{ fontWeight: 700 }}>—</td>
-                                <td><StatusPill status={b.status} /></td>
+                                <td>
+                                  <div style={{ display: "grid", gap: 6 }}>
+                                    <StatusPill status={b.status} />
+                                    <PaymentStatusPill status={b.payment_status} />
+                                  </div>
+                                </td>
                             <td>
                               {renderBookingAction(b, "table")}
                             </td>
@@ -3934,6 +3978,10 @@ export default function VendorDashboard() {
                                 <strong>{paymentMethod}</strong>
                               </div>
                             ) : null}
+                            <div className="booking-detail-row">
+                              <span>Payment Status</span>
+                              <strong>{String(selectedBooking.payment_status || "pending").toUpperCase()}</strong>
+                            </div>
                             {amount ? (
                               <div className="booking-detail-row">
                                 <span>Amount</span>

@@ -13,6 +13,7 @@ type AdminBooking = {
   customer_phone?: string;
   service_id?: string | number;
   status: "pending" | "pending_admin" | "assigned" | "completed";
+  payment_status?: "pending" | "paid" | "failed" | "refunded" | null;
   services?: {
     name?: string;
   } | null;
@@ -385,7 +386,10 @@ export default function AdminPage() {
                     </td>
 
                     <td className="p-4">
-                      <StatusBadge status={booking.status} />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge status={booking.status} />
+                        <PaymentStatusBadge status={booking.payment_status} />
+                      </div>
                     </td>
 
                     <td className="p-4">
@@ -559,6 +563,24 @@ function StatusBadge({ status }: { status: AdminBooking["status"] }) {
       className={`px-3 py-1 rounded-full text-sm font-medium ${styles[status]}`}
     >
       {label}
+    </span>
+  );
+}
+
+function PaymentStatusBadge({ status }: { status?: AdminBooking["payment_status"] }) {
+  const normalizedStatus = String(status || "pending").toLowerCase() as "pending" | "paid" | "failed" | "refunded";
+  const styles: Record<"pending" | "paid" | "failed" | "refunded", string> = {
+    pending: "bg-amber-100 text-amber-700",
+    paid: "bg-emerald-100 text-emerald-700",
+    failed: "bg-rose-100 text-rose-700",
+    refunded: "bg-violet-100 text-violet-700",
+  };
+
+  return (
+    <span
+      className={`px-3 py-1 rounded-full text-sm font-medium ${styles[normalizedStatus]}`}
+    >
+      {`payment: ${normalizedStatus}`}
     </span>
   );
 }
