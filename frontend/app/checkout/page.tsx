@@ -436,11 +436,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (!onlinePaymentsEnabled && paymentMethod !== "cod") {
-      setErrorMessage("Online payment is not configured. Please choose Cash on Delivery.");
-      return;
-    }
-
     setPlacingOrder(true);
     setErrorMessage(null);
 
@@ -663,8 +658,12 @@ export default function CheckoutPage() {
 
                 <div className="checkout-method-list">
                   {PAYMENT_METHODS.map((method) => {
-                    const available = method.id === "cod" ? true : onlinePaymentsEnabled;
-                    const methodTag = available ? "Available" : "Configure Razorpay key";
+                    const available = true;
+                    const methodTag = method.id === "cod"
+                      ? "Available"
+                      : onlinePaymentsEnabled
+                        ? "Available"
+                        : "Configure Razorpay key";
 
                     return (
                     <button
