@@ -1355,10 +1355,11 @@ const styles = `
     .booking-table td:nth-child(1)::before { content: "Booking"; }
     .booking-table td:nth-child(2)::before { content: "Customer"; }
     .booking-table td:nth-child(3)::before { content: "Service"; }
-    .booking-table td:nth-child(4)::before { content: "Date"; }
-    .booking-table td:nth-child(5)::before { content: "Amount"; }
-    .booking-table td:nth-child(6)::before { content: "Status"; }
-    .booking-table td:nth-child(7)::before { content: "Action"; }
+    .booking-table td:nth-child(4)::before { content: "Location"; }
+    .booking-table td:nth-child(5)::before { content: "Date"; }
+    .booking-table td:nth-child(6)::before { content: "Amount"; }
+    .booking-table td:nth-child(7)::before { content: "Status"; }
+    .booking-table td:nth-child(8)::before { content: "Action"; }
 
     .booking-table td[colspan] {
       display: block;
@@ -2150,7 +2151,7 @@ function DashboardHome({
                             </thead>
                             <tbody>
                                 {filtered.length === 0 ? (
-                                    <tr><td colSpan={7}><div className="empty-state"><span className="empty-icon">📭</span>No bookings found</div></td></tr>
+                                  <tr><td colSpan={8}><div className="empty-state"><span className="empty-icon">📭</span>No bookings found</div></td></tr>
                                 ) : filtered.map((b: any, i: number) => (
                                     <tr key={i}>
                                   <td><span className="booking-id">#{bookingDisplayNumberById.get(String(b.id)) ?? i + 1}</span></td>
@@ -2168,8 +2169,18 @@ function DashboardHome({
                                             ) : null}
                                           </span>
                                         </td>
+                                        <td>
+                                          <span className="service-cell">
+                                            <span>{getBookingLocationLabel(b)}</span>
+                                            {getBookingMapUrl(b) ? (
+                                              <a className="booking-detail-link" href={getBookingMapUrl(b)} target="_blank" rel="noreferrer">
+                                                Open map
+                                              </a>
+                                            ) : null}
+                                          </span>
+                                        </td>
                                         <td style={{ color: theme.muted, fontSize: 12 }}>{b.preferred_time || new Date(b.created_at).toLocaleDateString()}</td>
-                                        <td style={{ fontWeight: 700 }}>—</td>
+                                        <td style={{ fontWeight: 700 }}>{getBookingAmount(b) || "Rs 0.00"}</td>
                                         <td>
                                           <div style={{ display: "grid", gap: 6 }}>
                                             <StatusPill status={b.status} />
@@ -2388,6 +2399,23 @@ function DashboardHome({
                         <span>Date</span>
                         <strong>{b.preferred_time || new Date(b.created_at).toLocaleDateString()}</strong>
                       </div>
+                      <div className="mobile-booking-meta">
+                        <span>Location</span>
+                        <strong>
+                          <span className="service-cell">
+                            <span>{getBookingLocationLabel(b)}</span>
+                            {getBookingMapUrl(b) ? (
+                              <a className="booking-detail-link" href={getBookingMapUrl(b)} target="_blank" rel="noreferrer">
+                                Google Maps
+                              </a>
+                            ) : null}
+                          </span>
+                        </strong>
+                      </div>
+                      <div className="mobile-booking-meta">
+                        <span>Amount</span>
+                        <strong>{getBookingAmount(b) || "Rs 0.00"}</strong>
+                      </div>
                       <div className="mobile-booking-action">
                         {renderBookingAction(b, "mobile")}
                       </div>
@@ -2398,7 +2426,7 @@ function DashboardHome({
                 <table className="booking-table desktop-booking-table">
                     <thead>
                         <tr>
-                            <th>Booking ID</th><th>Customer</th><th>Service</th><th>Date</th><th>Amount</th><th>Status</th><th>Action</th>
+                          <th>Booking ID</th><th>Customer</th><th>Service</th><th>Location</th><th>Date</th><th>Amount</th><th>Status</th><th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2416,8 +2444,18 @@ function DashboardHome({
                                     ) : null}
                                   </span>
                                 </td>
+                                <td>
+                                  <span className="service-cell">
+                                    <span>{getBookingLocationLabel(b)}</span>
+                                    {getBookingMapUrl(b) ? (
+                                      <a className="booking-detail-link" href={getBookingMapUrl(b)} target="_blank" rel="noreferrer">
+                                        Open map
+                                      </a>
+                                    ) : null}
+                                  </span>
+                                </td>
                                 <td style={{ color: theme.muted, fontSize: 12 }}>{b.preferred_time || new Date(b.created_at).toLocaleDateString()}</td>
-                                <td style={{ fontWeight: 700 }}>—</td>
+                                <td style={{ fontWeight: 700 }}>{getBookingAmount(b) || "Rs 0.00"}</td>
                                 <td>
                                   <div style={{ display: "grid", gap: 6 }}>
                                     <StatusPill status={b.status} />
